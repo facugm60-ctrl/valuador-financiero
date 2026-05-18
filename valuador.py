@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import yfinance as yf
-import streamlit.components.v1 as components
 
 st.set_page_config(page_title="Valuador Pro", layout="wide")
 st.title("📊 Plataforma de Valuación de Empresas Públicas")
@@ -78,7 +77,7 @@ if st.button("🔥 Correr Análisis de Valuación"):
                 lq = obj["Liquidez Corriente"]
                 if pd.notna(lq):
                     if lq < 1: txt += f"• 🚨 **Falta de Liquidez:** Corto plazo ajustado ({lq:.2f}x).\n"
-                    else: txt += f"• 👍 **Fondo de Maniobra Sólido:** Cubre obligaciones corrientes con {lq:.2f}x.\n"
+                    else: txt += f"• 👍 **Fondo de Maniobra Sólido:** Cubre deudas corrientes con {lq:.2f}x.\n"
                 st.write(txt)
             with c_inf2:
                 st.markdown("**🎯 Conclusión Estratégica:**")
@@ -111,7 +110,7 @@ if st.button("🔥 Correr Análisis de Valuación"):
                     st.metric("Precio en Mercado:", f"{pr:.2f} USD")
                     if v_i > pr: st.success(f"📈 **Margen de Seguridad: {((v_i-pr)/v_i)*100:.1f}%**")
                     else: st.error(f"📉 **Sobreprecio Estimado: {((pr-v_i)/v_i)*100:.1f}%**")
-            else: st.info(f"ℹ️ Módulo DCF pausado: Requiere flujo de caja libre positivo para proyectar.")
+            else: st.info(f"ℹ️ Módulo DCF en espera: Requiere flujo de caja libre positivo para proyectar.")
 
             # 4. TABLERO DE ANÁLISIS TÉCNICO ALGORÍTMICO (EMA 30 + DMI 14)
             st.markdown("---")
@@ -125,8 +124,10 @@ if st.button("🔥 Correr Análisis de Valuación"):
                     low = h_tecn['Low']
                     precio_hoy = cierre.iloc[-1]
                     
-                    # Cómputo matemático preciso del backend
-                    ema_30 = cierre.ewm(span=30, adjust=False).mean().iloc[-1]
+                    # Cómputo matemático preciso del DMI y la EMA 30
+                    calc_ema_30 = cierre.ewm(span=30, adjust=False).mean()
+                    ema_30_hoy = calc_ema_30.iloc[-1]
+                    
                     up_move = high.diff()
                     down_move = -low.diff()
                     plus_dm = np.where((up_move > down_move) & (up_move > 0), up_move, 0)
@@ -145,62 +146,35 @@ if st.button("🔥 Correr Análisis de Valuación"):
                     p_di_hoy = plus_di.iloc[-1]
                     m_di_hoy = minus_di.iloc[-1]
                     
-                    # Interfaz gráfica del Tablero Técnico en Streamlit
-                    st.markdown("#### 🚨 Lectura Cuantitativa de Indicadores")
                     m1, m2, m3 = st.columns(3)
-                    
                     with m1:
-                        st.metric(label="Precio Actual vs. EMA 30", value=f"{precio_hoy:.2f} USD", delta=f"{precio_hoy - ema_30:.2f} USD vs EMA 30")
-                        if precio_hoy > ema_30:
-                            st.caption("🟡 **Fase Alcista de Mediano Plazo:** El precio defiende la media como soporte dinámico.")
-                        else:
-                            st.caption("🔵 **Fase de Corrección / Distribución:** Presión por debajo de la media móvil.")
-                            
+                        st.metric(label="Precio vs. EMA 30", value=f"{precio_hoy:.2f} USD", delta=f"{precio_hoy - ema_30_hoy:.2f} USD vs EMA 30")
+                        st.caption("🟩 **Fase Alcista:** Precio por encima de la media." if precio_hoy > ema_30_hoy else "🟥 **Fase Bajista:** Presión por debajo de la media.")
                     with m2:
                         dmi_diff = p_di_hoy - m_di_hoy
                         st.metric(label="Fuerza Direccional (Cruce DMI)", value=f"+DI {p_di_hoy:.1f} | -DI {m_di_hoy:.1f}", delta=f"{dmi_diff:.1f} Net Comprador" if dmi_diff > 0 else f"{dmi_diff:.1f} Net Vendedor")
-                        if p_di_hoy > m_di_hoy:
-                            st.caption("🟢 **Toros en Control:** Fuerza de compra superior a la presión de oferta.")
-                        else:
-                            st.caption("🔴 **Osos en Control:** Los vendedores dominan la estructura direccional.")
-                            
+                        st.caption("🟢 **Compradores lideran** el flujo estructural." if dmi_diff > 0 else "🔴 **Vendedores lideran** el flujo estructural.")
                     with m3:
                         st.metric(label="Intensidad de Tendencia (ADX)", value=f"{adx:.1f} Puntos", delta="Tendencia Activa (>20)" if adx > 20 else "Mercado Lateral (<20)", delta_color="normal" if adx > 20 else "off")
-                        if adx > 25:
-                            st.caption("⚡ **Movimiento Fuerte:** Hay alto respaldo institucional detrás del flujo actual.")
-                        else:
-                            st.caption("💤 **Rango Lateral:** Tendencia débil o compresión. Evitar operaciones de quiebre.")
+                        st.caption("⚡ **Movimiento Fuerte:** Respaldo institucional activo." if adx > 25 else "💤 **Rango Lateral:** Tendencia débil o compresión.")
+                    
+                    # 5. GRÁFICO INTEGRAL NATIVO (PRECIO + EMA 30 CALCULADA)
+                    st.markdown("---")
+                    st.subheader(f"📈 Gráfico de Tendencia Integrado: Precio de Cierre vs. EMA 30")
+                    st.caption("📊 Línea de Precio de Mercado cruzada con tu Media Móvil Exponencial de 30 ruedas calculada por el backend.")
+                    
+                    # Armamos el DataFrame combinado para el gráfico nativo
+                    df_grafico = pd.DataFrame({
+                        "Precio de Cierre (USD)": cierre,
+                        "Tu EMA 30 (Métrica de Control)": calc_ema_30
+                    }, index=h_tecn.index)
+                    
+                    # Levantamos la gráfica nativa limpia de Streamlit estirada en pantalla
+                    st.line_chart(df_grafico, width=0, height=450, use_container_width=True)
+                    
                 else:
                     st.info("Falta historial para procesar los cálculos.")
             except Exception as e:
                 st.info(f"Módulo analítico en espera.")
-
-            # 5. GRÁFICO AVANZADO LIMPIO
-            st.markdown("---")
-            st.subheader("🖥️ Terminal Táctica Interactiva")
-            st.caption("💡 Tip Técnico: Como la API externa bloquea configuraciones complejas por defecto, podés usar el buscador o tirar tus indicadores preferidos directo desde el botón 'fx' de este panel.")
-            
-            tradingview_html = f"""
-            <div id="tradingview_advanced_chart" style="height:600px;"></div>
-            <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
-            <script type="text/javascript">
-            new TradingView.widget({{
-              "width": "100%",
-              "height": 600,
-              "symbol": "{ticker_objetivo}",
-              "interval": "D",
-              "timezone": "Etc/UTC",
-              "theme": "dark",
-              "style": "1",
-              "locale": "es",
-              "toolbar_bg": "#f1f3f6",
-              "enable_publishing": false,
-              "hide_side_toolbar": false,
-              "allow_symbol_change": true,
-              "container_id": "tradingview_advanced_chart"
-            }});
-            </script>
-            """
-            components.html(tradingview_html, height=620, scrolling=False)
         else:
             st.error("No se pudieron recopilar datos.")
