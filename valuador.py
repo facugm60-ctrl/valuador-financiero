@@ -36,7 +36,7 @@ st.markdown("""
 st.title("📊 Terminal de Valuación de Activos")
 st.markdown("Plataforma profesional de analítica fundamental corporativa y timing de mercado.")
 
-# INICIALIZACIÓN DE VARIABLES GLOBALES EN SESIÓN (Persistencia Blindada)
+# INICIALIZACIÓN DE VARIABLES GLOBALES EN SESIÓN (Persistencia Inmune a Reseteos)
 if "cartera_df" not in st.session_state:
     st.session_state.cartera_df = pd.DataFrame([
         {"Ticker": "VIST", "Nominales": 100, "Precio Compra (USD)": 50.0},
@@ -55,11 +55,12 @@ if "analisis_ejecutado" not in st.session_state:
 with st.container():
     col_in1, col_in2 = st.columns([1, 2])
     with col_in1:
-        ticker_objetivo = st.text_input("📍 ACTIVO OBJETIVO (ej. VIST, SPY, TXAR.BA):", value="VIST").upper()
+        ticker_objetivo = st.text_input("📍 ACTIVO OBJETIVO (ej. VIST, SPY, TXAR.BA):", value="VIST").upper().strip()
     with col_in2:
         comp_in = st.text_input("🔍 COMPETIDORES DEL SECTOR (separados por coma):", value="YPF, XOM, PAM")
         competidores = [c.strip().upper() for c in comp_in.split(",") if c.strip()]
 
+# Normalizamos la lista forzando mayúsculas y limpiando espacios
 todos_tickers = [ticker_objetivo] + competidores
 
 # Funciones de Backend operativas
@@ -97,21 +98,27 @@ def obtener_datos(symbol):
         return common
     except: return None
 
-# Forzamos la descarga si se presiona el botón o si cambió el ticker objetivo
+# Ejecución robusta por botón o por cambio explícito de ticker activo
 if st.button("🔥 EJECUTAR DIAGNÓSTICO INTEGRAL") or (st.session_state.analisis_ejecutado and st.session_state.current_ticker != ticker_objetivo):
-    with st.spinner("Descargando balances y cargando algoritmos técnicos..."):
-        datos = [obtener_datos(t) for t in todos_tickers if obtener_datos(t)]
-        df_verif = pd.DataFrame(datos) if datos else pd.DataFrame()
+    with st.spinner("Conectando con Wall Street y procesando balances..."):
+        # Descarga defensiva: si un competidor falla, se filtra sin colgar el resto
+        lista_datos = []
+        for tk in todos_tickers:
+            res_tk = obtener_datos(tk)
+            if res_tk is not None:
+                lista_datos.append(res_tk)
+                
+        df_verif = pd.DataFrame(lista_datos) if lista_datos else pd.DataFrame()
         if df_verif.empty or ticker_objetivo not in df_verif['Ticker'].values:
-            st.error(f"🚨 **ERROR:** No se encontraron registros estables para '{ticker_objetivo}'.")
+            st.error(f"🚨 **ERROR:** No se pudieron recuperar registros estables para el activo objetivo '{ticker_objetivo}'. Verificá el ticker o intentá de nuevo.")
             st.session_state.analisis_ejecutado = False
         else:
-            st.session_state.df_datos = pd.DataFrame(datos)
+            st.session_state.df_datos = df_verif
             st.session_state.obj_data = st.session_state.df_datos[st.session_state.df_datos['Ticker'] == ticker_objetivo].iloc[0]
             st.session_state.current_ticker = ticker_objetivo
             st.session_state.analisis_ejecutado = True
 
-# --- DESPLIEGUE MEDIANTE TABS ---
+# --- RENDERIZADO DEL ENTORNO DE TRABAJO ---
 if st.session_state.analisis_ejecutado:
     df = st.session_state.df_datos
     obj = st.session_state.obj_data
@@ -122,7 +129,7 @@ if st.session_state.analisis_ejecutado:
     with c_head1: st.image(obj["Logo"], width=50)
     with c_head2: st.header(f"{obj['Nombre']} ({obj['Ticker']})")
 
-    # SOLAPAS CON NOMBRE CORREGIDO
+    # Arquitectura SaaS Integrada por pestañas fijas
     tab1, tab2, tab3, tab4 = st.tabs(["📋 ANÁLISIS FUNDAMENTAL", "💼 CARTERA MULTIACTIVO", "🧮 VALOR INTRÍNSECO (DCF)", "📐 ANÁLISIS TÉCNICO"])
 
     # --- PESTAÑA 1: ANALISIS FUNDAMENTAL ---
@@ -143,8 +150,8 @@ if st.session_state.analisis_ejecutado:
                 "Margen Neto": lambda x: f"{x*100:.2f}%" if pd.notna(x) else "N/A", "ROE": lambda x: f"{x*100:.2f}%" if pd.notna(x) else "N/A"
             }, na_rep="N/A")
             
-            df_styled = df_styled.highlight_min(subset=["Forward P/E", "EV/EBITDA", "P/B Ratio", "Deuda Neta/EBITDA"], color="#1b4d22")
-            df_styled = df_styled.highlight_max(subset=["Liquidez Corriente", "Margen Neto", "ROE"], color="#1b4d22")
+            df_styled = df_styled.highlight_min(subset=[c for c in ["Forward P/E", "EV/EBITDA", "P/B Ratio", "Deuda Neta/EBITDA"] if c in df_m.columns], color="#1b4d22")
+            df_styled = df_styled.highlight_max(subset=[c for c in ["Liquidez Corriente", "Margen Neto", "ROE"] if c in df_m.columns], color="#1b4d22")
             st.dataframe(df_styled, width="stretch")
             
             st.markdown("**🔍 Interpretación del Arbitraje de Múltiplos:**")
@@ -183,7 +190,7 @@ if st.session_state.analisis_ejecutado:
         editar_cartera = st.data_editor(
             st.session_state.cartera_df, 
             num_rows="dynamic", 
-            key="grilla_cartera_premium_v4",
+            key="grilla_cartera_premium_final",
             use_container_width=True
         )
         st.session_state.cartera_df = editar_cartera
@@ -292,7 +299,7 @@ if st.session_state.analisis_ejecutado:
             else: st.info("ℹ️ El modelo DCF requiere flujos corporativos positivos (FCF) estables para proyectar.")
         else: st.info("ℹ️ Los modelos de flujos descontados no aplican a ETFs.")
 
-    # --- PESTAÑA 4: ANÁLISIS TÉCNICO (CON EXPLICACIONES INTEGRADAS POR EXPANDER) ---
+    # --- PESTAÑA 4: ANÁLISIS TÉCNICO ---
     with tab4:
         st.subheader("📐 Terminal Técnica de Osciladores y Timing")
         try:
@@ -305,7 +312,6 @@ if st.session_state.analisis_ejecutado:
                 calc_ema_30 = cierre.ewm(span=30, adjust=False).mean()
                 ema_30_hoy = calc_ema_30.iloc[-1]
                 
-                # Cómputo histórico de las curvas DMI y ADX 14
                 up_move = high.diff()
                 down_move = -low.diff()
                 plus_dm = np.where((up_move > down_move) & (up_move > 0), up_move, 0)
@@ -332,27 +338,15 @@ if st.session_state.analisis_ejecutado:
                 with m2: st.metric(label="Flujo Direccional (DMI)", value=f"+DI {p_di_hoy:.1f} | -DI {m_di_hoy:.1f}", delta=f"{p_di_hoy - m_di_hoy:.1f} Pts")
                 with m3: st.metric(label="Fuerza de Tendencia (ADX)", value=f"{adx_hoy:.1f} Puntos", delta="Tendencia Activa" if adx_hoy > 20 else "Mercado Lateral", delta_color="normal" if adx_hoy > 20 else "off")
                 
-                # Panel A con Explicación
                 st.markdown("### 📈 Panel A: Tendencia de Mediano Plazo (Precio vs. EMA 30)")
                 with st.expander("🔍 Interpretación Didáctica - Panel A"):
-                    st.write(
-                        "• **¿Qué es la EMA 30?** Es la Media Móvil Exponencial de 30 ruedas. Funciona como la línea de equilibrio del precio. \n"
-                        "• **¿Cómo se lee?** Si el precio diario (línea azul) rompe y cotiza **por encima** de la línea roja (EMA 30), "
-                        "significa que el activo está ganando inercia alcista. Si opera **por debajo**, el mercado está bajo control de los vendedores."
-                    )
+                    st.write("• **¿Qué es la EMA 30?** Es la Media Móvil Exponencial de 30 ruedas. Funciona como la línea de equilibrio del precio. \n• **¿Cómo se lee?** Si el precio diario (línea azul) rompe y cotiza **por encima** de la línea roja (EMA 30), significa que el activo está ganando inercia alcista. Si opera **por debajo**, el mercado está bajo control de los vendedores.")
                 df_p = pd.DataFrame({"Precio Cierre (USD)": cierre, "EMA 30 Ruedas": calc_ema_30}, index=h_tecn.index)
                 st.line_chart(df_p, height=300, use_container_width=True)
                 
-                # Panel B con Explicación
                 st.markdown("### 📊 Panel B: Oscilador Direccional Completo (DMI 14 / ADX 14)")
                 with st.expander("🔍 Interpretación Didáctica - Panel B"):
-                    st.write(
-                        "• **Curva Azul (+DI):** Representa la fuerza pura de los compradores.\n"
-                        "• **Curva Roja (-DI):** Representa la fuerza pura de los vendedores.\n"
-                        "• **Curva Verde (ADX):** Mide la fuerza o intensidad del movimiento general, sin importar si es alcista o bajista. "
-                        "Si el ADX cruza los **20 o 25 puntos hacia arriba**, nos confirma que el mercado agarró una tendencia firme, sana y con volumen institucional. "
-                        "Si está por debajo de 20, es un mercado picado y lateral (sin rumbo clear)."
-                    )
+                    st.write("• **Curva Azul (+DI):** Representa la fuerza pura de los compradores.\n• **Curva Roja (-DI):** Representa la fuerza pura de los vendedores.\n• **Curva Verde (ADX):** Mide la fuerza o intensidad del movimiento general. Si el ADX cruza los **20 o 25 puntos hacia arriba**, nos confirma que el mercado agarró una tendencia firme, sana y con volumen institucional.")
                 df_d = pd.DataFrame({"+DI (Compradores)": series_plus_di, "-DI (Vendedores)": series_minus_di, "ADX (Fuerza General)": series_adx}, index=h_tecn.index)
                 st.line_chart(df_d, height=220, use_container_width=True)
                 
@@ -376,7 +370,7 @@ if st.session_state.analisis_ejecutado:
             else: st.info("Historial insuficiente.")
         except: st.info("Módulo técnico consolidándose.")
 
-# --- FOOTER CON DISCLAIMER EXTENDIDO E INSTITUCIONAL (MÁXIMO PROTECCIÓN) ---
+# --- FOOTER CON DISCLAIMER EXTENDIDO E INSTITUCIONAL (MÁXIMA PROTECCIÓN LEGAL) ---
 st.markdown("---")
 st.markdown(
     "<p style='text-align: justify; color: #888888; font-size: 11px; max-width: 1100px; margin: 0 auto; line-height: 1.5;'>"
@@ -385,7 +379,7 @@ st.markdown(
     "estrictamente educativo, analítico y de simulación financiera corporativa. <strong>NO CONSTITUYEN, bajo ningún concepto ni circunstancia, "
     "un asesoramiento financiero personalizado, recomendación implícita o explícita de compra/venta, ni una oferta pública de valores negociables o activos "
     "financieros</strong> bajo los términos de la Ley de Mercado de Capitales de la República Argentina (Ley N° 26.831) ni regulaciones de la SEC u otros organismos "
-    "internacionales. Los datos históricos omnibus recopilados a través de interfaces públicas de terceros (Yahoo Finance) reflejan cotizaciones pasadas que no garantizan "
+    "internacionales. Los datos históricos recopilados a través de interfaces públicas de terceros (Yahoo Finance) reflejan cotizaciones pasadas que no garantizan "
     "rendimientos futuros. Toda decisión operativa, estructuración de carteras o inversión ejecutada en mercados reales es de responsabilidad única, exclusiva "
     "e indelegable del usuario. El desarrollador deslinda cualquier tipo de responsabilidad civil, comercial o contractual ante pérdidas, variaciones patrimoniales "
     "o perjuicios financieros derivados del uso directo de estos cálculos.",
