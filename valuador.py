@@ -112,7 +112,7 @@ if st.button("🔥 Correr Análisis de Valuación"):
                     else: st.error(f"📉 **Sobreprecio Estimado: {((pr-v_i)/v_i)*100:.1f}%**")
             else: st.info(f"ℹ️ Módulo DCF en espera: Requiere flujo de caja libre positivo para proyectar.")
 
-            # 4. TABLERO DE ANÁLISIS TÉCNICO ALGORÍTMICO (EMA 30 + DMI 14)
+            # 4. TABLERO DE ANÁLISIS TÉCNICO ALGORÍTMICO
             st.markdown("---")
             st.subheader(f"📐 Terminal de Datos Técnicos y Estructura de Precios - {ticker_objetivo}")
             
@@ -124,10 +124,11 @@ if st.button("🔥 Correr Análisis de Valuación"):
                     low = h_tecn['Low']
                     precio_hoy = cierre.iloc[-1]
                     
-                    # Cómputo matemático preciso del DMI y la EMA 30
+                    # Cómputo matemático preciso de la EMA 30
                     calc_ema_30 = cierre.ewm(span=30, adjust=False).mean()
                     ema_30_hoy = calc_ema_30.iloc[-1]
                     
+                    # Cómputo histórico paso a paso de las series del DMI 14
                     up_move = high.diff()
                     down_move = -low.diff()
                     plus_dm = np.where((up_move > down_move) & (up_move > 0), up_move, 0)
@@ -139,12 +140,15 @@ if st.button("🔥 Correr Análisis de Valuación"):
                     tr_14 = tr.ewm(alpha=1/14, adjust=False).mean()
                     plus_dm_14 = pd.Series(plus_dm, index=h_tecn.index).ewm(alpha=1/14, adjust=False).mean()
                     minus_dm_14 = pd.Series(minus_dm, index=h_tecn.index).ewm(alpha=1/14, adjust=False).mean()
-                    plus_di = (plus_dm_14 / tr_14) * 100
-                    minus_di = (minus_dm_14 / tr_14) * 100
-                    dx = (np.abs(plus_di - minus_di) / (plus_di + minus_di)) * 100
-                    adx = dx.ewm(alpha=1/14, adjust=False).mean().iloc[-1]
-                    p_di_hoy = plus_di.iloc[-1]
-                    m_di_hoy = minus_di.iloc[-1]
+                    
+                    series_plus_di = (plus_dm_14 / tr_14) * 100
+                    series_minus_di = (minus_dm_14 / tr_14) * 100
+                    dx = (np.abs(series_plus_di - series_minus_di) / (series_plus_di + series_minus_di)) * 100
+                    series_adx = dx.ewm(alpha=1/14, adjust=False).mean()
+                    
+                    p_di_hoy = series_plus_di.iloc[-1]
+                    m_di_hoy = series_minus_di.iloc[-1]
+                    adx_hoy = series_adx.iloc[-1]
                     
                     m1, m2, m3 = st.columns(3)
                     with m1:
@@ -155,22 +159,27 @@ if st.button("🔥 Correr Análisis de Valuación"):
                         st.metric(label="Fuerza Direccional (Cruce DMI)", value=f"+DI {p_di_hoy:.1f} | -DI {m_di_hoy:.1f}", delta=f"{dmi_diff:.1f} Net Comprador" if dmi_diff > 0 else f"{dmi_diff:.1f} Net Vendedor")
                         st.caption("🟢 **Compradores lideran** el flujo estructural." if dmi_diff > 0 else "🔴 **Vendedores lideran** el flujo estructural.")
                     with m3:
-                        st.metric(label="Intensidad de Tendencia (ADX)", value=f"{adx:.1f} Puntos", delta="Tendencia Activa (>20)" if adx > 20 else "Mercado Lateral (<20)", delta_color="normal" if adx > 20 else "off")
-                        st.caption("⚡ **Movimiento Fuerte:** Respaldo institucional activo." if adx > 25 else "💤 **Rango Lateral:** Tendencia débil o compresión.")
+                        st.metric(label="Intensidad de Tendencia (ADX)", value=f"{adx_hoy:.1f} Puntos", delta="Tendencia Activa (>20)" if adx_hoy > 20 else "Mercado Lateral (<20)", delta_color="normal" if adx_hoy > 20 else "off")
+                        st.caption("⚡ **Movimiento Fuerte:** Respaldo institucional activo." if adx_hoy > 25 else "💤 **Rango Lateral:** Tendencia débil o compresión.")
                     
-                    # 5. GRÁFICO INTEGRAL NATIVO (PRECIO + EMA 30 CALCULADA)
+                    # panel A: PANEL DE PRECIO + EMA 30
                     st.markdown("---")
-                    st.subheader(f"📈 Gráfico de Tendencia Integrado: Precio de Cierre vs. EMA 30")
-                    st.caption("📊 Línea de Precio de Mercado cruzada con tu Media Móvil Exponencial de 30 ruedas calculada por el backend.")
-                    
-                    # Armamos el DataFrame combinado para el gráfico nativo
-                    df_grafico = pd.DataFrame({
-                        "Precio de Cierre (USD)": cierre,
-                        "Tu EMA 30 (Métrica de Control)": calc_ema_30
+                    st.subheader(f"📈 Panel A: Tendencia de Mediano Plazo (Precio de Cierre vs. EMA 30)")
+                    df_precio_panel = pd.DataFrame({
+                        "Precio Cierre (USD)": cierre,
+                        "EMA 30 Ruedas": calc_ema_30
                     }, index=h_tecn.index)
+                    st.line_chart(df_precio_panel, height=350, use_container_width=True)
                     
-                    # Levantamos la gráfica nativa limpia de Streamlit estirada en pantalla
-                    st.line_chart(df_grafico, width=0, height=450, use_container_width=True)
+                    # panel B: PANEL INFERIOR DMI COMPLETO (Tu Perfil de TradingView)
+                    st.subheader(f"📊 Panel B: Oscilador Direccional Completo (DMI 14 / ADX 14)")
+                    st.caption("Mapeo temporal del +DI (Fuerza Compradora), -DI (Fuerza Vendedora) y la línea ADX (Intensidad de la tendencia).")
+                    df_dmi_panel = pd.DataFrame({
+                        "+DI (Fuerza Compradora)": series_plus_di,
+                        "-DI (Fuerza Vendedora)": series_minus_di,
+                        "ADX (Fuerza Tendencia General)": series_adx
+                    }, index=h_tecn.index)
+                    st.line_chart(df_dmi_panel, height=250, use_container_width=True)
                     
                 else:
                     st.info("Falta historial para procesar los cálculos.")
