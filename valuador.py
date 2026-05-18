@@ -113,83 +113,49 @@ if st.button("🔥 Correr Análisis de Valuación"):
                     else: st.error(f"📉 **Sobreprecio: {((pr-v_i)/v_i)*100:.1f}%** (Sobrevaluada)")
             else: st.info(f"ℹ️ Sin Flujo de Caja Libre positivo para {ticker_objetivo}.")
 
-            # 4. AUDITORÍA TÉCNICA BASADA EN TU PERFIL DE TRADINGVIEW (EMA 30 + DMI 14)
+            # 4. AUDITORÍA TÉCNICA
             st.markdown("---")
             st.subheader(f"📐 Reporte de Indicadores Técnicos de tu Perfil (EMA 30 + DMI) - {ticker_objetivo}")
-            
             try:
-                # Bajamos datos diarios suficientes para calcular EMA 30 y DMI 14
                 h_tecn = yf.Ticker(ticker_objetivo).history(period="1y")
                 if len(h_tecn) > 40:
                     cierre = h_tecn['Close']
                     high = h_tecn['High']
                     low = h_tecn['Low']
                     precio_hoy = cierre.iloc[-1]
-                    
-                    # 1. Cálculo de tu EMA 30 amarilla
                     ema_30 = cierre.ewm(span=30, adjust=False).mean().iloc[-1]
-                    
-                    # 2. Algoritmo matemático del DMI (Dirección y Fuerza)
                     up_move = high.diff()
                     down_move = -low.diff()
-                    
                     plus_dm = np.where((up_move > down_move) & (up_move > 0), up_move, 0)
                     minus_dm = np.where((down_move > up_move) & (down_move > 0), down_move, 0)
-                    
-                    # Rango verdadero (True Range)
                     tr1 = high - low
                     tr2 = np.abs(high - cierre.shift(1))
                     tr3 = np.abs(low - cierre.shift(1))
                     tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
-                    
-                    # Suavizado clásico de 14 períodos (Wilder)
                     tr_14 = tr.ewm(alpha=1/14, adjust=False).mean()
                     plus_dm_14 = pd.Series(plus_dm, index=h_tecn.index).ewm(alpha=1/14, adjust=False).mean()
                     minus_dm_14 = pd.Series(minus_dm, index=h_tecn.index).ewm(alpha=1/14, adjust=False).mean()
-                    
                     plus_di = (plus_dm_14 / tr_14) * 100
                     minus_di = (minus_dm_14 / tr_14) * 100
-                    
-                    # Cálculo de la línea azul del ADX
                     dx = (np.abs(plus_di - minus_di) / (plus_di + minus_di)) * 100
                     adx = dx.ewm(alpha=1/14, adjust=False).mean().iloc[-1]
-                    
                     p_di_hoy = plus_di.iloc[-1]
                     m_di_hoy = minus_di.iloc[-1]
                     
-                    # Paneles visuales del resumen técnico interpretativo
                     ct1, ct2 = st.columns(2)
-                    
                     with ct1:
                         st.markdown("**🟡 Tendencia de Corto/Mediano Plazo (EMA 30)**")
-                        if precio_hoy > ema_30:
-                            st.markdown(f"🟩 **MOMENTUM POSITIVO:** El precio ({precio_hoy:.2f} USD) cotiza **por encima** de tu EMA 30 ({ema_30:.2f} USD). La estructura empuja al alza y la media actúa como soporte dinámico.")
-                        else:
-                            st.markdown(f"🟥 **MOMENTUM NEGATIVO:** El precio ({precio_hoy:.2f} USD) perforó **a la baja** tu EMA 30 ({ema_30:.2f} USD). Fase correctiva o distributiva en desarrollo.")
-                            
+                        if precio_hoy > ema_30: st.markdown(f"🟩 **MOMENTUM POSITIVO:** El precio ({precio_hoy:.2f} USD) cotiza **por encima** de tu EMA 30 ({ema_30:.2f} USD).")
+                        else: st.markdown(f"🟥 **MOMENTUM NEGATIVO:** El precio ({precio_hoy:.2f} USD) perforó **a la baja** tu EMA 30 ({ema_30:.2f} USD).")
                     with ct2:
                         st.markdown("**📊 Fuerza y Dirección del Flujo (DMI / ADX 14)**")
-                        # Evaluamos quién tiene el control direccional
-                        if p_di_hoy > m_di_hoy:
-                            dir_txt = f"🟢 **CONTROL COMPRADOR:** La línea verde (+DI: {p_di_hoy:.1f}) lidera sobre la roja (-DI: {m_di_hoy:.1f})."
-                        else:
-                            dir_txt = f"🔴 **CONTROL VENDEDOR:** La línea roja (-DI: {m_di_hoy:.1f}) lidera sobre la verde (+DI: {p_di_hoy:.1f})."
-                        
-                        # Evaluamos la intensidad de la fuerza con la línea azul (ADX)
-                        if adx > 25:
-                            fuerza_txt = f"La línea azul (**ADX en {adx:.1f} pts**) confirma una **tendencia fuerte y madura**. El movimiento actual tiene alto respaldo institucional."
-                        elif adx < 20:
-                            fuerza_txt = f"La línea azul (**ADX en {adx:.1f} pts**) indica una **tendencia débil o compresión**. Mercado en rango lateral; cuidado con los falsos rompimientos."
-                        else:
-                            fuerza_txt = f"La línea azul (**ADX en {adx:.1f} pts**) muestra una fuerza intermedia en fase de construcción."
-                            
+                        dir_txt = f"🟢 **CONTROL COMPRADOR:** +DI ({p_di_hoy:.1f}) > -DI ({m_di_hoy:.1f})." if p_di_hoy > m_di_hoy else f"🔴 **CONTROL VENDEDOR:** -DI ({m_di_hoy:.1f}) > +DI ({p_di_hoy:.1f})."
+                        fuerza_txt = f"El **ADX en {adx:.1f} pts** confirma una **tendencia fuerte**." if adx > 25 else f"El **ADX en {adx:.1f} pts** indica **compresión o rango lateral**."
                         st.markdown(f"{dir_txt}\n\n{fuerza_txt}")
-                else:
-                    st.info("Datos de mercado insuficientes para pre-calcular tu perfil técnico.")
-            except:
-                st.info("No se pudieron pre-calcular los indicadores direccionales en esta vuelta.")
+                else: st.info("Datos insuficientes para el reporte técnico.")
+            except: st.info("No se pudieron pre-calcular los indicadores.")
 
-            # 5. GRÁFICO INTERACTIVO DE TRADINGVIEW
+            # 5. GRÁFICO INTERACTIVO CONFIGURADO CON TUS COMPONENTES (EMA30 + DMI)
             st.subheader("🖥️ Terminal Táctica de TradingView")
             
             tradingview_html = f"""
@@ -209,7 +175,11 @@ if st.button("🔥 Correr Análisis de Valuación"):
               "enable_publishing": false,
               "hide_side_toolbar": false,
               "allow_symbol_change": true,
-              "container_id": "tradingview_advanced_chart"
+              "container_id": "tradingview_advanced_chart",
+              "studies": [
+                "MASimple@tv-basicstudies", // Forzamos a que pinte medias móviles nativas
+                "DirectionalMovementIndex@tv-basicstudies" // Forzamos a que levante el DMI abajo
+              ]
             }});
             </script>
             """
