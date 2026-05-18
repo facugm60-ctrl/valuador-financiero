@@ -183,7 +183,7 @@ if st.session_state.analisis_ejecutado:
         editar_cartera = st.data_editor(
             st.session_state.cartera_df, 
             num_rows="dynamic", 
-            key="grilla_cartera_premium_v2",
+            key="grilla_cartera_premium_v4",
             use_container_width=True
         )
         st.session_state.cartera_df = editar_cartera
@@ -262,20 +262,39 @@ if st.session_state.analisis_ejecutado:
             if pd.notna(fcf) and fcf > 0 and sh > 0:
                 fcf_a = fcf / sh
                 cd1, cd2, cd3 = st.columns(3)
-                with cd1: cw = st.slider("Crecimiento Anual (1-5):", 0, 40, 12, 1, "%d%%") / 100
-                with cd2: td = st.slider("Tasa WACC:", 5, 25, 10, 1, "%d%%") / 100
-                with cd3: mt = st.slider("Múltiplo Terminal:", 3, 20, 6, 1, "%dx")
-                v_i = sum([fcf_a * ((1+cw)**i) / ((1+td)**i) for i in range(1, 6)]) + (fcf_a * ((1+cw)**5) * mt) / ((1+td)**5)
+                with cd1: cw = st.slider("Crecimiento Anual Estimado (Años 1-5):", 0, 40, 12, 1, "%d%%") / 100
+                with cd2: td = st.slider("Tasa de Descuento Exigida (WACC):", 5, 25, 10, 1, "%d%%") / 100
+                with cd3: mt = st.slider("Múltiplo de Salida Terminal (EV/EBITDA):", 3, 20, 6, 1, "%dx")
                 
+                f_p = [fcf_a * ((1+cw)**i) / ((1+td)**i) for i in range(1, 6)]
+                v_t = (fcf_a * ((1+cw)**5) * mt) / ((1+td)**5)
+                v_i = sum(f_p) + v_t
+                
+                st.markdown("---")
                 cr1, cr2 = st.columns(2)
-                with cr1: st.metric("VALOR INTRÍNSECO TEÓRICO", f"{v_i:.2f} USD")
-                with cr2: st.metric("Precio de Mercado", f"{pr:.2f} USD", f"{((v_i-pr)/v_i)*100:.1f}% Margen")
+                with cr1: st.metric("VALOR INTRÍNSECO TEÓRICO (Fair Value)", f"{v_i:.2f} USD")
+                with cr2: st.metric("Precio Actual en Mercado", f"{pr:.2f} USD", f"{((v_i-pr)/v_i)*100:.1f}% Margen" if v_i > pr else f"{((pr-v_i)/v_i)*100:.1f}% Sobreprecio")
+                
+                st.markdown("---")
+                st.markdown("### 💡 Interpretación del Modelo para No Especialistas")
+                c_int1, c_int2 = st.columns(2)
+                with c_int1:
+                    st.markdown("**¿Qué estamos haciendo acá?**")
+                    st.write(f"Este modelo simula cuánto dinero va a generar la empresa en los próximos 5 años creciendo a una tasa del **{cw*100:.1f}% anual** y lo descuenta al presente usando una tasa de exigencia (WACC) del **{td*100:.1f}%**. El resultado final (**{v_i:.2f} USD**) representa el **'valor justo o teórico'** según sus fundamentos de caja dura.")
+                with c_int2:
+                    st.markdown("**Lectura del Resultado Técnico:**")
+                    if v_i > pr:
+                        margen_pct = ((v_i - pr) / v_i) * 100
+                        st.success(f"🟩 **ACTIVO SUBVALUADO (Oportunidad):** El valor justo en libros de la compañía es mayor que lo que cotiza hoy en la bolsa, dejándonos un **Margen de Seguridad del {margen_pct:.1f}%**. Estás comprando un activo con descuento respecto a su capacidad futura de generar caja.")
+                    else:
+                        sobre_pct = ((pr - v_i) / v_i) * 100
+                        st.error(f"🚨 **ACTIVO SOBREVALUADO (Riesgo):** El precio de la bolsa está inflado un **{sobre_pct:.1f}%** por encima del valor intrínseco. El mercado ya está pagando un precio muy optimista y el margen de seguridad desapareció.")
             else: st.info("ℹ️ El modelo DCF requiere flujos corporativos positivos (FCF) estables para proyectar.")
-        else: st.info("ℹ️ Los modelos DCF no aplican a ETFs.")
+        else: st.info("ℹ️ Los modelos de flujos descontados no aplican a ETFs.")
 
-    # --- PESTAÑA 4: ANALISIS TECNICO ---
+    # --- PESTAÑA 4: ANÁLISIS TÉCNICO (CON EXPLICACIONES INTEGRADAS POR EXPANDER) ---
     with tab4:
-        st.subheader(f"📐 Terminal Técnica de Osciladores y Timing - {ticker_objetivo}")
+        st.subheader("📐 Terminal Técnica de Osciladores y Timing")
         try:
             h_tecn = yf.Ticker(ticker_objetivo).history(period="1y")
             if len(h_tecn) > 40:
@@ -286,6 +305,7 @@ if st.session_state.analisis_ejecutado:
                 calc_ema_30 = cierre.ewm(span=30, adjust=False).mean()
                 ema_30_hoy = calc_ema_30.iloc[-1]
                 
+                # Cómputo histórico de las curvas DMI y ADX 14
                 up_move = high.diff()
                 down_move = -low.diff()
                 plus_dm = np.where((up_move > down_move) & (up_move > 0), up_move, 0)
@@ -312,11 +332,27 @@ if st.session_state.analisis_ejecutado:
                 with m2: st.metric(label="Flujo Direccional (DMI)", value=f"+DI {p_di_hoy:.1f} | -DI {m_di_hoy:.1f}", delta=f"{p_di_hoy - m_di_hoy:.1f} Pts")
                 with m3: st.metric(label="Fuerza de Tendencia (ADX)", value=f"{adx_hoy:.1f} Puntos", delta="Tendencia Activa" if adx_hoy > 20 else "Mercado Lateral", delta_color="normal" if adx_hoy > 20 else "off")
                 
+                # Panel A con Explicación
                 st.markdown("### 📈 Panel A: Tendencia de Mediano Plazo (Precio vs. EMA 30)")
+                with st.expander("🔍 Interpretación Didáctica - Panel A"):
+                    st.write(
+                        "• **¿Qué es la EMA 30?** Es la Media Móvil Exponencial de 30 ruedas. Funciona como la línea de equilibrio del precio. \n"
+                        "• **¿Cómo se lee?** Si el precio diario (línea azul) rompe y cotiza **por encima** de la línea roja (EMA 30), "
+                        "significa que el activo está ganando inercia alcista. Si opera **por debajo**, el mercado está bajo control de los vendedores."
+                    )
                 df_p = pd.DataFrame({"Precio Cierre (USD)": cierre, "EMA 30 Ruedas": calc_ema_30}, index=h_tecn.index)
                 st.line_chart(df_p, height=300, use_container_width=True)
                 
+                # Panel B con Explicación
                 st.markdown("### 📊 Panel B: Oscilador Direccional Completo (DMI 14 / ADX 14)")
+                with st.expander("🔍 Interpretación Didáctica - Panel B"):
+                    st.write(
+                        "• **Curva Azul (+DI):** Representa la fuerza pura de los compradores.\n"
+                        "• **Curva Roja (-DI):** Representa la fuerza pura de los vendedores.\n"
+                        "• **Curva Verde (ADX):** Mide la fuerza o intensidad del movimiento general, sin importar si es alcista o bajista. "
+                        "Si el ADX cruza los **20 o 25 puntos hacia arriba**, nos confirma que el mercado agarró una tendencia firme, sana y con volumen institucional. "
+                        "Si está por debajo de 20, es un mercado picado y lateral (sin rumbo clear)."
+                    )
                 df_d = pd.DataFrame({"+DI (Compradores)": series_plus_di, "-DI (Vendedores)": series_minus_di, "ADX (Fuerza General)": series_adx}, index=h_tecn.index)
                 st.line_chart(df_d, height=220, use_container_width=True)
                 
@@ -349,7 +385,7 @@ st.markdown(
     "estrictamente educativo, analítico y de simulación financiera corporativa. <strong>NO CONSTITUYEN, bajo ningún concepto ni circunstancia, "
     "un asesoramiento financiero personalizado, recomendación implícita o explícita de compra/venta, ni una oferta pública de valores negociables o activos "
     "financieros</strong> bajo los términos de la Ley de Mercado de Capitales de la República Argentina (Ley N° 26.831) ni regulaciones de la SEC u otros organismos "
-    "internacionales. Los datos históricos recopilados a través de interfaces públicas de terceros (Yahoo Finance) reflejan cotizaciones pasadas que no garantizan "
+    "internacionales. Los datos históricos omnibus recopilados a través de interfaces públicas de terceros (Yahoo Finance) reflejan cotizaciones pasadas que no garantizan "
     "rendimientos futuros. Toda decisión operativa, estructuración de carteras o inversión ejecutada en mercados reales es de responsabilidad única, exclusiva "
     "e indelegable del usuario. El desarrollador deslinda cualquier tipo de responsabilidad civil, comercial o contractual ante pérdidas, variaciones patrimoniales "
     "o perjuicios financieros derivados del uso directo de estos cálculos.",
