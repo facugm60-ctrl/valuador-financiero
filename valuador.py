@@ -2,6 +2,8 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import yfinance as yf
+import urllib.parse
+import requests
 
 # Configuramos la página en modo ancho y un título pro
 st.set_page_config(page_title="Valuador Financiero Pro", layout="wide", initial_sidebar_state="collapsed")
@@ -43,6 +45,17 @@ with st.container():
 
 todos_tickers = [ticker_objetivo] + competidores
 
+def traducir_espanol(texto):
+    if not texto or texto == "Sin descripción disponible.": return texto
+    try:
+        # Usamos un endpoint público y rápido de traducción sin tokens para no romper Streamlit Cloud
+        url = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=es&dt=t&q=" + urllib.parse.quote(texto)
+        r = requests.get(url, timeout=5).json()
+        traducido = "".join([frase[0] for frase in r[0] if frase[0]])
+        return traducido
+    except:
+        return texto # Si falla por timeout, devuelve el texto original para no colgar la app
+
 def obtener_datos(symbol):
     try:
         t = yf.Ticker(symbol)
@@ -51,13 +64,17 @@ def obtener_datos(symbol):
         tiene_ebitda = "ebitda" in inf or "enterpriseToEbitda" in inf or "forwardPE" in inf
         es_etf = not tiene_ebitda
         
+        raw_desc = inf.get("longBusinessSummary", "Sin descripción disponible.")
+        # Traducimos solo el activo objetivo para optimizar los tiempos de respuesta de la API
+        desc_es = traducir_espanol(raw_desc) if symbol == ticker_objetivo else "Módulo secundario."
+        
         if es_etf:
             return {
                 "Ticker": symbol, "Nombre": inf.get("longName", "N/A"),
                 "Tipo": "ETF", "Precio Actual": inf.get('currentPrice', inf.get('previousClose', 0)),
                 "P/E Canasta": inf.get("trailingPE"), "Expense Ratio": inf.get("feesExpensesInvestmentPercentage"),
                 "Dividend Yield": inf.get("dividendYield"), "Beta": inf.get("beta"),
-                "Descripcion": inf.get("longBusinessSummary", "Sin descripción disponible.")
+                "Descripcion": desc_es
             }
         else:
             td = inf.get("totalDebt", 0)
@@ -72,7 +89,7 @@ def obtener_datos(symbol):
                 "Liquidez Corriente": inf.get("currentRatio"), "Beta": inf.get("beta"),
                 "Margen Neto": inf.get("profitMargins"), "ROE": inf.get("returnOnEquity"),
                 "FCF_Total": inf.get("freeCashflow"), "Acciones": inf.get("sharesOutstanding"),
-                "Descripcion": inf.get("longBusinessSummary", "Sin descripción disponible."),
+                "Descripcion": desc_es,
                 "Div_Rate": inf.get("dividendRate", 0), "Div_Yield": inf.get("dividendYield", 0)
             }
     except: return None
@@ -142,7 +159,6 @@ if st.button("🔥 EJECUTAR DIAGNÓSTICO INTEGRAL"):
                         "Margen Neto": lambda x: f"{x*100:.2f}%" if pd.notna(x) else "N/A", "ROE": lambda x: f"{x*100:.2f}%" if pd.notna(x) else "N/A"
                     }, na_rep="N/A"), width="stretch")
                     
-                    # NUEVA SECCIÓN: MONITOREO DE DIVIDENDOS (4 TRIMESTRES / ANUAL)
                     st.markdown("---")
                     st.subheader(f"💰 Política de Dividendos y Retorno de Capital - {ticker_objetivo}")
                     d_rate, d_yield = obj.get("Div_Rate", 0), obj.get("Div_Yield", 0)
@@ -154,17 +170,13 @@ if st.button("🔥 EJECUTAR DIAGNÓSTICO INTEGRAL"):
                     else:
                         st.info(f"ℹ️ {ticker_objetivo} no registra pago de dividendos en su estructura actual (Compañía de reinversión / crecimiento).")
                     
-                    # NUEVA SECCIÓN: CUADRO DE HISTORIAL DE EARNINGS (EXPECTATIVA VS REAL)
                     st.markdown("---")
                     st.subheader(f"📊 Historial de Presentación de Resultados (Últimos Trimestres vs. Consenso) - {ticker_objetivo}")
                     try:
                         t_obj = yf.Ticker(ticker_objetivo)
                         df_earn = t_obj.get_earnings_history() if hasattr(t_obj, 'get_earnings_history') else None
                         if df_earn is not None and not df_earn.empty:
-                            # Filtramos y emprolijamos las columnas clave de sorpresas
-                            df_earn = df_earn.head(4).copy()
-                            df_earn = df_earn.reset_index()
-                            # Renombramos para el usuario
+                            df_earn = df_earn.head(4).copy().reset_index()
                             cols_earn = [c for c in ['epsForecast', 'epsActual', 'epsSurprisePercent', 'earningsDate'] if c in df_earn.columns]
                             df_show_earn = df_earn[cols_earn].rename(columns={
                                 'epsForecast': 'EPS Estimado', 'epsActual': 'EPS Real',
@@ -174,7 +186,6 @@ if st.button("🔥 EJECUTAR DIAGNÓSTICO INTEGRAL"):
                                 'EPS Estimado': '{:.2f}', 'EPS Real': '{:.2f}', 'Sorpresa (%)': lambda x: f"{x*100:.2f}%" if pd.notna(x) else "N/A"
                             }, na_rep="N/A"), use_container_width=True)
                         else:
-                            # Respaldo alternativo clásico si la API recortada no tiene la función extendida
                             st.info("Historial de sorpresas de EPS disponible en la terminal táctica.")
                     except:
                         st.info("Cuadro de sorpresas trimestrales consolidado en el análisis de mercado.")
@@ -191,9 +202,6 @@ if st.button("🔥 EJECUTAR DIAGNÓSTICO INTEGRAL"):
                     
                     st.markdown("---")
                     st.subheader("🤖 Informe del Asesor Inteligente (Análisis Operativo y de Coyuntura)")
-                    df_s = df[(df['Ticker'] != ticker_objetivo) & (df['Tipo'] == "ACCION")]
-                    meds = df_s.median(numeric_only=True) if not df_s.empty else None
-                    
                     c_inf1, c_inf2 = st.columns(2)
                     with c_inf1:
                         st.markdown(f"**🟢 PROS / Fortaleza de Situación ({ticker_objetivo}):**")
@@ -212,7 +220,6 @@ if st.button("🔥 EJECUTAR DIAGNÓSTICO INTEGRAL"):
                         txt_contras += "• **Presión de Capex:** Elevados desembolsos en bienes de uso e infraestructura de capital que pueden estresar transitoriamente el flujo de caja libre antes de traccionar ingresos estables de los nuevos contratos.\n"
                         st.write(txt_contras)
                 else:
-                    # ETFs
                     st.subheader("📋 Matriz de Eficiencia y Costos estructurales (ETFs)")
                     df_etf = df[df['Tipo'] == "ETF"].copy()
                     columnas_etf = [c for c in ["Ticker", "Nombre", "Precio Actual", "P/E Canasta", "Expense Ratio", "Dividend Yield", "Beta"] if c in df_etf.columns]
