@@ -36,7 +36,7 @@ st.markdown("""
 st.title("📊 Terminal de Valuación de Activos")
 st.markdown("Plataforma profesional de analítica fundamental corporativa y timing de mercado.")
 
-# INICIALIZACIÓN CRUCIAL AL PRINCIPIO: Evita el AttributeError en todas las solapas
+# INICIALIZACIÓN DE VARIABLES GLOBALES EN SESIÓN (Persistencia Blindada)
 if "cartera_df" not in st.session_state:
     st.session_state.cartera_df = pd.DataFrame([
         {"Ticker": "VIST", "Nominales": 100, "Precio Compra (USD)": 50.0},
@@ -49,6 +49,7 @@ if "analisis_ejecutado" not in st.session_state:
     st.session_state.analisis_ejecutado = False
     st.session_state.df_datos = None
     st.session_state.obj_data = None
+    st.session_state.current_ticker = ""
 
 # Bloque de Entradas de Usuario
 with st.container():
@@ -96,7 +97,8 @@ def obtener_datos(symbol):
         return common
     except: return None
 
-if st.button("🔥 EJECUTAR DIAGNÓSTICO INTEGRAL"):
+# Forzamos la descarga si se presiona el botón o si cambió el ticker objetivo
+if st.button("🔥 EJECUTAR DIAGNÓSTICO INTEGRAL") or (st.session_state.analisis_ejecutado and st.session_state.current_ticker != ticker_objetivo):
     with st.spinner("Descargando balances y cargando algoritmos técnicos..."):
         datos = [obtener_datos(t) for t in todos_tickers if obtener_datos(t)]
         df_verif = pd.DataFrame(datos) if datos else pd.DataFrame()
@@ -106,9 +108,10 @@ if st.button("🔥 EJECUTAR DIAGNÓSTICO INTEGRAL"):
         else:
             st.session_state.df_datos = pd.DataFrame(datos)
             st.session_state.obj_data = st.session_state.df_datos[st.session_state.df_datos['Ticker'] == ticker_objetivo].iloc[0]
+            st.session_state.current_ticker = ticker_objetivo
             st.session_state.analisis_ejecutado = True
 
-# --- DESPLIEGUE MEDIANTE SOLAPAS ---
+# --- DESPLIEGUE MEDIANTE TABS ---
 if st.session_state.analisis_ejecutado:
     df = st.session_state.df_datos
     obj = st.session_state.obj_data
@@ -172,7 +175,7 @@ if st.session_state.analisis_ejecutado:
             columnas_etf = [c for c in ["Ticker", "Nombre", "Precio Actual", "P/E Canasta", "Expense Ratio", "Dividend Yield", "Beta"] if c in df_etf.columns]
             st.dataframe(df_etf[columnas_etf].set_index('Ticker').style.format({"Precio Actual": "{:.2f} USD", "P/E Canasta": "{:.2f}", "Expense Ratio": lambda x: f"{x*100:.2f}%" if pd.notna(x) else "N/A", "Dividend Yield": lambda x: f"{x*100:.2f}%" if pd.notna(x) else "N/A", "Beta": "{:.2f}"}, na_rep="N/A"), width="stretch")
 
-    # --- PESTAÑA 2: CARTERA MULTIACTIVO TOTALMENTE INDEPENDIENTE (FIXED) ---
+    # --- PESTAÑA 2: CARTERA MULTIACTIVO TOTALMENTE INDEPENDIENTE ---
     with tab2:
         st.subheader("💼 Consolidación de Cartera Multiactivo Dinámica")
         st.markdown("Agregá, modificá o eliminá los activos de tu portafolio en la grilla interactiva. Hacé doble clic en las celdas para cambiar valores.")
@@ -180,7 +183,7 @@ if st.session_state.analisis_ejecutado:
         editar_cartera = st.data_editor(
             st.session_state.cartera_df, 
             num_rows="dynamic", 
-            key="grilla_cartera_premium",
+            key="grilla_cartera_premium_v2",
             use_container_width=True
         )
         st.session_state.cartera_df = editar_cartera
@@ -270,7 +273,7 @@ if st.session_state.analisis_ejecutado:
             else: st.info("ℹ️ El modelo DCF requiere flujos corporativos positivos (FCF) estables para proyectar.")
         else: st.info("ℹ️ Los modelos DCF no aplican a ETFs.")
 
-    # --- PESTAÑA 4: ANALISIS TECNICO DEFINITIVO (RESTAURADO COMPLETO CON PANELES A Y B) ---
+    # --- PESTAÑA 4: ANALISIS TECNICO ---
     with tab4:
         st.subheader(f"📐 Terminal Técnica de Osciladores y Timing - {ticker_objetivo}")
         try:
@@ -337,7 +340,25 @@ if st.session_state.analisis_ejecutado:
             else: st.info("Historial insuficiente.")
         except: st.info("Módulo técnico consolidándose.")
 
-# --- FOOTER ---
+# --- FOOTER CON DISCLAIMER EXTENDIDO E INSTITUCIONAL (MÁXIMO PROTECCIÓN) ---
 st.markdown("---")
-st.markdown("<p style='text-align: center; color: #888888; font-size: 11px;'><strong>AVISO LEGAL:</strong> El contenido de esta plataforma es educativo y no constituye asesoramiento financiero.</p>", unsafe_allow_html=True)
-st.markdown(f"<p style='text-align: center; color: #aaaaaa; font-size: 14px;'>Desarrollado por <strong>Facundo Garcia Marquez</strong> | <a href='https://www.linkedin.com/in/facundo-garciamarquez/?locale=es' target='_blank' style='color: #0077B5; text-decoration: none;'>🔗 Conectemos en LinkedIn</a></p>", unsafe_allow_html=True)
+st.markdown(
+    "<p style='text-align: justify; color: #888888; font-size: 11px; max-width: 1100px; margin: 0 auto; line-height: 1.5;'>"
+    "<strong>AVISO LEGAL E INSTITUCIONAL DE EXCLUSIÓN DE RESPONSABILIDAD:</strong> El contenido, algoritmos cuantitativos, métricas sectoriales, "
+    "análisis de múltiplos comparativos y proyecciones de flujos descontados (DCF) emitidos de forma automatizada por esta terminal tienen un propósito "
+    "estrictamente educativo, analítico y de simulación financiera corporativa. <strong>NO CONSTITUYEN, bajo ningún concepto ni circunstancia, "
+    "un asesoramiento financiero personalizado, recomendación implícita o explícita de compra/venta, ni una oferta pública de valores negociables o activos "
+    "financieros</strong> bajo los términos de la Ley de Mercado de Capitales de la República Argentina (Ley N° 26.831) ni regulaciones de la SEC u otros organismos "
+    "internacionales. Los datos históricos recopilados a través de interfaces públicas de terceros (Yahoo Finance) reflejan cotizaciones pasadas que no garantizan "
+    "rendimientos futuros. Toda decisión operativa, estructuración de carteras o inversión ejecutada en mercados reales es de responsabilidad única, exclusiva "
+    "e indelegable del usuario. El desarrollador deslinda cualquier tipo de responsabilidad civil, comercial o contractual ante pérdidas, variaciones patrimoniales "
+    "o perjuicios financieros derivados del uso directo de estos cálculos.",
+    unsafe_allow_html=True
+)
+st.markdown(
+    "<p style='text-align: center; color: #aaaaaa; font-size: 14px; margin-top: 20px;'>"
+    "Desarrollado por <strong>Facundo Garcia Marquez</strong> | "
+    "<a href='https://www.linkedin.com/in/facundo-garciamarquez/?locale=es' target='_blank' style='color: #0077B5; text-decoration: none;'>🔗 Conectemos en LinkedIn</a>"
+    "</p>",
+    unsafe_allow_html=True
+)
