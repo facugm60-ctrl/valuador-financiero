@@ -23,8 +23,9 @@ def obtener_datos(symbol):
         inf = t.info
         if not inf: return None
         
-        # Detectamos si es un ETF o una Acción Corporativa
-        es_etf = inf.get("quoteType") == "ETF"
+        # Estrategia de detección segura: Si no tiene EBITDA ni ingresos operativos, es un ETF o Fondo
+        tiene_ebitda = "ebitda" in inf or "enterpriseToEbitda" in inf or "forwardPE" in inf
+        es_etf = not tiene_ebitda
         
         if es_etf:
             return {
@@ -32,7 +33,7 @@ def obtener_datos(symbol):
                 "Tipo": "ETF", "Precio Actual": inf.get('currentPrice', inf.get('previousClose', 0)),
                 "P/E Canasta": inf.get("trailingPE"), "Expense Ratio": inf.get("feesExpensesInvestmentPercentage"),
                 "Dividend Yield": inf.get("dividendYield"), "Beta": inf.get("beta"),
-                "FCF_Total": None, "Acciones": None # Atributos corporativos nulos
+                "FCF_Total": None, "Acciones": None
             }
         else:
             td = inf.get("totalDebt", 0)
@@ -54,22 +55,24 @@ if st.button("🔥 Correr Análisis de Valuación"):
     with st.spinner("Conectando con los servidores de Wall Street..."):
         datos = [obtener_datos(t) for t in todos_tickers if obtener_datos(t)]
         
-        # Validación de seguridad antibugs
         df_verif = pd.DataFrame(datos) if datos else pd.DataFrame()
         if df_verif.empty or ticker_objetivo not in df_verif['Ticker'].values:
-            st.error(f"🚨 **ERROR DE INDEXACIÓN:** No se pudieron recopilar datos válidos para el activo objetivo **'{ticker_objetivo}'**. Verificar si el ticker requiere algún sufijo (ej. para activos locales usar '.BA' como TXAR.BA o GGAL.BA).")
+            st.error(f"🚨 **ERROR DE DATOS:** No se pudieron recopilar registros para el activo objetivo **'{ticker_objetivo}'**. Asegurate de escribirlo correctamente o agregar el sufijo correspondiente (ej. '.BA' para el panel líder argentino).")
         else:
             df = pd.DataFrame(datos)
             obj = df[df['Ticker'] == ticker_objetivo].iloc[0]
             es_etf_target = obj["Tipo"] == "ETF"
             
-            # --- RAMA 1: ENTORNO EXCLUSIVO PARA ACCIONES CORPORATIVAS ---
+            # --- RAMA 1: ACCIONES CORPORATIVAS ---
             if not es_etf_target:
                 st.subheader("📋 Matriz Completa de Datos Financieros (Acciones)")
-                df_m = df[df['Tipo'] == "ACCION"].copy().drop(columns=["FCF_Total", "Acciones", "Tipo", "P/E Canasta", "Expense Ratio", "Dividend Yield"])
+                df_m = df[df['Tipo'] == "ACCION"].copy()
+                # Limpieza de columnas cruzadas
+                columnas_validas = [c for c in ["Ticker", "Nombre", "Precio Actual", "Forward P/E", "EV/EBITDA", "P/B Ratio", "Deuda Neta/EBITDA", "Liquidez Corriente", "Beta", "Margen Neto", "ROE"] if c in df_m.columns]
+                df_m = df_m[columnas_validas]
                 
-                v_min = ["Forward P/E", "EV/EBITDA", "P/B Ratio", "Deuda Neta/EBITDA"]
-                v_max = ["Liquidez Corriente", "Margen Neto", "ROE"]
+                v_min = [c for c in ["Forward P/E", "EV/EBITDA", "P/B Ratio", "Deuda Neta/EBITDA"] if c in df_m.columns]
+                v_max = [c for c in ["Liquidez Corriente", "Margen Neto", "ROE"] if c in df_m.columns]
                 
                 st.dataframe(df_m.style.apply(
                     lambda s: ['background-color: rgba(46,204,113,0.4); font-weight:bold' if v == s[s>0].min() else '' for v in s], subset=v_min
@@ -131,16 +134,17 @@ if st.button("🔥 Correr Análisis de Valuación"):
                         else: st.error(f"📉 **Sobreprecio Estimado: {((pr-v_i)/v_i)*100:.1f}%**")
                 else: st.info(f"ℹ️ Módulo DCF en espera: Requiere flujo de caja libre positivo corporativo.")
 
-            # --- RAMA 2: ENTORNO AUTOMÁTICO EXCLUSIVO PARA VALUAR ETFS ---
+            # --- RAMA 2: ETFs ---
             else:
                 st.subheader("📋 Matriz de Eficiencia y Diversificación (Estructura de ETFs)")
-                cols_drop = ["Forward P/E", "EV/EBITDA", "P/B Ratio", "Deuda Neta/EBITDA", "Liquidez Corriente", "Margen Neto", "ROE", "FCF_Total", "Acciones", "Tipo"]
-                df_etf = df[df['Tipo'] == "ETF"].copy().drop(columns=cols_drop)
+                df_etf = df[df['Tipo'] == "ETF"].copy()
+                columnas_etf = [c for c in ["Ticker", "Nombre", "Precio Actual", "P/E Canasta", "Expense Ratio", "Dividend Yield", "Beta"] if c in df_etf.columns]
+                df_etf = df_etf[columnas_etf]
                 
                 st.dataframe(df_etf.style.apply(
-                    lambda s: ['background-color: rgba(46,204,113,0.4); font-weight:bold' if v == s[s>0].min() else '' for v in s], subset=["Expense Ratio"]
+                    lambda s: ['background-color: rgba(46,204,113,0.4); font-weight:bold' if v == s[s>0].min() else '' for v in s], subset=["Expense Ratio"] if "Expense Ratio" in df_etf.columns else []
                 ).apply(
-                    lambda s: ['background-color: rgba(46,204,113,0.4); font-weight:bold' if v == s.max() else '' for v in s], subset=["Dividend Yield"]
+                    lambda s: ['background-color: rgba(46,204,113,0.4); font-weight:bold' if v == s.max() else '' for v in s], subset=["Dividend Yield"] if "Dividend Yield" in df_etf.columns else []
                 ).format({
                     "Precio Actual": "{:.2f} USD", "P/E Canasta": "{:.2f}",
                     "Expense Ratio": lambda x: f"{x*100:.2f}%" if pd.notna(x) else "N/A",
@@ -161,14 +165,14 @@ if st.button("🔥 Correr Análisis de Valuación"):
                         txt_etf += f"• 💰 **Distribución de Renta:** Devenga un Dividend Yield del {dy*100:.2f}% anual de forma directa a tu cuenta.\n"
                     st.write(txt_etf)
                 with cetf2:
-                    st.markdown("**🎯 Diagnóstico de Perfil de Riesgo:**")
+                    st.markdown("**🎯 Conclusión de Riesgo Sistémico:**")
                     bt = obj["Beta"]
                     if pd.notna(bt):
                         if bt > 1.2: st.warning(f"⚡ **PERFIL AGRESIVO (Beta: {bt:.2f}):** El fondo amplifica los movimientos del mercado. Alta volatilidad sistémica.")
                         elif bt < 0.8: st.success(f"🛡️ **PERFIL DEFENSIVO (Beta: {bt:.2f}):** Comportamiento descorrelacionado o amortiguado. Ideal para perfiles conservadores.")
-                        else: st.info(f"⚖️ **PERFIL MODERADO (Beta: {bt:.2f}):** Se desplaza en perfecta sintonía y equilibrio con el mercado general (S&P 500).")
+                        else: st.info(f"⚖️ **PERFIL MODERADO (Beta: {bt:.2f}):** Se desplaza en sintonía y equilibrio con el mercado general.")
 
-            # --- SECCIÓN TÉCNICA UNIFICADA (Aplica perfectamente a Acciones y ETFs) ---
+            # --- SECCIÓN TÉCNICA UNIFICADA ---
             st.markdown("---")
             st.subheader(f"📐 Terminal de Datos Técnicos y Estructura de Precios - {ticker_objetivo}")
             
@@ -207,21 +211,18 @@ if st.button("🔥 Correr Análisis de Valuación"):
                     m1, m2, m3 = st.columns(3)
                     with m1:
                         st.metric(label="Precio vs. EMA 30", value=f"{precio_hoy:.2f} USD", delta=f"{precio_hoy - ema_30_hoy:.2f} USD vs EMA 30")
-                        st.caption("🟩 **Fase Alcista:**" if precio_hoy > ema_30_hoy else "🟥 **Fase Bajista:**")
                     with m2:
                         dmi_diff = p_di_hoy - m_di_hoy
                         st.metric(label="Fuerza Direccional (Cruce DMI)", value=f"+DI {p_di_hoy:.1f} | -DI {m_di_hoy:.1f}", delta=f"{dmi_diff:.1f} Net Comprador" if dmi_diff > 0 else f"{dmi_diff:.1f} Net Vendedor")
-                        st.caption("🟢 **Compradores lideran**" if dmi_diff > 0 else "🔴 **Vendedores lideran**")
                     with m3:
                         st.metric(label="Intensidad de Tendencia (ADX)", value=f"{adx_hoy:.1f} Puntos", delta="Tendencia Activa" if adx_hoy > 20 else "Lateralización", delta_color="normal" if adx_hoy > 20 else "off")
-                        st.caption("⚡ **Movimiento Fuerte**" if adx_hoy > 25 else "💤 **Rango Lateral**")
                     
                     st.markdown("---")
                     st.markdown("### 📈 Panel A: Tendencia de Mediano Plazo (Precio vs. EMA 30)", help="Línea azul: precio real. Línea roja: media móvil exponencial de 30 días.")
                     df_precio_panel = pd.DataFrame({"Precio Cierre (USD)": cierre, "EMA 30 Ruedas": calc_ema_30}, index=h_tecn.index)
                     st.line_chart(df_precio_panel, height=350, use_container_width=True)
                     
-                    st.markdown("### 📊 Panel B: Oscilador Direccional Completo (DMI 14 / ADX 14)", help="+DI (Azul): Fuerza Compradora. -DI (Roja): Fuerza Vendedora. ADX (Verde): Intensidad.")
+                    st.markdown("### 📊 Panel B: Oscilador Direccional Completo (DMI 14 / ADX 14)", help="+DI (Azul): Fuerza Compradora. -DI (Roja): Fuerza Vendedora. ADX (Verde): Intensidad de contratapa institucional.")
                     df_dmi_panel = pd.DataFrame({"+DI": series_plus_di, "-DI": series_minus_di, "ADX": series_adx}, index=h_tecn.index)
                     st.line_chart(df_dmi_panel, height=250, use_container_width=True)
                     
