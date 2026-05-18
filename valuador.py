@@ -6,7 +6,7 @@ import yfinance as yf
 st.set_page_config(page_title="Valuador Financiero Pro", layout="wide")
 
 st.title("📊 Plataforma de Valuación de Empresas Públicas")
-st.markdown("Analizá ratios financieros, salud de balance, flujos descontados y tendencias de mercado en tiempo real.")
+st.markdown("Analizá ratios financieros, salud de balance, flujos descontados y tendencias en tiempo real.")
 
 # Entrada de datos
 col1, col2 = st.columns([1, 2])
@@ -89,32 +89,4 @@ if st.button("🔥 Correr Análisis de Valuación"):
                                       }, na_rep="N/A")
             
             st.dataframe(styled_df, width="stretch", column_config={
-                "Forward P/E": st.column_config.NumberColumn("Forward P/E ❓", help="Mide cuántas veces pagás las ganancias estimadas del próximo año. Menor implica descuento."),
-                "EV/EBITDA": st.column_config.NumberColumn("EV/EBITDA ❓", help="Mide el valor de adquisición del negocio sobre su caja operativa bruta. Clave para comparar el sector."),
-                "P/B Ratio": st.column_config.NumberColumn("P/B Ratio ❓", help="Precio / Valor en Libros: Compara la valuación de mercado con el patrimonio neto contable."),
-                "Deuda Neta/EBITDA": st.column_config.NumberColumn("Deuda Neta/EBITDA ❓", help="Ratio de Apalancamiento: Ideal menor a 2.5x. Si es negativo significa caja neta positiva."),
-                "Liquidez Corriente": st.column_config.NumberColumn("Liquidez Corriente ❓", help="Capacidad de pago de corto plazo. Ideal mayor a 1.0x."),
-                "Beta": st.column_config.NumberColumn("Beta ❓", help="Volatilidad contra el S&P 500 (Mercado = 1)."),
-                "Margen Neto": st.column_config.NumberColumn("Margen Neto ❓", help="Qué porcentaje de los ingresos se convierte en ganancia neta real."),
-                "ROE": st.column_config.NumberColumn("ROE ❓", help="Rentabilidad sobre el capital aportado por los socios.")
-            })
-            
-            # --- SECCIÓN 2: MEDIANAS SECTORIALES ---
-            df_sector = df[df['Ticker'] != ticker_objetivo]
-            medianas = df_sector.median(numeric_only=True) if not df_sector.empty else None
-            datos_obj = df[df['Ticker'] == ticker_objetivo].iloc[0]
-            
-            # --- SECCIÓN 3: ALGORITMO AUDITOR Y ASESOR INTELIGENTE ---
-            st.subheader("🤖 Informe del Asesor Inteligente de Inversión")
-            
-            puntuaciones = {}
-            for index, row in df.iterrows():
-                ticker = row["Ticker"]
-                score = 0
-                if pd.notna(row["Forward P/E"]) and medianas is not None and row["Forward P/E"] < medianas["Forward P/E"]: score += 1
-                if pd.notna(row["EV/EBITDA"]) and medianas is not None and row["EV/EBITDA"] < medianas["EV/EBITDA"]: score += 1
-                if pd.notna(row["ROE"]) and medianas is not None and row["ROE"] > medianas["ROE"]: score += 1
-                if pd.notna(row["Deuda Neta/EBITDA"]):
-                    if row["Deuda Neta/EBITDA"] > 3.0: score -= 2  
-                    elif row["Deuda Neta/EBITDA"] < 1.5: score += 1 
-                if pd.not
+                "Forward P/E": st.column_config.NumberColumn("Forward P/E ❓", help="Mide cuántas veces pag
