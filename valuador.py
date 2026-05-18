@@ -124,11 +124,9 @@ if st.button("🔥 Correr Análisis de Valuación"):
                     low = h_tecn['Low']
                     precio_hoy = cierre.iloc[-1]
                     
-                    # Cómputo matemático preciso de la EMA 30
                     calc_ema_30 = cierre.ewm(span=30, adjust=False).mean()
                     ema_30_hoy = calc_ema_30.iloc[-1]
                     
-                    # Cómputo histórico paso a paso de las series del DMI 14
                     up_move = high.diff()
                     down_move = -low.diff()
                     plus_dm = np.where((up_move > down_move) & (up_move > 0), up_move, 0)
@@ -162,7 +160,7 @@ if st.button("🔥 Correr Análisis de Valuación"):
                         st.metric(label="Intensidad de Tendencia (ADX)", value=f"{adx_hoy:.1f} Puntos", delta="Tendencia Activa (>20)" if adx_hoy > 20 else "Mercado Lateral (<20)", delta_color="normal" if adx_hoy > 20 else "off")
                         st.caption("⚡ **Movimiento Fuerte:** Respaldo institucional activo." if adx_hoy > 25 else "💤 **Rango Lateral:** Tendencia débil o compresión.")
                     
-                    # panel A: PANEL DE PRECIO + EMA 30
+                    # Panel A: Gráfico de Precio + EMA 30
                     st.markdown("---")
                     st.subheader(f"📈 Panel A: Tendencia de Mediano Plazo (Precio de Cierre vs. EMA 30)")
                     df_precio_panel = pd.DataFrame({
@@ -171,15 +169,62 @@ if st.button("🔥 Correr Análisis de Valuación"):
                     }, index=h_tecn.index)
                     st.line_chart(df_precio_panel, height=350, use_container_width=True)
                     
-                    # panel B: PANEL INFERIOR DMI COMPLETO (Tu Perfil de TradingView)
+                    # Panel B: Gráfico DMI + ADX
                     st.subheader(f"📊 Panel B: Oscilador Direccional Completo (DMI 14 / ADX 14)")
-                    st.caption("Mapeo temporal del +DI (Fuerza Compradora), -DI (Fuerza Vendedora) y la línea ADX (Intensidad de la tendencia).")
                     df_dmi_panel = pd.DataFrame({
                         "+DI (Fuerza Compradora)": series_plus_di,
                         "-DI (Fuerza Vendedora)": series_minus_di,
                         "ADX (Fuerza Tendencia General)": series_adx
                     }, index=h_tecn.index)
                     st.line_chart(df_dmi_panel, height=250, use_container_width=True)
+                    
+                    # 5. BLOQUE DE RESUMEN DE LECTURA Y RECOMENDACIÓN TÁCTICA
+                    st.markdown("---")
+                    st.subheader("🎯 Diagnóstico Técnico y Recomendación Profesional")
+                    
+                    # Lógica de interpretación cruzada
+                    rec_col1, rec_col2 = st.columns(2)
+                    
+                    with rec_col1:
+                        st.markdown("**🔍 Resumen Crítico de las Lecturas:**")
+                        # 1. Análisis de estructura de precio
+                        if precio_hoy > ema_30_hoy:
+                            st.write(f"• **Estructura:** El activo mantiene una condición alcista saludable en el mediano plazo, operando a una distancia de `{precio_hoy - ema_30_hoy:.2f} USD` por encima de la EMA 30.")
+                        else:
+                            st.write(f"• **Estructura:** El activo muestra debilidad estructural de corto/mediano plazo al cotizar por debajo de la EMA 30. Riesgo de aceleración correctiva.")
+                        
+                        # 2. Análisis del oscilador direccional
+                        if p_di_hoy > m_di_hoy:
+                            st.write(f"• **Flujo:** Dominio de los compradores (`+DI` en {p_di_hoy:.1f} por encima del `-DI` en {m_di_hoy:.1f}). Hay presión de demanda genuina.")
+                        else:
+                            st.write(f"• **Flujo:** Control absoluto de la oferta (`-DI` en {m_di_hoy:.1f} superando al `+DI` en {p_di_hoy:.1f}). Los vendedores marcan el ritmo.")
+                            
+                        # 3. Análisis de la fuerza (ADX)
+                        if adx_hoy > 25:
+                            st.write(f"• **Fuerza:** El ADX consolidado en `{adx_hoy:.1f} puntos` confirma que la tendencia actual está completamente activa y respaldada por volumen institucional.")
+                        elif adx_hoy < 20:
+                            st.write(f"• **Fuerza:** El ADX bajo en `{adx_hoy:.1f} puntos` delata una fase de fatiga o lateralización aburrida. Las señales de ruptura tienen alta probabilidad de fallo.")
+                        else:
+                            st.write(f"• **Fuerza:** El ADX se ubica en un nivel intermedio (`{adx_hoy:.1f} puntos`), indicando un movimiento en desarrollo que busca consolidar fuerza.")
+
+                    with rec_col2:
+                        st.markdown("**🚀 Sugerencia Operativa y Timing:**")
+                        
+                        # Escenario 1: Compra Confirmada (Alcista + Compradores + Fuerza)
+                        if precio_hoy > ema_30_hoy and p_di_hoy > m_di_hoy and adx_hoy > 20:
+                            st.success("🟩 **ACCIONAR: ESTRATEGIA ALCISTA (LONG)**\n\nTodos los indicadores están alineados. El precio está arriba de la EMA 30, el flujo es comprador y el ADX tiene fuerza. Zona óptima para buscar entradas en continuaciones de tendencia o testeos de soporte.")
+                        
+                        # Escenario 2: Corto o Salida (Bajista + Vendedores + Fuerza)
+                        elif precio_hoy < ema_30_hoy and m_di_hoy > p_di_hoy and adx_hoy > 20:
+                            st.error("🚨 **ACCIONAR: REDUCIR EXPOSICIÓN O SHORT**\n\nEstructura muy bajista. El precio opera abajo de la EMA 30 y los vendedores tienen fuerza con un ADX activo. Evitar compras de oportunidad ('atrapasueños') hasta que el precio recupere la media.")
+                        
+                        # Escenario 3: Rango Lateral o Compresión (ADX Muerto)
+                        elif adx_hoy < 20:
+                            st.warning("🟨 **ACCIONAR: PACIENCIA / OPERAR RANGOS**\n\nEl ADX por debajo de 20 anula las estrategias de seguimiento de tendencia. El precio va a oscilar de forma errática. Se sugiere esperar un quiebre limpio con aumento de ADX o comprar estrictamente en soportes base.")
+                        
+                        # Escenario 4: Divergencia o Transición
+                        else:
+                            st.info("🟦 **ACCIONAR: MONITOREO / CAUTELA**\n\nLos indicadores muestran señales mixtas (ej. precio arriba de la EMA pero DMI perdiendo fuerza). El mercado está en una transición o distribuyendo. Monitorear cierres diarios antes de comprometer capital.")
                     
                 else:
                     st.info("Falta historial para procesar los cálculos.")
