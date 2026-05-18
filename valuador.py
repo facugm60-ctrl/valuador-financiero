@@ -2,10 +2,11 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import yfinance as yf
+import streamlit.components.v1 as components
 
 st.set_page_config(page_title="Valuador Pro", layout="wide")
 st.title("📊 Plataforma de Valuación de Empresas Públicas")
-st.markdown("Ratios, salud de balance, flujos descontados y tendencias en tiempo real.")
+st.markdown("Ratios, salud de balance, flujos descontados y análisis técnico en tiempo real.")
 
 # Inputs
 col1, col2 = st.columns([1, 2])
@@ -47,7 +48,6 @@ if st.button("🔥 Correr Análisis de Valuación"):
             st.subheader("📋 Matriz Completa de Datos Financieros")
             df_m = df.copy().drop(columns=["FCF_Total", "Acciones"])
             
-            # Formateos y estilos
             v_min = ["Forward P/E", "EV/EBITDA", "P/B Ratio", "Deuda Neta/EBITDA"]
             v_max = ["Liquidez Corriente", "Margen Neto", "ROE"]
             
@@ -62,7 +62,6 @@ if st.button("🔥 Correr Análisis de Valuación"):
                 "ROE": lambda x: f"{x*100:.2f}%" if pd.notna(x) else "N/A"
             }, na_rep="N/A"), width="stretch")
             
-            # Medianas y Objetivo
             df_s = df[df['Ticker'] != ticker_objetivo]
             meds = df_s.median(numeric_only=True) if not df_s.empty else None
             obj = df[df['Ticker'] == ticker_objetivo].iloc[0]
@@ -102,7 +101,6 @@ if st.button("🔥 Correr Análisis de Valuación"):
                 with cd2: td = st.slider("Tasa Descuento (WACC):", 5, 25, 10, 1, "%d%%") / 100
                 with cd3: mt = st.slider("Múltiplo Terminal EV/EBITDA:", 3, 20, 6, 1, "%dx")
                 
-                # Proyección matemática compacta
                 f_p = [fcf_a * ((1+cw)**i) / ((1+td)**i) for i in range(1, 6)]
                 v_t = (fcf_a * ((1+cw)**5) * mt) / ((1+td)**5)
                 v_i = sum(f_p) + v_t
@@ -117,10 +115,31 @@ if st.button("🔥 Correr Análisis de Valuación"):
                     else: st.error(f"📉 **Sobreprecio: {((pr-v_i)/v_i)*100:.1f}%** (Sobrevaluada)")
             else: st.info(f"ℹ️ Sin Flujo de Caja Libre positivo para {ticker_objetivo}.")
 
-            # 4. GRÁFICO
+            # 4. GRÁFICO AVANZADO DE TRADINGVIEW
             st.markdown("---")
-            st.subheader(f"📈 Precio de Cierre Histórico (3 Años) - {ticker_objetivo}")
-            try:
-                h = yf.Ticker(ticker_objetivo).history(period="3y")
-                if not h.empty: st.line_chart(h[['Close']].rename(columns={'Close': 'Precio (USD)'}), use_container_width=True)
-            except: st.info("No se pudo cargar la tendencia.")
+            st.subheader(f"📈 Gráfico Técnico Interactivo (TradingView) - {ticker_objetivo}")
+            
+            tradingview_html = f"""
+            <div id="tradingview_advanced_chart" style="height:600px;"></div>
+            <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+            <script type="text/javascript">
+            new TradingView.widget({{
+              "width": "100%",
+              "height": 600,
+              "symbol": "{ticker_objetivo}",
+              "interval": "D",
+              "timezone": "Etc/UTC",
+              "theme": "dark",
+              "style": "1",
+              "locale": "es",
+              "toolbar_bg": "#f1f3f6",
+              "enable_publishing": false,
+              "hide_side_toolbar": false,
+              "allow_symbol_change": true,
+              "container_id": "tradingview_advanced_chart"
+            }});
+            </script>
+            """
+            components.html(tradingview_html, height=620, scrolling=False)
+        else:
+            st.error("No se pudieron recopilar datos.")
