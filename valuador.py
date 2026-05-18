@@ -6,7 +6,7 @@ import yfinance as yf
 st.set_page_config(page_title="Valuador Financiero Avanzado", layout="wide")
 
 st.title("📊 Plataforma de Valuación de Empresas Públicas")
-st.markdown("Analizá ratios financieros en tiempo real y descubrí las mejores alternativas del sector.")
+st.markdown("Analizá ratios financieros, salud de balance y descubrí las mejores alternativas en tiempo real.")
 
 # Entrada de datos
 col1, col2 = st.columns([1, 2])
@@ -26,14 +26,23 @@ def obtener_ratios(ticker_symbol):
         if not info or ('currentPrice' not in info and 'previousClose' not in info):
             return None
             
+        # Extraemos variables de balance para calcular salud financiera
+        total_deuda = info.get("totalDebt", 0)
+        caja = info.get("totalCash", 0)
+        ebitda = info.get("ebitda", 0)
+        
+        deuda_neta = total_deuda - caja
+        net_debt_ebitda = deuda_neta / ebitda if ebitda and ebitda > 0 else None
+            
         return {
             "Ticker": ticker_symbol,
             "Nombre": info.get("longName", "N/A"),
             "Precio Actual": info.get('currentPrice', info.get('previousClose', 0)),
-            "P/E Trailing": info.get("trailingPE"),
             "Forward P/E": info.get("forwardPE"),
-            "P/B Ratio": info.get("priceToBook"),
             "EV/EBITDA": info.get("enterpriseToEbitda"),
+            "P/B Ratio": info.get("priceToBook"),
+            "Deuda Neta/EBITDA": net_debt_ebitda,
+            "Liquidez Corriente": info.get("currentRatio"),
             "Beta": info.get("beta"),
             "Margen Neto": info.get("profitMargins"),
             "ROE": info.get("returnOnEquity")
@@ -41,24 +50,20 @@ def obtener_ratios(ticker_symbol):
     except:
         return None
 
-# --- FUNCIONES DE ESTILO PARA RESALTAR LOS MEJORES RATIOS ---
+# --- FUNCIONES DE ESTILO INTELIGENTE ---
 def resaltar_maximo(s):
-    ''' Resalta el valor más alto en verde (Ideal para Márgenes y ROE) '''
     is_max = s == s.max()
     return ['background-color: rgba(46, 204, 113, 0.4); font-weight: bold' if v else '' for v in is_max]
 
 def resaltar_minimo(s):
-    ''' Resalta el valor más bajo en verde (Ideal para Múltiplos donde menor es más barato) '''
-    # Ignoramos valores menores o iguales a cero para evitar distorsiones por pérdidas
     valores_validos = s[s > 0]
-    if valores_validos.empty:
-        return ['' for _ in s]
+    if valores_validos.empty: return ['' for _ in s]
     is_min = s == valores_validos.min()
     return ['background-color: rgba(46, 204, 113, 0.4); font-weight: bold' if v else '' for v in is_min]
 
 
 if st.button("🔥 Correr Análisis de Valuación"):
-    with st.spinner("Conectando con Wall Street y procesando balances..."):
+    with st.spinner("Conectando con Wall Street y auditando balances..."):
         datos = []
         for t in todos_los_tickers:
             res = obtener_ratios(t)
@@ -67,109 +72,100 @@ if st.button("🔥 Correr Análisis de Valuación"):
         if datos:
             df = pd.DataFrame(datos)
             
-            # --- SECCIÓN 1: MATRIZ COMPLETA CON RESALTADOS Y TOOLTIPS EN ENCABEZADOS ---
-            st.subheader("📋 Matriz Completa de Datos Financieros")
-            st.caption("💡 Las celdas resaltadas en VERDE indican la empresa que lidera ese ratio específico (múltiplos más bajos o rentabilidades más altas).")
+            # --- SECCIÓN 1: MATRIZ COMPLETA DE DATOS ---
+            st.subheader("📋 Matriz Completa de Datos Financieros y de Balance")
+            st.caption("💡 Las celdas resaltadas en VERDE indican la empresa líder del grupo en ese indicador en particular.")
             
             df_mostrar = df.copy()
             
-            # Aplicamos los estilos condicionales columna por columna
-            styled_df = df_mostrar.style.apply(resaltar_minimo, subset=["P/E Trailing", "Forward P/E", "P/B Ratio", "EV/EBITDA"])\
-                                      .apply(resaltar_maximo, subset=["Margen Neto", "ROE"])\
+            # Aplicamos los estilos condicionales por columna
+            styled_df = df_mostrar.style.apply(resaltar_minimo, subset=["Forward P/E", "EV/EBITDA", "P/B Ratio", "Deuda Neta/EBITDA"])\
+                                      .apply(resaltar_maximo, subset=["Liquidez Corriente", "Margen Neto", "ROE"])\
                                       .format({
-                                          "Precio Actual": "{:.2f} USD",
-                                          "P/E Trailing": "{:.2f}", 
-                                          "Forward P/E": "{:.2f}",
-                                          "P/B Ratio": "{:.2f}", 
-                                          "EV/EBITDA": "{:.2f}", 
+                                          "Precio Actual": "{:.2f} USD", "Forward P/E": "{:.2f}",
+                                          "P/B Ratio": "{:.2f}", "EV/EBITDA": "{:.2f}", 
+                                          "Deuda Neta/EBITDA": "{:.2f}x", "Liquidez Corriente": "{:.2f}x",
                                           "Beta": "{:.2f}",
                                           "Margen Neto": lambda x: f"{x*100:.2f}%" if pd.notna(x) else "N/A",
                                           "ROE": lambda x: f"{x*100:.2f}%" if pd.notna(x) else "N/A"
                                       }, na_rep="N/A")
             
-            # Renombramos los encabezados inyectándoles tooltips nativos de Streamlit para las columnas
-            # Al pasar el cursor sobre el símbolo (?), el usuario verá la descripción completa del ratio
+            # Configuramos encabezados con explicaciones flotantes detalladas
             st.dataframe(styled_df, width="stretch", column_config={
-                "P/E Trailing": st.column_config.NumberColumn("P/E Trailing ❓", help="Price to Earnings Histórico: Cuántas veces paga el precio actual las ganancias del último año cerrado."),
-                "Forward P/E": st.column_config.NumberColumn("Forward P/E ❓", help="Price to Earnings Proyectado: Relación precio/ganancias estimadas para los próximos 12 meses. Menor implica descuento."),
-                "P/B Ratio": st.column_config.NumberColumn("P/B Ratio ❓", help="Price to Book Value: Compara el valor de mercado con el valor contable en libros. Útil para ver el respaldo patrimonial."),
-                "EV/EBITDA": st.column_config.NumberColumn("EV/EBITDA ❓", help="Enterprise Value / EBITDA: Mide el valor de adquisición del negocio sobre su caja operativa bruta. Es el ratio rey para comparar el sector."),
-                "Beta": st.column_config.NumberColumn("Beta ❓", help="Beta de Volatilidad: Mide el riesgo de la acción frente al mercado (S&P 500 = 1). Mayor a 1 es más agresiva, menor a 1 es defensiva."),
-                "Margen Neto": st.column_config.NumberColumn("Margen Neto ❓", help="Profit Margin: Qué porcentaje de los ingresos totales se convierte en ganancia neta real después de costos e impuestos."),
-                "ROE": st.column_config.NumberColumn("ROE ❓", help="Return on Equity: La rentabilidad del negocio sobre el capital aportado por los accionistas. Mayor es más eficiente.")
+                "Forward P/E": st.column_config.NumberColumn("Forward P/E ❓", help="Mide cuántas veces pagás las ganancias estimadas del próximo año. Menor implica descuento."),
+                "EV/EBITDA": st.column_config.NumberColumn("EV/EBITDA ❓", help="Mide el valor de adquisición del negocio sobre su caja operativa bruta. Clave para comparar el sector."),
+                "P/B Ratio": st.column_config.NumberColumn("P/B Ratio ❓", help="Precio / Valor en Libros: Compara la valuación de mercado con el patrimonio neto contable."),
+                "Deuda Neta/EBITDA": st.column_config.NumberColumn("Deuda Neta/EBITDA ❓", help="Ratio de Apalancamiento: Indica cuántos años de EBITDA requiere la empresa para cancelar su deuda neta. Ideal menor a 2.5x. Si es negativo significa que tiene más caja que deuda."),
+                "Liquidez Corriente": st.column_config.NumberColumn("Liquidez Corriente ❓", help="Mide la capacidad de pagar deudas de corto plazo (Activo Corriente / Pasivo Corriente). Debe ser mayor a 1.0x para estar tranquilos."),
+                "Beta": st.column_config.NumberColumn("Beta ❓", help="Volatilidad contra el S&P 500 (Mercado = 1). Mayor a 1 es agresiva; menor a 1 es defensiva."),
+                "Margen Neto": st.column_config.NumberColumn("Margen Neto ❓", help="Qué porcentaje de los ingresos totales se convierte en ganancia neta real."),
+                "ROE": st.column_config.NumberColumn("ROE ❓", help="Rentabilidad sobre el capital aportado por los socios. Mide la eficiencia del management.")
             })
             
-            # --- SECCIÓN 2: TARJETAS COMPARATIVAS ---
+            # --- SECCIÓN 2: MEDIANAS SECTORIALES ---
             df_sector = df[df['Ticker'] != ticker_objetivo]
             medianas = df_sector.median(numeric_only=True) if not df_sector.empty else None
             datos_obj = df[df['Ticker'] == ticker_objetivo].iloc[0]
             
-            st.subheader(f"⚡ Resumen de {ticker_objetivo} vs Mediana de Competidores")
-            kpi1, kpi2, kpi3, kpi4 = st.columns(4)
-            
-            pe_obj, pe_med = datos_obj["Forward P/E"], medianas["Forward P/E"] if medianas is not None else None
-            ev_obj, ev_med = datos_obj["EV/EBITDA"], medianas["EV/EBITDA"] if medianas is not None else None
-            roe_obj, roe_med = datos_obj["ROE"], medianas["ROE"] if medianas is not None else None
-            beta_obj = datos_obj["Beta"]
-
-            if pd.notna(pe_obj) and pd.notna(pe_med) and pe_med != 0:
-                kpi1.metric("Forward P/E", f"{pe_obj:.2f}x", f"{((pe_obj - pe_med) / pe_med) * 100:.1f}% vs Sector", delta_color="inverse")
-            else:
-                kpi1.metric("Forward P/E", f"{pe_obj:.2f}x" if pd.notna(pe_obj) else "N/A")
-
-            if pd.notna(ev_obj) and pd.notna(ev_med) and ev_med != 0:
-                kpi2.metric("EV/EBITDA", f"{ev_obj:.2f}x", f"{((ev_obj - ev_med) / ev_med) * 100:.1f}% vs Sector", delta_color="inverse")
-            else:
-                kpi2.metric("EV/EBITDA", f"{ev_obj:.2f}x" if pd.notna(ev_obj) else "N/A")
-
-            if pd.notna(roe_obj) and pd.notna(roe_med):
-                kpi3.metric("ROE", f"{roe_obj*100:.1f}%", f"{(roe_obj - roe_med)*100:+.1f}% vs Sector")
-            else:
-                kpi3.metric("ROE", f"{roe_obj*100:.1f}%" if pd.notna(roe_obj) else "N/A")
-                
-            kpi4.metric("Beta (Riesgo)", f"{beta_obj:.2f}" if pd.notna(beta_obj) else "N/A")
-
-            # --- SECCIÓN 3: ALGORITMO ASESOR INTELIGENTE ---
+            # --- SECCIÓN 3: ALGORITMO AUDITOR Y ASESOR INTELIGENTE ---
             st.subheader("🤖 Informe del Asesor Inteligente de Inversión")
             
             puntuaciones = {}
             for index, row in df.iterrows():
                 ticker = row["Ticker"]
                 score = 0
-                if pd.notna(row["Forward P/E"]) and medianas is not None and pd.notna(medianas["Forward P/E"]) and row["Forward P/E"] < medianas["Forward P/E"]: score += 1
-                if pd.notna(row["EV/EBITDA"]):
-                    if row["EV/EBITDA"] < 8: score += 1
-                    if medianas is not None and pd.notna(medianas["EV/EBITDA"]) and row["EV/EBITDA"] < medianas["EV/EBITDA"]: score += 1
-                if pd.notna(row["ROE"]):
-                    if row["ROE"] > 0.15: score += 1
-                    if medianas is not None and pd.notna(medianas["ROE"]) and row["ROE"] > medianas["ROE"]: score += 1
+                
+                # Reglas de Valoración Relativa
+                if pd.notna(row["Forward P/E"]) and medianas is not None and row["Forward P/E"] < medianas["Forward P/E"]: score += 1
+                if pd.notna(row["EV/EBITDA"]) and medianas is not None and row["EV/EBITDA"] < medianas["EV/EBITDA"]: score += 1
+                if pd.notna(row["ROE"]) and medianas is not None and row["ROE"] > medianas["ROE"]: score += 1
+                
+                # NUEVAS: Reglas Estrictas de Seguridad de Balance (Evitar quiebras)
+                if pd.notna(row["Deuda Neta/EBITDA"]):
+                    if row["Deuda Neta/EBITDA"] > 3.0: score -= 2  # Castigo duro por apalancamiento peligroso
+                    elif row["Deuda Neta/EBITDA"] < 1.5: score += 1 # Premio por balance limpio
+                if pd.notna(row["Liquidez Corriente"]) and row["Liquidez Corriente"] >= 1.2: score += 1
+                
                 puntuaciones[ticker] = score
 
             mejor_ticker = max(puntuaciones, key=puntuaciones.get)
             
             col_inf1, col_inf2 = st.columns(2)
             with col_inf1:
-                st.markdown(f"**Análisis de Múltiplos para {ticker_objetivo}:**")
+                st.markdown(f"**Auditoría de Balance y Riesgo para {ticker_objetivo}:**")
                 analisis_txt = ""
-                if pd.notna(pe_obj) and pd.notna(pe_med):
-                    if pe_obj < pe_med:
-                        analisis_txt += f"• **Valuación Atractiva:** Muestra descuento en valuación relativa frente a sus pares con un Forward P/E de {pe_obj:.2f}x.\n"
+                
+                # Diagnóstico de Apalancamiento
+                deb_obj = datos_obj["Deuda Neta/EBITDA"]
+                if pd.notna(deb_obj):
+                    if deb_obj > 3.0:
+                        analisis_txt += f"• ⚠️ **Riesgo de Deuda:** El ratio Deuda Neta/EBITDA es de {deb_obj:.2f}x. Es un nivel de apalancamiento peligroso que puede comprometer la solvencia.\n"
+                    elif deb_obj < 0:
+                        analisis_txt += f"• 🛡️ **Excelente Solvencia:** Su Deuda Neta es negativa ({deb_obj:.2f}x). Significa que la empresa posee una 'caja neta' formidable, teniendo más dinero en efectivo que pasivos financieros totales.\n"
                     else:
-                        analisis_txt += f"• **Prima de Riesgo:** Cotiza más cara que la mediana de sus competidores ({pe_obj:.2f}x vs {pe_med:.2f}x).\n"
-                if pd.notna(roe_obj):
-                    if roe_obj > 0.20:
-                        analisis_txt += f"• **Alta Eficiencia:** El ROE del {roe_obj*100:.1f}% es excelente, demostrando un uso brillante del capital contable.\n"
+                        analisis_txt += f"• 👍 **Deuda Controlada:** El ratio Deuda Neta/EBITDA se encuentra en un rango muy saludable de {deb_obj:.2f}x.\n"
+                
+                # Diagnóstico de Liquidez
+                liq_obj = datos_obj["Liquidez Corriente"]
+                if pd.notna(liq_obj):
+                    if liq_obj < 1.0:
+                        analisis_txt += f"• 🚨 **Alerta de Liquidez:** Registra una liquidez de {liq_obj:.2f}x. No cubre sus deudas de corto plazo con sus activos corrientes. Estrés financiero potencial.\n"
                     else:
-                        analisis_txt += f"• **Rentabilidad Moderada:** Su ROE de {roe_obj*100:.1f}% es inferior a los estándares óptimos del grupo.\n"
+                        analisis_txt += f"• • **Fondeo de Corto Plazo:** Cubre perfectamente sus compromisos inmediatos con una liquidez corriente de {liq_obj:.2f}x.\n"
+                        
                 st.write(analisis_txt)
 
             with col_inf2:
                 st.markdown("**🎯 Sugerencia Estratégica del Sistema:**")
-                if mejor_ticker == ticker_objetivo and puntuaciones[ticker_objetivo] >= 3:
-                    st.success(f"🟩 **RECOMENDACIÓN: COMPRAR / FOCO EN {ticker_objetivo}**\n\nEl activo analizado combina múltiplos de descuento con retornos sobre el capital superiores a la media sectorial. Es la opción más sólida del grupo.")
+                
+                # Verificamos si el activo objetivo tiene alarmas graves de balance
+                if pd.notna(datos_obj["Deuda Neta/EBITDA"]) and datos_obj["Deuda Neta/EBITDA"] > 3.0:
+                    st.error(f"🚨 **RECOMENDACIÓN: EVITAR / ALTO RIESGO**\n\nA pesar de los múltiplos de precio, **{ticker_objetivo}** presenta un nivel de endeudamiento crítico que activa el protocolo de exclusión por riesgo de balance.")
+                elif mejor_ticker == ticker_objetivo and puntuaciones[ticker_objetivo] >= 3:
+                    st.success(f"🟩 **RECOMENDACIÓN: COMPRAR / FOCO EN {ticker_objetivo}**\n\nEl activo pasa las auditorías de riesgo. Combina múltiplos de descuento con un balance limpio y sólido.")
                 elif mejor_ticker != ticker_objetivo:
-                    st.warning(f"🟨 **RECOMENDACIÓN: MANTENER EN OBSERVACIÓN / EVALUAR ALTERNATIVAS**\n\nEl sistema sugiere que **{ticker_objetivo}** pierde atractivo frente a sus pares en la combinación de precio/rentabilidad. \n\n**Foco Alternativo:** El algoritmo detectó un perfil financiero más equilibrado y eficiente en **{mejor_ticker}**. Sugerimos profundizar el análisis en esa empresa.")
+                    st.warning(f"🟨 **RECOMENDACIÓN: EVALUAR ALTERNATIVAS**\n\nEl algoritmo detectó un perfil financiero/riesgo más óptimo y equilibrado en **{mejor_ticker}**. Sugerimos trasladar el foco del análisis a este competidor.")
                 else:
-                    st.info(f"🟪 **RECOMENDACIÓN: EVALUACIÓN MIXTA**\n\nEl activo cotiza en rangos equilibrados. No registra ventajas competitivas extremas ni desarbitrajes claros sobre el resto de las alternativas.")
+                    st.info(f"🟪 **RECOMENDACIÓN: MANTENER / RANGOS MEDIOS**\n\nEl activo cotiza en línea con sus competidores y sus ratios de deuda se mantienen estables dentro de los parámetros permitidos.")
         else:
             st.error("No se pudieron recopilar datos.")
