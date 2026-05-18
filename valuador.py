@@ -45,6 +45,8 @@ def obtener_datos(symbol):
             logo_url = f"https://icons.duckduckgo.com/ip3/{dom}.ico"
             
         tiene_ebitda = "ebitda" in inf or "enterpriseToEbitda" in inf or "forwardPE" in inf
+        es_etf = not tiene_ebitda
+        
         raw_desc = inf.get("longBusinessSummary", "Sin descripción disponible.")
         desc_es = traducir_espanol(raw_desc) if symbol == ticker_objetivo else ""
         
@@ -87,24 +89,27 @@ if st.button("🔥 EJECUTAR DIAGNÓSTICO INTEGRAL"):
             obj = df[df['Ticker'] == ticker_objetivo].iloc[0]
             es_etf_target = obj["Tipo"] == "ETF"
             
-            # CABECERA VISUAL CON LOGO NATIVO DE STREAMLIT
+            # CABECERA VISUAL CON LOGO NATIVO
             st.markdown("---")
             c_head1, c_head2 = st.columns([1, 15])
-            with c_head1:
-                st.image(obj["Logo"], width=50)
-            with c_head2:
-                st.header(f"{obj['Nombre']} ({obj['Ticker']})")
+            with c_head1: st.image(obj["Logo"], width=50)
+            with c_head2: st.header(f"{obj['Nombre']} ({obj['Ticker']})")
 
-            # INTERFAZ ULTRA-MEJORADA PARA MOBILE: MENÚ DESPLEGABLE DE CONTROL
+            # INTERFAZ DE NAVEGACIÓN POR SELECTBOX (MOBILE-FRIENDLY)
             st.markdown("### 🎛️ Panel de Navegación Táctica")
             seccion_activa = st.selectbox(
                 "Elegí el módulo analítico que querés desplegar en pantalla:",
-                ["📋 Módulo Fundamental y Coyuntura", "🧮 Calculadora de Valor Intrínseco (DCF)", "📐 Estrategia Técnica y Timing (DMI)"]
+                [
+                    "📋 Módulo Fundamental y Coyuntura", 
+                    "💼 Cartera Simulada y Flujo de Fondos",
+                    "🧮 Calculadora de Valor Intrínseco (DCF)", 
+                    "📐 Estrategia Técnica y Timing (DMI)"
+                ]
             )
             st.markdown("---")
 
-            # --- SECCIÓN 1: MODULO FUNDAMENTAL ---
-            if seccion_activa == "📋 MÓDULO FUNDAMENTAL y Coyuntura":
+            # --- SECCIÓN 1: MODULO FUNDAMENTAL (GRAFICO PURGADO DE RAÍZ) ---
+            if seccion_activa == "📋 Módulo Fundamental y Coyuntura":
                 st.subheader("ℹ️ Perfil de la Compañía y Descripción del Negocio")
                 st.write(obj["Descripcion"])
                 
@@ -152,7 +157,7 @@ if st.button("🔥 EJECUTAR DIAGNÓSTICO INTEGRAL"):
                     st.subheader("🤖 Informe del Asesor Inteligente (Pros & Contras)")
                     cp, cc = st.columns(2)
                     with cp:
-                        st.markdown("** MyFortalezas Operativas:**")
+                        st.markdown("**🟢 Fortalezas Operativas:**")
                         lq = obj["Liquidez Corriente"]
                         mn = obj["Margen Neto"]
                         txt_p = "• Ventaja competitiva sostenida en el mercado.\n• Captura óptima de flujos comerciales grandes.\n"
@@ -160,7 +165,7 @@ if st.button("🔥 EJECUTAR DIAGNÓSTICO INTEGRAL"):
                         if pd.notna(mn) and mn > 0.15: txt_p += f"• Capacidad de defensa de márgenes netos ({mn*100:.1f}%).\n"
                         st.write(txt_p)
                     with cc:
-                        st.markdown("** Riscos y Coyuntura:**")
+                        st.markdown("**🔴 Riesgos y Coyuntura:**")
                         db = obj["Deuda Neta/EBITDA"]
                         txt_c = "• Exposición a variables macroeconómicas globales.\n• Presión por elevados planes de reinversión en Capex que estresan transitoriamente la caja libre antes de traccionar los ingresos de los nuevos contratos comerciales.\n"
                         if pd.notna(db) and db > 2.5: txt_c += f"• Apalancamiento consolidado arriba de promedios sanos ({db:.2f}x).\n"
@@ -175,7 +180,49 @@ if st.button("🔥 EJECUTAR DIAGNÓSTICO INTEGRAL"):
                         "Dividend Yield": lambda x: f"{x*100:.2f}%" if pd.notna(x) else "N/A", "Beta": "{:.2f}"
                     }, na_rep="N/A"), width="stretch")
 
-            # --- SECCIÓN 2: MODELO DCF ---
+            # --- NUEVA SECCIÓN 2: SIMULADOR DE CARTERA Y TRACK RECORD ---
+            elif seccion_activa == "💼 Cartera Simulada y Flujo de Fondos":
+                st.subheader(f"💼 Simulador Táctico de Portafolio - {ticker_objetivo}")
+                st.markdown("Ingresá los datos de tu posición simulada para auditar el rendimiento y proyectar la renta pasiva.")
+                
+                c_port1, c_port2 = st.columns(2)
+                with c_port1:
+                    cant_acciones = st.number_input("Cantidad de Acciones en Cartera:", min_value=1, value=100, step=10)
+                with c_port2:
+                    precio_compra = st.number_input("Precio de Compra Promedio (USD):", min_value=0.01, value=float(obj["Precio Actual"] * 0.9), step=1.0)
+                
+                # Cálculos de Performance
+                costo_total = cant_acciones * precio_compra
+                valor_actual = cant_acciones * obj["Precio Actual"]
+                pnl_usd = valor_actual - costo_total
+                pnl_pct = (pnl_usd / costo_total) * 100 if costo_total > 0 else 0
+                
+                st.markdown("#### 📈 Track Record de la Posición")
+                c_m1, c_m2, c_m3 = st.columns(3)
+                with c_m1: st.metric("Capital Invertido Total", f"{costo_total:.2f} USD")
+                with c_m2: st.metric("Valor Actual de Mercado", f"{valor_actual:.2f} USD")
+                with c_m3: st.metric("Ganancia / Pérdida (P&L)", f"{pnl_usd:.2f} USD", f"{pnl_pct:.2f}%")
+                
+                st.markdown("---")
+                st.markdown(f"#### 📅 Proyección del Flujo de Dividendos de la Posición")
+                
+                d_rate = obj.get("Div_Rate", 0) if obj["Tipo"] == "ACCION" else obj.get("Dividend Yield", 0) * obj["Precio Actual"]
+                
+                if pd.notna(d_rate) and d_rate > 0:
+                    cobro_anual = cant_acciones * d_rate
+                    cobro_trimestral = cobro_anual / 4
+                    
+                    st.success(f"🎉 **Flujo Estimado:** Manteniendo esta posición, vas a percibir una renta pasiva de **{cobro_anual:.2f} USD al año**.")
+                    
+                    df_cronograma = pd.DataFrame({
+                        "Período Estimado": ["Próximo Trimestre (Q1)", "Siguiente Trimestre (Q2)", "Siguiente Trimestre (Q3)", "Siguiente Trimestre (Q4)", "TOTAL ACUMULADO ANUAL"],
+                        "Flujo a Cobrar (USD)": [cobro_trimestral, cobro_trimestral, cobro_trimestral, cobro_trimestral, cobro_anual]
+                    }).set_index("Período Estimado")
+                    st.table(df_cronograma.style.format("{:.2f} USD"))
+                else:
+                    st.info(f"ℹ️ {ticker_objetivo} no distribuye dividendos en este momento. El rendimiento de tu cartera dependerá exclusivamente de la ganancia de capital (suba del precio de la acción).")
+
+            # --- SECCIÓN 3: MODELO DCF ---
             elif seccion_activa == "🧮 Calculadora de Valor Intrínseco (DCF)":
                 if not es_etf_target:
                     st.subheader(f"🧮 Modelo de Flujos de Caja Descontados (DCF) - {ticker_objetivo}")
@@ -200,9 +247,9 @@ if st.button("🔥 EJECUTAR DIAGNÓSTICO INTEGRAL"):
                             if v_i > pr: st.success(f"📈 **MARGEN DE SEGURIDAD: {((v_i-pr)/v_i)*100:.1f}%**")
                             else: st.error(f"📉 **SOBREPRECIO ESTIMADO: {((pr-v_i)/v_i)*100:.1f}%**")
                     else: st.info("ℹ️ El modelo DCF requiere flujos de caja corporativos (FCF) positivos para proyectar.")
-                else: st.info("ℹ️ Los modelos de flujos descontados corporativos no aplican a ETFs. Revisar múltiplos en Sección 1.")
+                else: st.info("ℹ️ Los modelos de flujos descontados corporativos no aplican a ETFs. Usar múltiplos en Sección 1.")
 
-            # --- SECCIÓN 3: ESTRATEGIA TÉCNICA ---
+            # --- SECCIÓN 4: ESTRATEGIA TÉCNICA ---
             elif seccion_activa == "📐 Estrategia Técnica y Timing (DMI)":
                 st.subheader(f"📐 Terminal de Indicadores Técnicos y Timing - {ticker_objetivo}")
                 try:
@@ -255,8 +302,8 @@ if st.button("🔥 EJECUTAR DIAGNÓSTICO INTEGRAL"):
                         st.line_chart(df_d, height=200, use_container_width=True)
                         
                         st.markdown("### 🎯 Conclusión del Diagnóstico Técnico")
-                        if precio_hoy > ema_30_hoy and p_di_hoy > m_di_hoy and adx_hoy > 20: st.success("🟩 **ALGORITMO: STRATEGY LONG ACTIVADA (ALCISTA)**\n\nTodos los vectores técnicos de precio y flujo empujan en sintonía comprador.")
-                        elif precio_hoy < ema_30_hoy and m_di_hoy > p_di_hoy and adx_hoy > 20: st.error("🚨 **ALGORITMO: ALERTA DE PRESIÓN BAJISTA (REDUCIR)**\n\nInercia vendedora al mando respaldada por fuerza direccional.")
+                        if precio_hoy > calc_ema_30.iloc[-1] and p_di_hoy > m_di_hoy and adx_hoy > 20: st.success("🟩 **ALGORITMO: STRATEGY LONG ACTIVADA (ALCISTA)**\n\nTodos los vectores técnicos de precio y flujo empujan en sintonía comprador.")
+                        elif precio_hoy < calc_ema_30.iloc[-1] and m_di_hoy > p_di_hoy and adx_hoy > 20: st.error("🚨 **ALGORITMO: ALERTA DE PRESIÓN BAJISTA (REDUCIR)**\n\nInercia vendedora al mando respaldada por fuerza direccional.")
                         elif adx_hoy < 20: st.warning("🟨 **ALGORITMO: FASE DE COMPRESIÓN (PACIENCIA)**\n\nTendencia ausente. Oscilaciones erráticas en rango lateral. Esperar definiciones.")
                         else: st.info("🟦 **ALGORITMO: ZONA DE TRANSICIÓN (CAUTELA)**\n\nLecturas cruzadas de momentum en zona de rango o balanceo de carteras.")
                 except: st.info("Historial de mercado consolidándose.")
