@@ -87,16 +87,48 @@ if st.button("🔥 EJECUTAR DIAGNÓSTICO INTEGRAL"):
             obj = df[df['Ticker'] == ticker_objetivo].iloc[0]
             es_etf_target = obj["Tipo"] == "ETF"
             
-            # --- LA MAGIA DEL UX: ARQUITECTURA POR PESTAÑAS (TABS) ---
+            # --- ARQUITECTURA POR PESTAÑAS (TABS) ---
             tab1, tab2, tab3 = st.tabs(["📋 MÓDULO FUNDAMENTAL", "🧮 VALOR INTRÍNSECO (DCF)", "📐 ESTRATEGIA TÉCNICA (DMI)"])
             
             # --- PESTAÑA 1: ANÁLISIS FUNDAMENTAL ---
             with tab1:
                 if not es_etf_target:
-                    st.subheader("📋 Matriz de Comparación Relativa (Acciones)")
-                    df_m = df[df['Tipo'] == "ACCION"].copy()
-                    columnas_validas = [c for c in ["Ticker", "Nombre", "Precio Actual", "Forward P/E", "EV/EBITDA", "P/B Ratio", "Deuda Neta/EBITDA", "Liquidez Corriente", "Beta", "Margen Neto", "ROE"] if c in df_m.columns]
-                    df_m = df_m[columnas_validas]
+                    # 1. NUEVA SECCIÓN: TARJETAS DE LIDERAZGO SECTORIAL
+                    st.subheader("🏆 Liderazgo Financiero en el Sector")
+                    df_acc = df[df['Tipo'] == "ACCION"].copy()
+                    
+                    # Computamos los ganadores de forma dinámica
+                    try:
+                        df_pe_val = df_acc[df_acc['Forward P/E'] > 0]
+                        ticker_descuento = df_pe_val.loc[df_pe_val['Forward P/E'].idxmin()]['Ticker'] if not df_pe_val.empty else "N/A"
+                        val_descuento = df_pe_val['Forward P/E'].min() if not df_pe_val.empty else 0
+                        
+                        df_roe_val = df_acc[df_acc['ROE'].notna()]
+                        ticker_eficiencia = df_roe_val.loc[df_roe_val['ROE'].idxmax()]['Ticker'] if not df_roe_val.empty else "N/A"
+                        val_eficiencia = df_roe_val['ROE'].max() * 100 if not df_roe_val.empty else 0
+                        
+                        df_deb_val = df_acc[df_acc['Deuda Neta/EBITDA'].notna()]
+                        ticker_solvencia = df_deb_val.loc[df_deb_val['Deuda Neta/EBITDA'].idxmin()]['Ticker'] if not df_deb_val.empty else "N/A"
+                        val_solvencia = df_deb_val['Deuda Neta/EBITDA'].min() if not df_deb_val.empty else 0
+                    except:
+                        ticker_descuento, val_descuento = "N/A", 0
+                        ticker_eficiencia, val_eficiencia = "N/A", 0
+                        ticker_solvencia, val_solvencia = "N/A", 0
+
+                    c_kpi1, c_kpi2, c_kpi3 = st.columns(3)
+                    with c_kpi1:
+                        st.metric(label="🏷️ Mayor Descuento (Menor Forward P/E)", value=ticker_descuento, delta=f"{val_descuento:.2f}x P/E", delta_color="inverse")
+                    with c_kpi2:
+                        st.metric(label="📈 Mayor Eficiencia Operativa (ROE)", value=ticker_eficiencia, delta=f"{val_eficiencia:.2f}% ROE")
+                    with c_kpi3:
+                        st.metric(label="🛡️ Balance Más Sólido (Menor Deuda Neta/EBITDA)", value=ticker_solvencia, delta=f"{val_solvencia:.2f}x Ratio", delta_color="inverse")
+                    
+                    st.markdown("---")
+                    
+                    # 2. TABLA PRINCIPAL COMPLETA
+                    st.subheader("📋 Matriz de Múltiplos y Estructura de Capital")
+                    columnas_validas = [c for c in ["Ticker", "Nombre", "Precio Actual", "Forward P/E", "EV/EBITDA", "P/B Ratio", "Deuda Neta/EBITDA", "Liquidez Corriente", "Beta", "Margen Neto", "ROE"] if c in df_acc.columns]
+                    df_m = df_acc[columnas_validas]
                     
                     v_min = [c for c in ["Forward P/E", "EV/EBITDA", "P/B Ratio", "Deuda Neta/EBITDA"] if c in df_m.columns]
                     v_max = [c for c in ["Liquidez Corriente", "Margen Neto", "ROE"] if c in df_m.columns]
@@ -114,6 +146,32 @@ if st.button("🔥 EJECUTAR DIAGNÓSTICO INTEGRAL"):
                     df_s = df[(df['Ticker'] != ticker_objetivo) & (df['Tipo'] == "ACCION")]
                     meds = df_s.median(numeric_only=True) if not df_s.empty else None
                     
+                    # 3. NUEVA SECCIÓN: GRÁFICO DE DISPERSIÓN DE CUADRANTES DE VALORACIÓN
+                    st.markdown("---")
+                    st.subheader("🎯 Mapa Matriz: Relación Valoración vs. Rentabilidad (Forward P/E vs. ROE)")
+                    st.caption("💡 Tip del Analista: Las mejores oportunidades se ubican arriba a la izquierda (bajo múltiplo P/E y alto retorno sobre el capital ROE).")
+                    
+                    try:
+                        # Preparamos un DataFrame limpio indexado por ticker para graficar la dispersión
+                        df_scatter = df_acc[df_acc['Forward P/E'].notna() & df_acc['ROE'].notna()].copy()
+                        if not df_scatter.empty:
+                            # Multiplicamos el ROE por 100 para que se lea como porcentaje en el eje
+                            df_scatter['ROE (%)'] = df_scatter['ROE'] * 100
+                            df_scatter = df_scatter.set_index('Ticker')
+                            
+                            # Desplegamos el scatter chart interactivo nativo
+                            st.scatter_chart(
+                                df_scatter, 
+                                x='Forward P/E', 
+                                y='ROE (%)', 
+                                color=None, 
+                                size=None, 
+                                use_container_width=True
+                            )
+                    except:
+                        st.info("No hay suficientes puntos de datos cruzados para trazar el mapa de dispersión sectorial.")
+                    
+                    st.markdown("---")
                     st.markdown("### 🤖 Informe del Asesor Inteligente de Inversión")
                     c_inf1, c_inf2 = st.columns(2)
                     with c_inf1:
@@ -135,9 +193,10 @@ if st.button("🔥 EJECUTAR DIAGNÓSTICO INTEGRAL"):
                         pe_m = meds["Forward P/E"] if meds is not None else None
                         if pd.notna(db) and db > 3: st.error("🚨 **EVITAR:** Riesgo de balance crítico. Excluido por apalancamiento.")
                         elif pd.notna(pe_o) and pd.notna(pe_m) and pe_o < pe_m: st.success("🟩 **COMPRAR:** Múltiplos rezagados con descuento frente a la mediana sectorial.")
-                        else: st.info("🟪 **MANTENER:** Cotiza en rangos de equilibrio razonables respecto a sus pares.")
+                        else: st.info("🟪 **MANTENER:** Cotización en rangos de equilibrio razonables respecto a sus pares.")
+                
                 else:
-                    # Vista optimizada para ETFs
+                    # Mapeo de ETFs
                     st.subheader("📋 Matriz de Eficiencia y Costos estructurales (ETFs)")
                     df_etf = df[df['Tipo'] == "ETF"].copy()
                     columnas_etf = [c for c in ["Ticker", "Nombre", "Precio Actual", "P/E Canasta", "Expense Ratio", "Dividend Yield", "Beta"] if c in df_etf.columns]
@@ -201,7 +260,7 @@ if st.button("🔥 EJECUTAR DIAGNÓSTICO INTEGRAL"):
                     else:
                         st.info("ℹ️ El modelo DCF requiere flujos de caja libre corporativos positivos y estables para proyectar.")
                 else:
-                    st.info("ℹ️ Los modelos de flujos descontados (DCF) no aplican a estructuras de fondos indexados (ETFs). Usar valuación por múltiplos en el Tab 1.")
+                    st.info("ℹ️ Los modelos de flujos descontados (DCF) no aplican a estructuras de fondos indexados (ETFs). Usar de múltiplos en el Tab 1.")
 
             # --- PESTAÑA 3: ESTRATEGIA TÉCNICA ---
             with tab3:
@@ -236,58 +295,4 @@ if st.button("🔥 EJECUTAR DIAGNÓSTICO INTEGRAL"):
                         
                         p_di_hoy = series_plus_di.iloc[-1]
                         m_di_hoy = series_minus_di.iloc[-1]
-                        adx_hoy = series_adx.iloc[-1]
-                        
-                        # KIPs Técnicas limpias en pantalla
-                        m1, m2, m3 = st.columns(3)
-                        with m1: st.metric(label="Precio vs. EMA 30", value=f"{precio_hoy:.2f} USD", delta=f"{precio_hoy - ema_30_hoy:.2f} USD")
-                        with m2: st.metric(label="Dirección de Flujo (+DI / -DI)", value=f"{p_di_hoy:.1f} vs {m_di_hoy:.1f}", delta=f"{p_di_hoy - m_di_hoy:.1f} Pts")
-                        with m3: st.metric(label="Intensidad de Tendencia (ADX)", value=f"{adx_hoy:.1f} Pts", delta="Tendencia Activa" if adx_hoy > 20 else "Compresión", delta_color="normal" if adx_hoy > 20 else "off")
-                        
-                        # Gráficos embebidos en el Tab
-                        st.markdown("### 📈 Tendencia de Mediano Plazo (Precio vs. EMA 30)", help="Línea azul: precio. Línea roja: EMA 30.")
-                        df_p = pd.DataFrame({"Precio Cierre": cierre, "EMA 30": calc_ema_30}, index=h_tecn.index)
-                        st.line_chart(df_p, height=300, use_container_width=True)
-                        
-                        st.markdown("### 📊 Oscilador Direccional Completo (DMI 14 / ADX 14)", help="+DI (Azul): Fuerza Compradora. -DI (Roja): Fuerza Vendedora. ADX (Verde): Intensidad.")
-                        df_d = pd.DataFrame({"+DI": series_plus_di, "-DI": series_minus_di, "ADX": series_adx}, index=h_tecn.index)
-                        st.line_chart(df_d, height=200, use_container_width=True)
-                        
-                        st.markdown("### 🎯 Conclusión Técnica Estructural")
-                        rec_col1, rec_col2 = st.columns(2)
-                        with rec_col1:
-                            st.markdown("**🔍 Resumen del Algoritmo:**")
-                            if precio_hoy > ema_30_hoy: st.write("• **Estructura:** Ciclo alcista activo operando arriba de la EMA 30.")
-                            else: st.write("• **Estructura:** Ciclo correctivo activo operando abajo de la EMA 30.")
-                            if p_di_hoy > m_di_hoy: st.write(f"• **Flujo:** Control comprador dominando la escena estructural.")
-                            else: st.write(f"• **Flujo:** Presión vendedora ejerciendo el control del libro de órdenes.")
-                            if adx_hoy > 25: st.write(f"• **Fuerza:** Tendencia completamente madura respaldada institucionalmente.")
-                            else: st.write(f"• **Fuerza:** Fase de compresión o distribución errática sin dirección clara.")
-                        with rec_col2:
-                            st.markdown("**🚀 Sugerencia y Sincronización:**")
-                            if precio_hoy > ema_30_hoy and p_di_hoy > m_di_hoy and adx_hoy > 20: st.success("🟩 **ACCIONAR: LONG**\n\nTodos los vectores técnicos alineados en suba. Zona ideal para sumarse al movimiento.")
-                            elif precio_hoy < ema_30_hoy and m_di_hoy > p_di_hoy and adx_hoy > 20: st.error("🚨 **ACCIONAR: REDUCIR EXPOSICIÓN**\n\nTendencia bajista consolidada con fuerza institucional. Mantenerse al margen.")
-                            elif adx_hoy < 20: st.warning("🟨 **ACCIONAR: PACIENCIA**\n\nTendencia ausente. El mercado va a picar de forma errática. Esperar rupturas.")
-                            else: st.info("🟦 **ACCIONAR: MONITOREO**\n\nFuerzas mixtas en zona de transición o rango de acumulación.")
-                    else:
-                        st.info("Historial insuficiente para métricas de tiempo.")
-                except:
-                    st.info("Módulo analítico en espera.")
-
-# --- FOOTER DE FIRMA Y DISCLAIMER LEGAL ---
-st.markdown("---")
-st.markdown(
-    "<p style='text-align: center; color: #888888; font-size: 11px; max-width: 900px; margin: 0 auto; line-height: 1.4;'>"
-    "<strong>AVISO LEGAL / DISCLAIMER INFORMATIVO:</strong> El contenido, cálculos automáticos, métricas y sugerencias operativas emitidos por esta plataforma "
-    "tienen un propósito estrictamente educativo y de simulación cuantitativa. No constituyen, bajo ningún concepto, asesoramiento financiero directo, "
-    "recomendación implícita de compra/venta, ni una oferta pública de valores negociables. El desarrollador no se responsabiliza por pérdidas o decisiones operativas tomadas en base a estos datos."
-    "</p>",
-    unsafe_allow_html=True
-)
-st.markdown(
-    "<p style='text-align: center; color: #aaaaaa; font-size: 14px; margin-top: 15px;'>"
-    "Desarrollado por <strong>Facundo Garcia Marquez</strong> | "
-    "<a href='https://www.linkedin.com/in/facundo-garciamarquez/?locale=es' target='_blank' style='color: #0077B5; text-decoration: none;'>🔗 Conectemos en LinkedIn</a>"
-    "</p>",
-    unsafe_allow_html=True
-)
+                        ad
