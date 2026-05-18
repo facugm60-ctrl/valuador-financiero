@@ -6,7 +6,7 @@ import streamlit.components.v1 as components
 
 st.set_page_config(page_title="Valuador Pro", layout="wide")
 st.title("📊 Plataforma de Valuación de Empresas Públicas")
-st.markdown("Ratios, salud de balance, flujos descontados y análisis técnico en tiempo real.")
+st.markdown("Ratios, salud de balance, flujos descontados y análisis técnico avanzado.")
 
 # Inputs
 col1, col2 = st.columns([1, 2])
@@ -39,7 +39,7 @@ def obtener_ratios(symbol):
     except: return None
 
 if st.button("🔥 Correr Análisis de Valuación"):
-    with st.spinner("Procesando balances..."):
+    with st.spinner("Procesando balances y algoritmos técnicos..."):
         datos = [obtener_ratios(t) for t in todos_tickers if obtener_ratios(t)]
         if datos:
             df = pd.DataFrame(datos)
@@ -47,7 +47,6 @@ if st.button("🔥 Correr Análisis de Valuación"):
             # 1. TABLA PRINCIPAL
             st.subheader("📋 Matriz Completa de Datos Financieros")
             df_m = df.copy().drop(columns=["FCF_Total", "Acciones"])
-            
             v_min = ["Forward P/E", "EV/EBITDA", "P/B Ratio", "Deuda Neta/EBITDA"]
             v_max = ["Liquidez Corriente", "Margen Neto", "ROE"]
             
@@ -58,15 +57,14 @@ if st.button("🔥 Correr Análisis de Valuación"):
             ).format({
                 "Precio Actual": "{:.2f} USD", "Forward P/E": "{:.2f}", "P/B Ratio": "{:.2f}", 
                 "EV/EBITDA": "{:.2f}", "Deuda Neta/EBITDA": "{:.2f}x", "Liquidez Corriente": "{:.2f}x", "Beta": "{:.2f}",
-                "Margen Neto": lambda x: f"{x*100:.2f}%" if pd.notna(x) else "N/A",
-                "ROE": lambda x: f"{x*100:.2f}%" if pd.notna(x) else "N/A"
+                "Margen Neto": lambda x: f"{x*100:.2f}%" if pd.notna(x) else "N/A", "ROE": lambda x: f"{x*100:.2f}%" if pd.notna(x) else "N/A"
             }, na_rep="N/A"), width="stretch")
             
             df_s = df[df['Ticker'] != ticker_objetivo]
             meds = df_s.median(numeric_only=True) if not df_s.empty else None
             obj = df[df['Ticker'] == ticker_objetivo].iloc[0]
             
-            # 2. ASESOR
+            # 2. ASESOR FUNDAMENTAL
             st.subheader("🤖 Informe del Asesor Inteligente")
             c_inf1, c_inf2 = st.columns(2)
             with c_inf1:
@@ -115,9 +113,65 @@ if st.button("🔥 Correr Análisis de Valuación"):
                     else: st.error(f"📉 **Sobreprecio: {((pr-v_i)/v_i)*100:.1f}%** (Sobrevaluada)")
             else: st.info(f"ℹ️ Sin Flujo de Caja Libre positivo para {ticker_objetivo}.")
 
-            # 4. GRÁFICO AVANZADO DE TRADINGVIEW
+            # 4. NUEVA SECCIÓN: BACKEND DE ANÁLISIS TÉCNICO MATEMÁTICO
             st.markdown("---")
-            st.subheader(f"📈 Gráfico Técnico Interactivo (TradingView) - {ticker_objetivo}")
+            st.subheader(f"📐 Auditoría de Indicadores Técnicos Clave - {ticker_objetivo}")
+            
+            try:
+                # Descargamos historial diario de 1 año para computar indicadores
+                h_tecn = yf.Ticker(ticker_objetivo).history(period="1y")
+                if len(h_tecn) > 50:
+                    cierre = h_tecn['Close']
+                    precio_hoy = cierre.iloc[-1]
+                    
+                    # Cómputo de la Media Móvil Exponencial institucional (EMA 200 aproximada por ruedas disponibles)
+                    ema_ruedas = min(200, len(cierre))
+                    ema_inst = cierre.ewm(span=ema_ruedas, adjust=False).mean().iloc[-1]
+                    
+                    # Cómputo del RSI clásico de 14 ruedas
+                    delta = cierre.diff()
+                    ganancia = delta.clip(lower=0)
+                    perdida = -delta.clip(upper=0)
+                    ema_gan = ganancia.ewm(com=13, adjust=False).mean()
+                    ema_per = perdida.ewm(com=13, adjust=False).mean()
+                    rs = index_rsi = 100 - (100 / (1 + (ema_gan / ema_per))).iloc[-1]
+                    
+                    # Desglose del informe técnico en pantalla
+                    ct1, ct2, ct3 = st.columns(3)
+                    
+                    with ct1:
+                        st.markdown("**📈 Tendencia Estructural (EMA)**")
+                        if precio_hoy > ema_inst:
+                            st.markdown(f"🟢 **TENDENCIA ALCISTA:** El precio ({precio_hoy:.2f} USD) cotiza **por encima** de su media estructural ({ema_inst:.2f} USD). Dominio comprador de largo plazo.")
+                        else:
+                            st.markdown(f"🔴 **TENDENCIA BAJISTA:** El precio ({precio_hoy:.2f} USD) cotiza **por debajo** de su media estructural ({ema_inst:.2f} USD). Presión vendedora dominante.")
+                            
+                    with ct2:
+                        st.markdown("**⚡ Impulso de Mercado (RSI)**")
+                        if rs >= 70:
+                            st.markdown(f"🚨 **SOBRECOMPRA ({rs:.1f} pts):** El activo muestra una aceleración excesiva. Riesgo latente de corrección por agotamiento de compradores.")
+                        elif rs <= 30:
+                            st.markdown(f"🛒 **SOBREVENTA ({rs:.1f} pts):** Castigo excesivo en el precio. Zona de capitulación histórica que suele activar algoritmos de rebote.")
+                        else:
+                            st.markdown(f"⚖️ **RANGO NEUTRO ({rs:.1f} pts):** Flujo de fuerza equilibrado. El precio se desplaza sin distorsiones extremas de codicia o pánico.")
+                            
+                    with ct3:
+                        st.markdown("**💰 Flujo y Convergencia (MACD/Precio)**")
+                        # Miramos el impulso de corto plazo contra el de mediano
+                        ema12 = cierre.ewm(span=12, adjust=False).mean().iloc[-1]
+                        ema26 = cierre.ewm(span=26, adjust=False).mean().iloc[-1]
+                        if ema12 > ema26:
+                            st.markdown("🟢 **MOMENTUM ACELERANDO:** El flujo de dinero de corto plazo está entrando con mayor velocidad que el promedio mensual. Fuerza a favor del movimiento.")
+                        else:
+                            st.markdown("🔴 **MOMENTUM DESACELERANDO:** Pérdida de tracción. El promedio de corto plazo se cruza a la baja, indicando salida distributiva de capital.")
+                else:
+                    st.info("Historial de mercado insuficiente para automatizar el dictamen técnico.")
+            except:
+                st.info("No se pudieron pre-calcular los indicadores en el backend.")
+
+            # 5. GRÁFICO INTERACTIVO DE TRADINGVIEW
+            st.subheader("🖥️ Terminal Táctica de TradingView")
+            st.caption("💡 Tip de Analista: Podés meter herramientas de dibujo a la izquierda y cambiar indicadores (RSI, MACD, Medias) dándole al botón 'fx' de arriba.")
             
             tradingview_html = f"""
             <div id="tradingview_advanced_chart" style="height:600px;"></div>
