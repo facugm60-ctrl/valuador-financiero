@@ -8,7 +8,7 @@ import requests
 # Configuración premium de la página
 st.set_page_config(page_title="Valuador Financiero Pro", layout="wide", initial_sidebar_state="collapsed")
 
-# Estilos CSS inyectados para forzar legibilidad y estética SaaS Dark
+# Estilos CSS inyectados para maximizar la legibilidad SaaS Dark
 st.markdown("""
     <style>
     .block-container {padding-top: 1.5rem; padding-bottom: 2rem;}
@@ -77,7 +77,7 @@ def obtener_datos(symbol):
             common.update({"Tipo": "ETF", "P/E Canasta": inf.get("trailingPE"), "Expense Ratio": inf.get("feesExpensesInvestmentPercentage"), "Dividend Yield": inf.get("dividendYield"), "Beta": inf.get("beta")})
         else:
             td, caj, eb = inf.get("totalDebt", 0), inf.get("totalCash", 0), inf.get("ebitda", 1)
-            nd_eb = (td - caj) / eb if eb else None
+            nd_eb = (td - caj) / eb if eb else 0
             common.update({"Tipo": "ACCION", "Forward P/E": inf.get("forwardPE"), "EV/EBITDA": inf.get("enterpriseToEbitda"), "P/B Ratio": inf.get("priceToBook"), "Deuda Neta/EBITDA": nd_eb, "Liquidez Corriente": inf.get("currentRatio"), "Beta": inf.get("beta"), "Margen Neto": inf.get("profitMargins"), "ROE": inf.get("returnOnEquity"), "FCF_Total": inf.get("freeCashflow"), "Acciones": inf.get("sharesOutstanding"), "Div_Rate": inf.get("dividendRate", 0), "Div_Yield": inf.get("dividendYield", 0)})
         return common
     except: return None
@@ -87,6 +87,13 @@ if "analisis_ejecutado" not in st.session_state:
     st.session_state.analisis_ejecutado = False
     st.session_state.df_datos = None
     st.session_state.obj_data = None
+    # Base inicial para la cartera multiactivo independiente
+    st.session_state.cartera_df = pd.DataFrame([
+        {"Ticker": "VIST", "Nominales": 100, "Precio Compra (USD)": 50.0},
+        {"Ticker": "WMT", "Nominales": 50, "Precio Compra (USD)": 75.0},
+        {"Ticker": "KO", "Nominales": 80, "Precio Compra (USD)": 60.0},
+        {"Ticker": "SPY", "Nominales": 10, "Precio Compra (USD)": 500.0}
+    ])
 
 if st.button("🔥 EJECUTAR DIAGNÓSTICO INTEGRAL"):
     with st.spinner("Descargando balances y cargando algoritmos técnicos..."):
@@ -100,7 +107,7 @@ if st.button("🔥 EJECUTAR DIAGNÓSTICO INTEGRAL"):
             st.session_state.obj_data = st.session_state.df_datos[st.session_state.df_datos['Ticker'] == ticker_objetivo].iloc[0]
             st.session_state.analisis_ejecutado = True
 
-# --- DESPLIEGUE INTEGRADO MEDIANTE SOLAPAS ---
+# --- DESPLIEGUE MEDIANTE TABS ---
 if st.session_state.analisis_ejecutado:
     df = st.session_state.df_datos
     obj = st.session_state.obj_data
@@ -111,99 +118,150 @@ if st.session_state.analisis_ejecutado:
     with c_head1: st.image(obj["Logo"], width=50)
     with c_head2: st.header(f"{obj['Nombre']} ({obj['Ticker']})")
 
-    # Arquitectura Integrada de Solapas nativas de Streamlit
-    tab1, tab2, tab3, tab4 = st.tabs(["📋 MÓDULO FUNDAMENTAL", "💼 CARTERA SIMULADA INDEPENDIENTE", "🧮 VALOR INTRÍNSECO (DCF)", "📐 ESTRATEGIA TÉCNICA (DMI)"])
+    tab1, tab2, tab3, tab4 = st.tabs(["📋 MÓDULO FUNDAMENTAL", "💼 CARTERA MULTIACTIVO", "🧮 VALOR INTRÍNSECO (DCF)", "📐 ESTRATEGIA TÉCNICA (DMI)"])
 
     # --- PESTAÑA 1: ANALISIS FUNDAMENTAL ---
     with tab1:
-        st.subheader("ℹ️ Perfil de la Compañía y Descripción del Negocio")
+        st.subheader("ℹ️ Operaciones de la Empresa e Inversiones")
         st.write(obj["Descripcion"])
         
         if not es_etf_target:
             st.markdown("---")
-            st.subheader("🏆 Liderazgo Financiero en el Sector")
+            st.subheader("📋 Matriz de Múltiplos Comparativos (Ganadores Resaltados)")
+            st.markdown("*Nota: Los múltiplos óptimos del sector se destacan automáticamente con fondo verde.*")
+            
             df_acc = df[df['Tipo'] == "ACCION"].copy()
-            try:
-                df_pe_val = df_acc[df_acc['Forward P/E'] > 0]
-                tick_desc = df_pe_val.loc[df_pe_val['Forward P/E'].idxmin()]['Ticker'] if not df_pe_val.empty else "N/A"
-                val_desc = df_pe_val['Forward P/E'].min()
-                df_roe_val = df_acc[df_acc['ROE'].notna()]
-                tick_efic = df_roe_val.loc[df_roe_val['ROE'].idxmax()]['Ticker'] if not df_roe_val.empty else "N/A"
-                val_efic = df_roe_val['ROE'].max() * 100
-                df_deb_val = df_acc[df_acc['Deuda Neta/EBITDA'].notna()]
-                tick_solv = df_deb_val.loc[df_deb_val['Deuda Neta/EBITDA'].idxmin()]['Ticker'] if not df_deb_val.empty else "N/A"
-                val_solv = df_deb_val['Deuda Neta/EBITDA'].min()
-            except: tick_desc, tick_efic, tick_solv = "N/A", "N/A", "N/A"
-
-            ck1, ck2, ck3 = st.columns(3)
-            with ck1: st.metric("🏷️ Mayor Descuento", tick_desc, f"{val_desc:.2f}x P/E", delta_color="inverse")
-            with ck2: st.metric("📈 Mayor Eficiencia", tick_efic, f"{val_efic:.2f}% ROE")
-            with ck3: st.metric("🛡️ Balance Más Sólido", tick_solv, f"{val_solv:.2f}x Deuda", delta_color="inverse")
-            
-            st.markdown("---")
-            st.subheader("📋 Matriz de Múltiplos Comparativos")
-            columnas_validas = [c for c in ["Ticker", "Nombre", "Precio Actual", "Forward P/E", "EV/EBITDA", "P/B Ratio", "Deuda Neta/EBITDA", "Liquidez Corriente", "Beta", "Margen Neto", "ROE"] if c in df_acc.columns]
+            columnas_validas = [c for c in ["Ticker", "Forward P/E", "EV/EBITDA", "P/B Ratio", "Deuda Neta/EBITDA", "Liquidez Corriente", "Margen Neto", "ROE"] if c in df_acc.columns]
             df_m = df_acc[columnas_validas].set_index('Ticker')
-            st.dataframe(df_m.style.format({
-                "Precio Actual": "{:.2f} USD", "Forward P/E": "{:.2f}", "P/B Ratio": "{:.2f}", 
-                "EV/EBITDA": "{:.2f}", "Deuda Neta/EBITDA": "{:.2f}x", "Liquidez Corriente": "{:.2f}x", "Beta": "{:.2f}",
-                "Margen Neto": lambda x: f"{x*100:.2f}%" if pd.notna(x) else "N/A", "ROE": lambda x: f"{x*100:.2f}%" if pd.notna(x) else "N/A"
-            }, na_rep="N/A"), width="stretch")
             
+            # Formateo y estilización avanzada para marcar ganadores
+            df_styled = df_m.style.format({
+                "Forward P/E": "{:.2f}", "EV/EBITDA": "{:.2f}", "P/B Ratio": "{:.2f}",
+                "Deuda Neta/EBITDA": "{:.2f}x", "Liquidez Corriente": "{:.2f}x",
+                "Margen Neto": lambda x: f"{x*100:.2f}%" if pd.notna(x) else "N/A",
+                "ROE": lambda x: f"{x*100:.2f}%" if pd.notna(x) else "N/A"
+            }, na_rep="N/A")
+            
+            # Resaltar mínimos en valuación y deuda (lo mejor) y máximos en rentabilidad y liquidez (lo mejor)
+            df_styled = df_styled.highlight_min(subset=["Forward P/E", "EV/EBITDA", "P/B Ratio", "Deuda Neta/EBITDA"], color="#1b4d22")
+            df_styled = df_styled.highlight_max(subset=["Liquidez Corriente", "Margen Neto", "ROE"], color="#1b4d22")
+            
+            st.dataframe(df_styled, width="stretch")
+            
+            # Interpretación de la matriz dinámica
+            st.markdown("**🔍 Interpretación del Arbitraje de Múltiplos:**")
+            try:
+                p_min_tick = df_m["Forward P/E"].idxmin()
+                roe_max_tick = df_m["ROE"].idxmax()
+                st.write(f"• El mercado convalida el mayor descuento relativo en el ticker **{p_min_tick}**, registrando el menor ratio Precio/Ganancias del sector. Por otra parte, la mayor tracción operativa y retorno sobre el capital invertido está liderado por **{roe_max_tick}** con un ROE destacado. Analizar si el descuento es una oportunidad o un castigo por fundamentales.")
+            except: st.write("• Datos sectoriales listos para análisis comparativo de valor.")
+
             st.markdown("---")
-            st.subheader("🤖 Informe del Asesor (Pros & Contras)")
+            st.subheader("🤖 Informe del Asesor Financiero (Análisis de Riesgo y Deuda)")
+            
             cp, cc = st.columns(2)
             with cp:
-                st.markdown("** Fortalezas Operativas:**")
-                st.write(f"• Margen Neto sólido en {obj.get('Margen Neto', 0)*100:.1f}%.\n• Captura óptima de contratos comerciales sectoriales.\n• Liquidez corriente en {obj.get('Liquidez Corriente', 0):.2f}x.")
+                st.markdown("**🟢 Perfil de Inversión y Solvencia:**")
+                st.write(f"• **Modelo de Negocio:** La compañía inyecta capital intensivo en infraestructura operativa estratégica para sostener contratos corporativos de largo plazo y asegurar la captura de flujos comerciales del sector.")
+                deuda_ratio = obj.get('Deuda Neta/EBITDA', 0)
+                if deuda_ratio > 3:
+                    st.write(f"• **Estructura de Deuda:** Tomó apalancamiento elevado (`{deuda_ratio:.2f}x Deuda Neta/EBITDA`). Los compromisos financieros demandan monitoreo institucional constante.")
+                else:
+                    st.write(f"• **Estructura de Deuda:** Balance sólido y saludable. El apalancamiento de `{deuda_ratio:.2f}x Deuda Neta/EBITDA` se ubica dentro de los parámetros de seguridad corporativa estándar.")
             with cc:
-                st.markdown("** Riesgos y Coyuntura:**")
-                st.write(f"• Apalancamiento en ratio de {obj.get('Deuda Neta/EBITDA', 0):.2f}x.\n• Elevados planes de Capex que pueden estresar transitoriamente el flujo de caja libre antes de consolidar facturación.")
+                st.markdown("**🔴 Diagnóstico de Estrés Financiero:**")
+                liq_ratio = obj.get('Liquidez Corriente', 0)
+                if liq_ratio < 1.0:
+                    st.error(f"⚠️ **ALERTA DE ESTRÉS:** La empresa registra una liquidez corriente de `{liq_ratio:.2f}x` (menor a 1.0). Significa que sus activos de corto plazo no cubren las obligaciones inmediatas. Hay riesgo de estrés financiero transitorio o necesidad de refinanciación.")
+                else:
+                    st.success(f"✅ **COBERTURA DE CAJA:** Ratio de liquidez corriente en `{liq_ratio:.2f}x`. Dispone de suficiente espalda líquida para cubrir sus pasivos de corto plazo y ejecutar su Capex programado sin ahogos de caja.")
         else:
             st.subheader("📋 Matriz Estructural de Fondos (ETFs)")
             df_etf = df[df['Tipo'] == "ETF"].copy()
             columnas_etf = [c for c in ["Ticker", "Nombre", "Precio Actual", "P/E Canasta", "Expense Ratio", "Dividend Yield", "Beta"] if c in df_etf.columns]
             st.dataframe(df_etf[columnas_etf].set_index('Ticker').style.format({"Precio Actual": "{:.2f} USD", "P/E Canasta": "{:.2f}", "Expense Ratio": lambda x: f"{x*100:.2f}%" if pd.notna(x) else "N/A", "Dividend Yield": lambda x: f"{x*100:.2f}%" if pd.notna(x) else "N/A", "Beta": "{:.2f}"}, na_rep="N/A"), width="stretch")
 
-    # --- PESTAÑA 2: CARTERA SIMULADA INDEPENDIENTE ---
+    # --- PESTAÑA 2: CARTERA MULTIACTIVO TOTALMENTE INDEPENDIENTE ---
     with tab2:
-        st.subheader("💼 Simulador Libre de Portafolio Estratégico")
-        st.markdown("Armá la composición de tu cartera de forma independiente ingresando cualquier ticker.")
+        st.subheader("💼 Consolidación de Cartera Multiactivo Dinámica")
+        st.markdown("Agregá, modificá o eliminá los activos de tu portafolio en la grilla interactiva. Hacé doble clic en las celdas para cambiar valores.")
         
-        c_p1, c_p2, c_p3 = st.columns(3)
-        with c_p1: cart_ticker = st.text_input("Ingresá el Ticker para la Cartera:", value=obj["Ticker"]).upper()
-        with c_p2: cart_cant = st.number_input("Cantidad de Acciones Poseídas:", min_value=1, value=100)
-        with c_p3: cart_px = st.number_input("Precio de Compra Promedio (USD):", min_value=0.01, value=float(obj["Precio Actual"] * 0.9))
+        # Grilla interactiva para que el usuario sume los activos que quiera (wmt, ko, spy, etc.)
+        editar_cartera = st.data_editor(
+            st.session_state.cartera_df, 
+            num_rows="dynamic", 
+            key="grilla_cartera",
+            use_container_width=True
+        )
+        # Sincronizamos los cambios en el estado
+        st.session_state.cartera_df = editar_cartera
+
+        # Bloque de cómputo en tiempo real recorriendo cada activo agregado
+        costo_total_port = 0.0
+        valor_actual_port = 0.0
+        dividendos_anuales_totales = 0.0
         
-        try:
-            t_cart = yf.Ticker(cart_ticker)
-            inf_c = t_cart.info
-            px_mercado = inf_c.get("currentPrice", inf_c.get("previousClose", 0))
-            div_rate_c = inf_c.get("dividendRate", 0)
-            div_yield_c = inf_c.get("dividendYield", 0)
+        registros_procesados = []
+        
+        for index, row in editar_cartera.iterrows():
+            tick = str(row["Ticker"]).strip().upper()
+            nominales = float(row["Nominales"]) if pd.notna(row["Nominales"]) else 0
+            px_compra = float(row["Precio Compra (USD)"]) if pd.notna(row["Precio Compra (USD)"]) else 0
             
-            c_tot = cart_cant * cart_px
-            v_act = cart_cant * px_mercado
-            pnl_u = v_act - c_tot
-            pnl_p = (pnl_u / c_tot) * 100 if c_tot > 0 else 0
+            if tick and nominales > 0:
+                try:
+                    t_yf = yf.Ticker(tick)
+                    t_inf = t_yf.info
+                    px_ahora = t_inf.get("currentPrice", t_inf.get("previousClose", px_compra))
+                    div_rate = t_inf.get("dividendRate", 0) or (t_inf.get("dividendYield", 0) * px_ahora)
+                    
+                    c_total = nominales * px_compra
+                    v_actual = nominales * px_ahora
+                    pnl_u = v_actual - c_total
+                    
+                    costo_total_port += c_total
+                    valor_actual_port += v_actual
+                    if pd.notna(div_rate):
+                        dividendos_anuales_totales += (nominales * div_rate)
+                        
+                    registros_procesados.append({
+                        "Ticker": tick, "Nominales": nominales, "Precio Medio": px_compra,
+                        "Precio Mercado": px_ahora, "Costo Total": c_total, "Valor Mercado": v_actual, "P&L USD": pnl_u
+                    })
+                except:
+                    registros_procesados.append({
+                        "Ticker": tick, "Nominales": nominales, "Precio Medio": px_compra,
+                        "Precio Mercado": 0, "Costo Total": nominales * px_compra, "Valor Mercado": 0, "P&L USD": 0
+                    })
+
+        if registros_procesados:
+            df_resumen_port = pd.DataFrame(registros_procesados).set_index("Ticker")
+            st.markdown("#### 📈 Consolidado del Portafolio de Inversión")
             
-            st.markdown(f"#### 📈 Rendimiento Actualizado de la Posición en {cart_ticker}")
+            pnl_total_usd = valor_actual_port - costo_total_port
+            pnl_total_pct = (pnl_total_usd / costo_total_port) * 100 if costo_total_port > 0 else 0
+            
             mc1, mc2, mc3 = st.columns(3)
-            with mc1: st.metric("Capital Invertido", f"{c_tot:.2f} USD")
-            with mc2: st.metric("Valor de Mercado", f"{v_act:.2f} USD")
-            with mc3: st.metric("Ganancia / Pérdida (P&L)", f"{pnl_u:.2f} USD", f"{pnl_p:.2f}%")
+            with mc1: st.metric("Capital Total Invertido", f"{costo_total_port:.2f} USD")
+            with mc2: st.metric("Valor de Mercado Actual", f"{valor_actual_port:.2f} USD")
+            with mc3: st.metric("P&L Total de Cartera", f"{pnl_total_usd:.2f} USD", f"{pnl_total_pct:.2f}%")
+            
+            st.dataframe(df_resumen_port.style.format({
+                "Precio Medio": "{:.2f} USD", "Precio Mercado": "{:.2f} USD",
+                "Costo Total": "{:.2f} USD", "Valor Mercado": "{:.2f} USD", "P&L USD": "{:.2f} USD"
+            }), width="stretch")
             
             st.markdown("---")
-            st.markdown("#### 📅 Cronograma Proyectado de Flujo por Dividendos")
-            if pd.notna(div_rate_c) and div_rate_c > 0:
-                c_anual = cart_cant * div_rate_c
-                st.success(f"🎉 **Renta Estimada:** Percibirás un estimado de **{c_anual:.2f} USD anuales** en base al historial de pagos.")
-                df_c = pd.DataFrame({"Trimestre": ["Próximo Q1", "Siguiente Q2", "Siguiente Q3", "Siguiente Q4", "TOTAL ACUMULADO"], "Monto Estimado": [c_anual/4, c_anual/4, c_anual/4, c_anual/4, c_anual]}).set_index("Trimestre")
-                st.table(df_c.style.format("{:.2f} USD"))
+            st.markdown("#### 📅 Cronograma Unificado de Renta Pasiva (Flujo de Fondos)")
+            if dividendos_anuales_totales > 0:
+                st.success(f"🎉 **Caja de Cobros:** Tu cartera consolidada proyecta una renta pasiva de **{dividendos_anuales_totales:.2f} USD anuales**.")
+                df_cron = pd.DataFrame({
+                    "Período de Distribución": ["Flujo Estimado Q1", "Flujo Estimado Q2", "Flujo Estimado Q3", "Flujo Estimado Q4", "CAJA TOTAL ANUAL PROYECTADA"],
+                    "Monto Flujo Cobro": [dividendos_anuales_totales/4, dividendos_anuales_totales/4, dividendos_anuales_totales/4, dividendos_anuales_totales/4, dividendos_anuales_totales]
+                }).set_index("Período de Distribución")
+                st.table(df_cron.style.format("{:.2f} USD"))
             else:
-                st.info(f"ℹ️ El activo {cart_ticker} no registra pagos de dividendos activos en Yahoo Finance.")
-        except:
-            st.error("No se pudieron recopilar datos para el activo de la cartera simulada.")
+                st.info("ℹ️ Los activos cargados actualmente en la grilla no registran pagos de dividendos vigentes.")
 
     # --- PESTAÑA 3: CALCULADORA DCF ---
     with tab3:
@@ -224,7 +282,7 @@ if st.session_state.analisis_ejecutado:
             else: st.info("ℹ️ El modelo DCF requiere flujos corporativos positivos (FCF) estables para proyectar.")
         else: st.info("ℹ️ Los modelos DCF no aplican a ETFs.")
 
-    # --- PESTAÑA 4: ESTRATEGIA TECNICA DEFINITIVA (RESTAURADA AL 100%) ---
+    # --- PESTAÑA 4: ESTRATEGIA TECNICA ---
     with tab4:
         st.subheader(f"📐 Terminal Técnica de Osciladores y Timing - {ticker_objetivo}")
         try:
@@ -234,8 +292,6 @@ if st.session_state.analisis_ejecutado:
                 high = h_tecn['High']
                 low = h_tecn['Low']
                 precio_hoy = cierre.iloc[-1]
-                
-                # Cómputo matemático real de la EMA 30
                 calc_ema_30 = cierre.ewm(span=30, adjust=False).mean()
                 ema_30_hoy = calc_ema_30.iloc[-1]
                 
@@ -261,27 +317,19 @@ if st.session_state.analisis_ejecutado:
                 m_di_hoy = series_minus_di.iloc[-1]
                 adx_hoy = series_adx.iloc[-1]
                 
-                # Métricas Técnicas destacadas
                 m1, m2, m3 = st.columns(3)
                 with m1: st.metric(label="Precio vs. EMA 30", value=f"{precio_hoy:.2f} USD", delta=f"{precio_hoy - ema_30_hoy:.2f} USD vs EMA 30")
                 with m2: st.metric(label="Flujo Direccional (DMI)", value=f"+DI {p_di_hoy:.1f} | -DI {m_di_hoy:.1f}", delta=f"{p_di_hoy - m_di_hoy:.1f} Pts")
                 with m3: st.metric(label="Fuerza de Tendencia (ADX)", value=f"{adx_hoy:.1f} Puntos", delta="Tendencia Activa" if adx_hoy > 20 else "Mercado Lateral", delta_color="normal" if adx_hoy > 20 else "off")
                 
-                # Panel A
                 st.markdown("### 📈 Panel A: Tendencia de Mediano Plazo (Precio vs. EMA 30)")
-                with st.expander("🔍 Ayuda Panel A:"):
-                    st.write("Muestra el precio real cruzado con la Media Móvil Exponencial de 30 días. Precio por encima valida inercia alcista; por debajo, presión vendedora.")
                 df_p = pd.DataFrame({"Precio Cierre (USD)": cierre, "EMA 30 Ruedas": calc_ema_30}, index=h_tecn.index)
                 st.line_chart(df_p, height=300, use_container_width=True)
                 
-                # Panel B RESTAURADO
                 st.markdown("### 📊 Panel B: Oscilador Direccional Completo (DMI 14 / ADX 14)")
-                with st.expander("🔍 Ayuda Panel B:"):
-                    st.write("• +DI (Azul): Fuerza Compradora. \n• -DI (Roja): Fuerza Vendedora. \n• ADX (Verde): Intensidad de la tendencia (>20/25 es fuerte).")
                 df_d = pd.DataFrame({"+DI (Compradores)": series_plus_di, "-DI (Vendedores)": series_minus_di, "ADX (Fuerza General)": series_adx}, index=h_tecn.index)
                 st.line_chart(df_d, height=220, use_container_width=True)
                 
-                # INTERPRETACIÓN AUTOMATIZADA RESTAURADA
                 st.markdown("---")
                 st.subheader("🎯 Diagnóstico Técnico y Recomendación Operativa")
                 rec_col1, rec_col2 = st.columns(2)
