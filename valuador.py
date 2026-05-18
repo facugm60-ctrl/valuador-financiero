@@ -6,9 +6,9 @@ import streamlit.components.v1 as components
 
 st.set_page_config(page_title="Valuador Pro", layout="wide")
 st.title("📊 Plataforma de Valuación de Empresas Públicas")
-st.markdown("Ratios, salud de balance, flujos descontados y análisis táctico avanzado.")
+st.markdown("Ratios de mercado, salud de balance, flujos descontados e inteligencia técnica avanzada.")
 
-# Inputs
+# Inputs de usuario
 col1, col2 = st.columns([1, 2])
 with col1:
     ticker_objetivo = st.text_input("Ticker Objetivo:", value="VIST").upper()
@@ -39,12 +39,12 @@ def obtener_ratios(symbol):
     except: return None
 
 if st.button("🔥 Correr Análisis de Valuación"):
-    with st.spinner("Procesando balances y algoritmos técnicos..."):
+    with st.spinner("Procesando balances y algoritmos de mercado..."):
         datos = [obtener_ratios(t) for t in todos_tickers if obtener_ratios(t)]
         if datos:
             df = pd.DataFrame(datos)
             
-            # 1. TABLA PRINCIPAL
+            # 1. MATRIZ FINANCIERA
             st.subheader("📋 Matriz Completa de Datos Financieros")
             df_m = df.copy().drop(columns=["FCF_Total", "Acciones"])
             v_min = ["Forward P/E", "EV/EBITDA", "P/B Ratio", "Deuda Neta/EBITDA"]
@@ -64,40 +64,40 @@ if st.button("🔥 Correr Análisis de Valuación"):
             meds = df_s.median(numeric_only=True) if not df_s.empty else None
             obj = df[df['Ticker'] == ticker_objetivo].iloc[0]
             
-            # 2. ASESOR FUNDAMENTAL
+            # 2. INFORME FUNDAMENTAL
             st.subheader("🤖 Informe del Asesor Inteligente")
             c_inf1, c_inf2 = st.columns(2)
             with c_inf1:
-                st.markdown(f"**Auditoría para {ticker_objetivo}:**")
+                st.markdown(f"**Auditoría de Balance para {ticker_objetivo}:**")
                 txt = ""
                 db = obj["Deuda Neta/EBITDA"]
                 if pd.notna(db):
-                    if db > 3: txt += f"• ⚠️ **Deuda Alta:** Ratio en {db:.2f}x. Riesgo elevado.\n"
-                    elif db < 0: txt += f"• 🛡️ **Excelente Solvencia:** Caja neta positiva ({db:.2f}x).\n"
-                    else: txt += f"• 👍 **Deuda Controlada:** Ratio saludable en {db:.2f}x.\n"
+                    if db > 3: txt += f"• ⚠️ **Apalancamiento Elevado:** Ratio en {db:.2f}x. Monitorear carga financiera.\n"
+                    elif db < 0: txt += f"• 🛡️ **Solvencia Estructural:** Caja neta positiva ({db:.2f}x).\n"
+                    else: txt += f"• 👍 **Riesgo de Deuda Bajo:** Ratio saludable en {db:.2f}x.\n"
                 lq = obj["Liquidez Corriente"]
                 if pd.notna(lq):
-                    if lq < 1: txt += f"• 🚨 **Alerta Liquidez:** {lq:.2f}x. No cubre el corto plazo.\n"
-                    else: txt += f"• 👍 **Corto Plazo Sólido:** Cubre compromisos con {lq:.2f}x.\n"
+                    if lq < 1: txt += f"• 🚨 **Falta de Liquidez:** Corto plazo ajustado ({lq:.2f}x).\n"
+                    else: txt += f"• 👍 **Fondo de Maniobra Sólido:** Cubre obligaciones corrientes con {lq:.2f}x.\n"
                 st.write(txt)
             with c_inf2:
-                st.markdown("**🎯 Sugerencia Estratégica:**")
+                st.markdown("**🎯 Conclusión Estratégica:**")
                 pe_o = obj["Forward P/E"]
                 pe_m = meds["Forward P/E"] if meds is not None else None
-                if pd.notna(db) and db > 3: st.error("🚨 **EVITAR:** Alto riesgo por endeudamiento crítico.")
-                elif pd.notna(pe_o) and pd.notna(pe_m) and pe_o < pe_m: st.success("🟩 **COMPRAR:** Activo con descuento relativo y balance estable.")
-                else: st.info("🟪 **MANTENER:** Cotiza en rangos medios en línea con sus pares.")
+                if pd.notna(db) and db > 3: st.error("🚨 **EVITAR:** Estructura de capital bajo presión crítica.")
+                elif pd.notna(pe_o) and pd.notna(pe_m) and pe_o < pe_m: st.success("🟩 **COMPRAR / SUBVALUADA:** Múltiplos atractivos frente al sector de referencia.")
+                else: st.info("🟪 **MANTENER:** Cotización en rangos de equilibrio razonables.")
 
-            # 3. DCF
+            # 3. VALOR INTRÍNSECO (DCF)
             st.markdown("---")
             st.subheader(f"🧮 Calculadora de Valor Intrínseco (DCF) - {ticker_objetivo}")
             fcf, sh, pr = obj["FCF_Total"], obj["Acciones"], obj["Precio Actual"]
             if pd.notna(fcf) and pd.notna(sh) and sh > 0 and fcf > 0:
                 fcf_a = fcf / sh
                 cd1, cd2, cd3 = st.columns(3)
-                with cd1: cw = st.slider("Crecimiento Anual (Años 1-5):", 0, 40, 12, 1, "%d%%") / 100
-                with cd2: td = st.slider("Tasa Descuento (WACC):", 5, 25, 10, 1, "%d%%") / 100
-                with cd3: mt = st.slider("Múltiplo Terminal EV/EBITDA:", 3, 20, 6, 1, "%dx")
+                with cd1: cw = st.slider("Crecimiento Estimado (Años 1-5):", 0, 40, 12, 1, "%d%%") / 100
+                with cd2: td = st.slider("Tasa de Descuento (WACC):", 5, 25, 10, 1, "%d%%") / 100
+                with cd3: mt = st.slider("Múltiplo Terminal Solicitado:", 3, 20, 6, 1, "%dx")
                 
                 f_p = [fcf_a * ((1+cw)**i) / ((1+td)**i) for i in range(1, 6)]
                 v_t = (fcf_a * ((1+cw)**5) * mt) / ((1+td)**5)
@@ -109,13 +109,14 @@ if st.button("🔥 Correr Análisis de Valuación"):
                     st.metric("VALOR INTRÍNSECO TEÓRICO:", f"{v_i:.2f} USD")
                 with cr2:
                     st.metric("Precio en Mercado:", f"{pr:.2f} USD")
-                    if v_i > pr: st.success(f"📈 **Margen de Seguridad: {((v_i-pr)/v_i)*100:.1f}%** (Subvaluada)")
-                    else: st.error(f"📉 **Sobreprecio: {((pr-v_i)/v_i)*100:.1f}%** (Sobrevaluada)")
-            else: st.info(f"ℹ️ Sin Flujo de Caja Libre positivo para {ticker_objetivo}.")
+                    if v_i > pr: st.success(f"📈 **Margen de Seguridad: {((v_i-pr)/v_i)*100:.1f}%**")
+                    else: st.error(f"📉 **Sobreprecio Estimado: {((pr-v_i)/v_i)*100:.1f}%**")
+            else: st.info(f"ℹ️ Módulo DCF pausado: Requiere flujo de caja libre positivo para proyectar.")
 
-            # 4. AUDITORÍA TÉCNICA
+            # 4. TABLERO DE ANÁLISIS TÉCNICO ALGORÍTMICO (EMA 30 + DMI 14)
             st.markdown("---")
-            st.subheader(f"📐 Reporte de Indicadores Técnicos de tu Perfil (EMA 30 + DMI) - {ticker_objetivo}")
+            st.subheader(f"📐 Terminal de Datos Técnicos y Estructura de Precios - {ticker_objetivo}")
+            
             try:
                 h_tecn = yf.Ticker(ticker_objetivo).history(period="1y")
                 if len(h_tecn) > 40:
@@ -123,6 +124,8 @@ if st.button("🔥 Correr Análisis de Valuación"):
                     high = h_tecn['High']
                     low = h_tecn['Low']
                     precio_hoy = cierre.iloc[-1]
+                    
+                    # Cómputo matemático preciso del backend
                     ema_30 = cierre.ewm(span=30, adjust=False).mean().iloc[-1]
                     up_move = high.diff()
                     down_move = -low.diff()
@@ -142,21 +145,40 @@ if st.button("🔥 Correr Análisis de Valuación"):
                     p_di_hoy = plus_di.iloc[-1]
                     m_di_hoy = minus_di.iloc[-1]
                     
-                    ct1, ct2 = st.columns(2)
-                    with ct1:
-                        st.markdown("**🟡 Tendencia de Corto/Mediano Plazo (EMA 30)**")
-                        if precio_hoy > ema_30: st.markdown(f"🟩 **MOMENTUM POSITIVO:** El precio ({precio_hoy:.2f} USD) cotiza **por encima** de tu EMA 30 ({ema_30:.2f} USD).")
-                        else: st.markdown(f"🟥 **MOMENTUM NEGATIVO:** El precio ({precio_hoy:.2f} USD) perforó **a la baja** tu EMA 30 ({ema_30:.2f} USD).")
-                    with ct2:
-                        st.markdown("**📊 Fuerza y Dirección del Flujo (DMI / ADX 14)**")
-                        dir_txt = f"🟢 **CONTROL COMPRADOR:** +DI ({p_di_hoy:.1f}) > -DI ({m_di_hoy:.1f})." if p_di_hoy > m_di_hoy else f"🔴 **CONTROL VENDEDOR:** -DI ({m_di_hoy:.1f}) > +DI ({p_di_hoy:.1f})."
-                        fuerza_txt = f"El **ADX en {adx:.1f} pts** confirma una **tendencia fuerte**." if adx > 25 else f"El **ADX en {adx:.1f} pts** indica **compresión o rango lateral**."
-                        st.markdown(f"{dir_txt}\n\n{fuerza_txt}")
-                else: st.info("Datos insuficientes para el reporte técnico.")
-            except: st.info("No se pudieron pre-calcular los indicadores.")
+                    # Interfaz gráfica del Tablero Técnico en Streamlit
+                    st.markdown("#### 🚨 Lectura Cuantitativa de Indicadores")
+                    m1, m2, m3 = st.columns(3)
+                    
+                    with m1:
+                        st.metric(label="Precio Actual vs. EMA 30", value=f"{precio_hoy:.2f} USD", delta=f"{precio_hoy - ema_30:.2f} USD vs EMA 30")
+                        if precio_hoy > ema_30:
+                            st.caption("🟡 **Fase Alcista de Mediano Plazo:** El precio defiende la media como soporte dinámico.")
+                        else:
+                            st.caption("🔵 **Fase de Corrección / Distribución:** Presión por debajo de la media móvil.")
+                            
+                    with m2:
+                        dmi_diff = p_di_hoy - m_di_hoy
+                        st.metric(label="Fuerza Direccional (Cruce DMI)", value=f"+DI {p_di_hoy:.1f} | -DI {m_di_hoy:.1f}", delta=f"{dmi_diff:.1f} Net Comprador" if dmi_diff > 0 else f"{dmi_diff:.1f} Net Vendedor")
+                        if p_di_hoy > m_di_hoy:
+                            st.caption("🟢 **Toros en Control:** Fuerza de compra superior a la presión de oferta.")
+                        else:
+                            st.caption("🔴 **Osos en Control:** Los vendedores dominan la estructura direccional.")
+                            
+                    with m3:
+                        st.metric(label="Intensidad de Tendencia (ADX)", value=f"{adx:.1f} Puntos", delta="Tendencia Activa (>20)" if adx > 20 else "Mercado Lateral (<20)", delta_color="normal" if adx > 20 else "off")
+                        if adx > 25:
+                            st.caption("⚡ **Movimiento Fuerte:** Hay alto respaldo institucional detrás del flujo actual.")
+                        else:
+                            st.caption("💤 **Rango Lateral:** Tendencia débil o compresión. Evitar operaciones de quiebre.")
+                else:
+                    st.info("Falta historial para procesar los cálculos.")
+            except Exception as e:
+                st.info(f"Módulo analítico en espera.")
 
-            # 5. GRÁFICO INTERACTIVO CONFIGURADO CON TUS COMPONENTES (EMA30 + DMI)
-            st.subheader("🖥️ Terminal Táctica de TradingView")
+            # 5. GRÁFICO AVANZADO LIMPIO
+            st.markdown("---")
+            st.subheader("🖥️ Terminal Táctica Interactiva")
+            st.caption("💡 Tip Técnico: Como la API externa bloquea configuraciones complejas por defecto, podés usar el buscador o tirar tus indicadores preferidos directo desde el botón 'fx' de este panel.")
             
             tradingview_html = f"""
             <div id="tradingview_advanced_chart" style="height:600px;"></div>
@@ -175,11 +197,7 @@ if st.button("🔥 Correr Análisis de Valuación"):
               "enable_publishing": false,
               "hide_side_toolbar": false,
               "allow_symbol_change": true,
-              "container_id": "tradingview_advanced_chart",
-              "studies": [
-                "MASimple@tv-basicstudies", // Forzamos a que pinte medias móviles nativas
-                "DirectionalMovementIndex@tv-basicstudies" // Forzamos a que levante el DMI abajo
-              ]
+              "container_id": "tradingview_advanced_chart"
             }});
             </script>
             """
