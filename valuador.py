@@ -6,7 +6,7 @@ import streamlit.components.v1 as components
 
 st.set_page_config(page_title="Valuador Pro", layout="wide")
 st.title("📊 Plataforma de Valuación de Empresas Públicas")
-st.markdown("Ratios, salud de balance, flujos descontados y análisis técnico avanzado.")
+st.markdown("Ratios, salud de balance, flujos descontados y análisis táctico avanzado.")
 
 # Inputs
 col1, col2 = st.columns([1, 2])
@@ -113,65 +113,84 @@ if st.button("🔥 Correr Análisis de Valuación"):
                     else: st.error(f"📉 **Sobreprecio: {((pr-v_i)/v_i)*100:.1f}%** (Sobrevaluada)")
             else: st.info(f"ℹ️ Sin Flujo de Caja Libre positivo para {ticker_objetivo}.")
 
-            # 4. NUEVA SECCIÓN: BACKEND DE ANÁLISIS TÉCNICO MATEMÁTICO
+            # 4. AUDITORÍA TÉCNICA BASADA EN TU PERFIL DE TRADINGVIEW (EMA 30 + DMI 14)
             st.markdown("---")
-            st.subheader(f"📐 Auditoría de Indicadores Técnicos Clave - {ticker_objetivo}")
+            st.subheader(f"📐 Reporte de Indicadores Técnicos de tu Perfil (EMA 30 + DMI) - {ticker_objetivo}")
             
             try:
-                # Descargamos historial diario de 1 año para computar indicadores
+                # Bajamos datos diarios suficientes para calcular EMA 30 y DMI 14
                 h_tecn = yf.Ticker(ticker_objetivo).history(period="1y")
-                if len(h_tecn) > 50:
+                if len(h_tecn) > 40:
                     cierre = h_tecn['Close']
+                    high = h_tecn['High']
+                    low = h_tecn['Low']
                     precio_hoy = cierre.iloc[-1]
                     
-                    # Cómputo de la Media Móvil Exponencial institucional (EMA 200 aproximada por ruedas disponibles)
-                    ema_ruedas = min(200, len(cierre))
-                    ema_inst = cierre.ewm(span=ema_ruedas, adjust=False).mean().iloc[-1]
+                    # 1. Cálculo de tu EMA 30 amarilla
+                    ema_30 = cierre.ewm(span=30, adjust=False).mean().iloc[-1]
                     
-                    # Cómputo del RSI clásico de 14 ruedas
-                    delta = cierre.diff()
-                    ganancia = delta.clip(lower=0)
-                    perdida = -delta.clip(upper=0)
-                    ema_gan = ganancia.ewm(com=13, adjust=False).mean()
-                    ema_per = perdida.ewm(com=13, adjust=False).mean()
-                    rs = index_rsi = 100 - (100 / (1 + (ema_gan / ema_per))).iloc[-1]
+                    # 2. Algoritmo matemático del DMI (Dirección y Fuerza)
+                    up_move = high.diff()
+                    down_move = -low.diff()
                     
-                    # Desglose del informe técnico en pantalla
-                    ct1, ct2, ct3 = st.columns(3)
+                    plus_dm = np.where((up_move > down_move) & (up_move > 0), up_move, 0)
+                    minus_dm = np.where((down_move > up_move) & (down_move > 0), down_move, 0)
+                    
+                    # Rango verdadero (True Range)
+                    tr1 = high - low
+                    tr2 = np.abs(high - cierre.shift(1))
+                    tr3 = np.abs(low - cierre.shift(1))
+                    tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
+                    
+                    # Suavizado clásico de 14 períodos (Wilder)
+                    tr_14 = tr.ewm(alpha=1/14, adjust=False).mean()
+                    plus_dm_14 = pd.Series(plus_dm, index=h_tecn.index).ewm(alpha=1/14, adjust=False).mean()
+                    minus_dm_14 = pd.Series(minus_dm, index=h_tecn.index).ewm(alpha=1/14, adjust=False).mean()
+                    
+                    plus_di = (plus_dm_14 / tr_14) * 100
+                    minus_di = (minus_dm_14 / tr_14) * 100
+                    
+                    # Cálculo de la línea azul del ADX
+                    dx = (np.abs(plus_di - minus_di) / (plus_di + minus_di)) * 100
+                    adx = dx.ewm(alpha=1/14, adjust=False).mean().iloc[-1]
+                    
+                    p_di_hoy = plus_di.iloc[-1]
+                    m_di_hoy = minus_di.iloc[-1]
+                    
+                    # Paneles visuales del resumen técnico interpretativo
+                    ct1, ct2 = st.columns(2)
                     
                     with ct1:
-                        st.markdown("**📈 Tendencia Estructural (EMA)**")
-                        if precio_hoy > ema_inst:
-                            st.markdown(f"🟢 **TENDENCIA ALCISTA:** El precio ({precio_hoy:.2f} USD) cotiza **por encima** de su media estructural ({ema_inst:.2f} USD). Dominio comprador de largo plazo.")
+                        st.markdown("**🟡 Tendencia de Corto/Mediano Plazo (EMA 30)**")
+                        if precio_hoy > ema_30:
+                            st.markdown(f"🟩 **MOMENTUM POSITIVO:** El precio ({precio_hoy:.2f} USD) cotiza **por encima** de tu EMA 30 ({ema_30:.2f} USD). La estructura empuja al alza y la media actúa como soporte dinámico.")
                         else:
-                            st.markdown(f"🔴 **TENDENCIA BAJISTA:** El precio ({precio_hoy:.2f} USD) cotiza **por debajo** de su media estructural ({ema_inst:.2f} USD). Presión vendedora dominante.")
+                            st.markdown(f"🟥 **MOMENTUM NEGATIVO:** El precio ({precio_hoy:.2f} USD) perforó **a la baja** tu EMA 30 ({ema_30:.2f} USD). Fase correctiva o distributiva en desarrollo.")
                             
                     with ct2:
-                        st.markdown("**⚡ Impulso de Mercado (RSI)**")
-                        if rs >= 70:
-                            st.markdown(f"🚨 **SOBRECOMPRA ({rs:.1f} pts):** El activo muestra una aceleración excesiva. Riesgo latente de corrección por agotamiento de compradores.")
-                        elif rs <= 30:
-                            st.markdown(f"🛒 **SOBREVENTA ({rs:.1f} pts):** Castigo excesivo en el precio. Zona de capitulación histórica que suele activar algoritmos de rebote.")
+                        st.markdown("**📊 Fuerza y Dirección del Flujo (DMI / ADX 14)**")
+                        # Evaluamos quién tiene el control direccional
+                        if p_di_hoy > m_di_hoy:
+                            dir_txt = f"🟢 **CONTROL COMPRADOR:** La línea verde (+DI: {p_di_hoy:.1f}) lidera sobre la roja (-DI: {m_di_hoy:.1f})."
                         else:
-                            st.markdown(f"⚖️ **RANGO NEUTRO ({rs:.1f} pts):** Flujo de fuerza equilibrado. El precio se desplaza sin distorsiones extremas de codicia o pánico.")
+                            dir_txt = f"🔴 **CONTROL VENDEDOR:** La línea roja (-DI: {m_di_hoy:.1f}) lidera sobre la verde (+DI: {p_di_hoy:.1f})."
+                        
+                        # Evaluamos la intensidad de la fuerza con la línea azul (ADX)
+                        if adx > 25:
+                            fuerza_txt = f"La línea azul (**ADX en {adx:.1f} pts**) confirma una **tendencia fuerte y madura**. El movimiento actual tiene alto respaldo institucional."
+                        elif adx < 20:
+                            fuerza_txt = f"La línea azul (**ADX en {adx:.1f} pts**) indica una **tendencia débil o compresión**. Mercado en rango lateral; cuidado con los falsos rompimientos."
+                        else:
+                            fuerza_txt = f"La línea azul (**ADX en {adx:.1f} pts**) muestra una fuerza intermedia en fase de construcción."
                             
-                    with ct3:
-                        st.markdown("**💰 Flujo y Convergencia (MACD/Precio)**")
-                        # Miramos el impulso de corto plazo contra el de mediano
-                        ema12 = cierre.ewm(span=12, adjust=False).mean().iloc[-1]
-                        ema26 = cierre.ewm(span=26, adjust=False).mean().iloc[-1]
-                        if ema12 > ema26:
-                            st.markdown("🟢 **MOMENTUM ACELERANDO:** El flujo de dinero de corto plazo está entrando con mayor velocidad que el promedio mensual. Fuerza a favor del movimiento.")
-                        else:
-                            st.markdown("🔴 **MOMENTUM DESACELERANDO:** Pérdida de tracción. El promedio de corto plazo se cruza a la baja, indicando salida distributiva de capital.")
+                        st.markdown(f"{dir_txt}\n\n{fuerza_txt}")
                 else:
-                    st.info("Historial de mercado insuficiente para automatizar el dictamen técnico.")
+                    st.info("Datos de mercado insuficientes para pre-calcular tu perfil técnico.")
             except:
-                st.info("No se pudieron pre-calcular los indicadores en el backend.")
+                st.info("No se pudieron pre-calcular los indicadores direccionales en esta vuelta.")
 
             # 5. GRÁFICO INTERACTIVO DE TRADINGVIEW
             st.subheader("🖥️ Terminal Táctica de TradingView")
-            st.caption("💡 Tip de Analista: Podés meter herramientas de dibujo a la izquierda y cambiar indicadores (RSI, MACD, Medias) dándole al botón 'fx' de arriba.")
             
             tradingview_html = f"""
             <div id="tradingview_advanced_chart" style="height:600px;"></div>
