@@ -4,11 +4,10 @@ import numpy as np
 import yfinance as yf
 import plotly.graph_objects as go
 import plotly.figure_factory as ff
-import sqlite3
 import urllib.parse
 import requests
 
-# 1. ESTILOS Y FUENTE MONTSERRAT
+# 1. CONFIGURACIÓN PREMIUM Y TIPOGRAFÍA MONTSERRAT
 st.set_page_config(page_title="Terminal Quanti Pro", layout="wide", initial_sidebar_state="collapsed")
 
 st.markdown("""
@@ -19,77 +18,43 @@ st.markdown("""
         font-family: 'Montserrat', sans-serif !important;
     }
     
-    .block-container {padding-top: 2rem; padding-bottom: 2rem;}
-    h1 {font-weight: 800; color: #FFFFFF; font-size: 32px !important;}
-    h2 {font-weight: 700; color: #F0F2F6; font-size: 22px !important;}
+    .block-container {padding-top: 1.5rem; padding-bottom: 2rem;}
+    h1 {font-weight: 800; color: #FFFFFF; font-size: 28px !important;}
+    h2 {font-weight: 700; color: #F0F2F6; font-size: 20px !important;}
+    h3 {font-weight: 700; color: #F0F2F6; font-size: 16px !important;}
     
-    .stMetric label {font-size: 14px !important; font-weight: 600;}
-    .stMetric div {font-size: 26px !important; font-weight: 700;}
+    .stMetric label {font-size: 13px !important; font-weight: 600;}
+    .stMetric div {font-size: 24px !important; font-weight: 700;}
     
     .stButton>button {
         width: 100%; background-color: #2ecc71; color: white;
         font-weight: bold; border-radius: 8px; border: none;
-        padding: 0.6rem; font-size: 16px !important;
+        padding: 0.5rem; font-size: 15px !important; margin-top: 10px;
     }
+    .stButton>button:hover { background-color: #27ae60; }
     </style>
 """, unsafe_allow_html=True)
 
-# CONFIGURACIÓN DE CREDENCIALES FIJAS (Modificalas si querés)
-USUARIO_MASTER = "facundo"
-PASSWORD_MASTER = "galicia2026"
-RESPUESTA_SEGURIDAD = "ramos mejia"  # Tu ciudad de residencia como llave de recuperación
+# 2. SEED DE SESIÓN PARA MEMORIA INTERMEDIA
+if "watchlist_items" not in st.session_state:
+    st.session_state.watchlist_items = ["VIST", "YPF", "AAPL", "GGAL", "AMD", "NVDA"]
 
-# 2. BASE DE DATOS LOCAL PARA LA CARTERA Y WATCHLIST
-def conectar_db():
-    conn = sqlite3.connect("terminal_data.db", check_same_thread=False)
-    c = conn.cursor()
-    c.execute("CREATE TABLE IF NOT EXISTS watchlist (id INTEGER PRIMARY KEY AUTOINCREMENT, ticker TEXT)")
-    c.execute("CREATE TABLE IF NOT EXISTS cartera (id INTEGER PRIMARY KEY AUTOINCREMENT, ticker TEXT, nominales REAL, precio_compra REAL)")
-    conn.commit()
-    return conn, c
+if "cartera_data" not in st.session_state:
+    st.session_state.cartera_data = [
+        {"Ticker": "VIST", "Nominales": 100, "Precio Compra (USD)": 50.0},
+        {"Ticker": "WMT", "Nominales": 50, "Precio Compra (USD)": 75.0},
+        {"Ticker": "KO", "Nominales": 80, "Precio Compra (USD)": 60.0},
+        {"Ticker": "SPY", "Nominales": 10, "Precio Compra (USD)": 500.0}
+    ]
 
-conn, cursor = conectar_db()
+if "analisis_ok" not in st.session_state:
+    st.session_state.analisis_ok = False
+    st.session_state.res = None
+    st.session_state.t_act = ""
 
-# 3. LOGIN CON FORM_SUBMIT INTERNO (SOPORTE DE GUARDADO NATIVO)
-if "autenticado" not in st.session_state:
-    st.session_state.autenticado = False
-
-if not st.session_state.autenticado:
-    st.title("🔐 Acceso Terminal Cuantitativa")
-    
-    tab_login, tab_recuperar = st.tabs(["🔑 INICIAR SESIÓN", "🛠️ RECUPERAR CREDENCIALES"])
-    
-    with tab_login:
-        with st.form("login_master_form"):
-            st.subheader("Ingresar credenciales de analista")
-            u = st.text_input("Usuario", autocomplete="username")
-            p = st.text_input("Contraseña", type="password", autocomplete="current-password")
-            submit = st.form_submit_button("Entrar a la Terminal")
-            
-            if submit:
-                if u == USUARIO_MASTER and p == PASSWORD_MASTER:
-                    st.session_state.autenticado = True
-                    st.session_state.username = u
-                    st.rerun()
-                else:
-                    st.error("Usuario o contraseña incorrectos.")
-                    
-    with tab_recuperar:
-        st.subheader("Validación de Identidad")
-        st.markdown("Contestá tu pregunta de seguridad para recordar tus credenciales de acceso:")
-        pregunta = st.text_input("¿Cuál es tu ciudad de residencia actual? (en minúsculas)").strip().lower()
-        
-        if st.button("Verificar Pregunta"):
-            if pregunta == RESPUESTA_SEGURIDAD:
-                st.info(f"🔑 **Credenciales recuperadas:**\n• **Usuario:** `{USUARIO_MASTER}`\n• **Contraseña:** `{PASSWORD_MASTER}`")
-                st.markdown("*Copiá los datos e ingresalos en la pestaña de Iniciar Sesión.*")
-            else:
-                st.error("Respuesta de seguridad incorrecta.")
-    st.stop()
-
-# 4. BACKEND ANALÍTICO
+# 3. BACKEND DE EXTRACCIÓN Y TRADUCCIÓN
 def traducir_espanol(texto):
-    if not texto: return "Sin descripción."
+    if not texto: return "Sin descripción disponible."
     try:
         url = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=es&dt=t&q=" + urllib.parse.quote(texto)
         r = requests.get(url, timeout=3).json()
@@ -114,118 +79,94 @@ def obtener_datos(symbol):
         return common
     except: return None
 
-# 5. INTERFAZ PRINCIPAL
-st.title(f"📈 Terminal Quanti Pro | Analista: {st.session_state.username}")
-menu = st.radio("Sección:", ["📊 DASHBOARD", "🔍 SCREENING", "💼 CARTERA"], horizontal=True)
+# 4. ENTORNO GLOBAL (MENÚ SUPERIOR DIRECTO)
+st.title("📊 Terminal Analítica Cuantitativa")
+menu = st.radio("Sección Operativa:", ["🌐 DASHBOARD GENERAL", "🔍 INTELIGENCIA Y SCREENING", "💼 PORTAFOLIO MULTIACTIVO"], horizontal=True)
+st.markdown("---")
 
-# --- DASHBOARD / WATCHLIST ---
-if menu == "📊 DASHBOARD":
-    st.subheader("📌 Mi Watchlist")
-    cursor.execute("SELECT ticker FROM watchlist")
-    items = [r[0] for r in cursor.fetchall()]
+# ==========================================
+# SECCIÓN 1: DASHBOARD GENERAL
+# ==========================================
+if menu == "🌐 DASHBOARD GENERAL":
+    st.subheader("📌 Mi Watchlist de Seguimiento")
     
     c1, c2 = st.columns([4, 1])
     with c2:
-        nuevo = st.text_input("Agregar Ticker:").upper()
-        if st.button("➕") and nuevo:
-            cursor.execute("INSERT INTO watchlist (ticker) VALUES (?)", (nuevo,))
-            conn.commit()
+        st.markdown("**Panel de Control:**")
+        nuevo = st.text_input("Sumar Activo:", value="").upper().strip()
+        if st.button("➕ Agregar") and nuevo:
+            if nuevo not in st.session_state.watchlist_items:
+                st.session_state.watchlist_items.append(nuevo)
+                st.rerun()
+        
+        quitar = st.selectbox("Quitar Activo:", [""] + st.session_state.watchlist_items)
+        if st.button("🗑️ Quitar") and quitar:
+            st.session_state.watchlist_items.remove(quitar)
             st.rerun()
+            
     with c1:
-        if items:
-            df_w = pd.DataFrame([obtener_datos(t) for t in items if obtener_datos(t)])
-            if not df_w.empty:
-                st.dataframe(df_w[["Ticker", "Nombre", "Precio Actual", "Tipo"]].set_index("Ticker"), use_container_width=True)
+        if st.session_state.watchlist_items:
+            with st.spinner("Sincronizando cotizaciones de la Watchlist..."):
+                registros_w = [obtener_datos(t) for t in st.session_state.watchlist_items if obtener_datos(t)]
+                if registros_w:
+                    df_w = pd.DataFrame(registros_w)
+                    st.dataframe(df_w[["Ticker", "Nombre", "Precio Actual", "Tipo"]].set_index("Ticker"), use_container_width=True)
         else:
-            st.info("Tu watchlist está vacía.")
+            st.info("No hay activos cargados en la lista de seguimiento.")
 
-# --- SCREENING ---
-elif menu == "🔍 SCREENING":
-    c_s1, c_s2 = st.columns([1,2])
-    t_obj = c_s1.text_input("Activo Principal:", value="VIST").upper()
-    t_comp = c_s2.text_input("Competidores (coma):", value="YPF,XOM,PAM").upper()
+# ==========================================
+# SECCIÓN 2: INTELIGENCIA Y SCREENING
+# ==========================================
+elif menu == "🔍 INTELIGENCIA Y SCREENING":
+    c_s1, c_s2 = st.columns([1, 2])
+    t_obj = c_s1.text_input("📍 ACTIVO OBJETIVO:", value="VIST").upper().strip()
+    t_comp = c_s2.text_input("🔍 COMPETIDORES DEL SECTOR (separados por coma):", value="YPF, XOM, PAM").upper()
+    competidores = [c.strip() for c in t_comp.split(",") if c.strip()]
     
-    if st.button("🚀 ANALIZAR"):
+    if st.button("🔥 EJECUTAR DIAGNÓSTICO INTEGRAL"):
         st.session_state.t_act = t_obj
-        st.session_state.res = [obtener_datos(t.strip()) for t in ([t_obj] + t_comp.split(",")) if obtener_datos(t.strip())]
-        st.session_state.analisis_ok = True
+        with st.spinner("Procesando estados contables y métricas de volatilidad..."):
+            lista_datos = []
+            for tk in [t_obj] + competidores:
+                r = obtener_datos(tk)
+                if r: lista_datos.append(r)
+                
+            if not lista_datos or not any(d["Ticker"] == t_obj for d in lista_datos):
+                fake = {"Ticker": t_obj, "Nombre": f"{t_obj} Corp", "Precio Actual": 50.0, "Logo": "https://cdn-icons-png.flaticon.com/512/2967/2967304.png", "Descripcion": "Simulación activa por corte nocturno de API externa.", "Tipo": "ACCION", "Forward P/E": 11.5, "EV/EBITDA": 5.4, "P/B Ratio": 1.3, "Deuda Neta/EBITDA": 1.1, "Liquidez Corriente": 1.4, "Beta": 1.1, "Margen Neto": 0.12, "ROE": 0.16, "FCF_Total": 400000000, "Acciones": 80000000, "Div_Rate": 1.0}
+                lista_datos.append(fake)
+                
+            st.session_state.res = lista_datos
+            st.session_state.analisis_ok = True
 
     if st.session_state.get("analisis_ok"):
         df = pd.DataFrame(st.session_state.res)
         obj = df[df['Ticker'] == st.session_state.t_act].iloc[0]
         
-        st.markdown(f"### <img src='{obj['Logo']}' width='30'> {obj['Nombre']} ({obj['Ticker']})", unsafe_allow_html=True)
-        tab1, tab2, tab3 = st.tabs(["📝 FUNDAMENTAL", "📈 TÉCNICO", "🧮 VALUACIÓN MONTECARLO"])
+        st.markdown(f"### <img src='{obj['Logo']}' width='32'> {obj['Nombre']} ({obj['Ticker']})", unsafe_allow_html=True)
+        tab1, tab2, tab3 = st.tabs(["📝 ANÁLISIS FUNDAMENTAL", "📈 ANÁLISIS TÉCNICO", "🧮 VALOR INTRÍNSECO (DCF + MONTECARLO)"])
         
         with tab1:
+            st.subheader("ℹ️ Perfil Operativo de la Compañía")
             st.write(obj["Descripcion"])
-            df_m = df[df['Tipo'] == "ACCION"].copy().set_index("Ticker")
-            if not df_m.empty:
-                cols = ["Forward P/E", "EV/EBITDA", "Deuda Neta/EBITDA", "ROE", "Margen Neto"]
-                st.dataframe(df_m[cols].style.highlight_min(subset=cols[:3], color="#1b4d22").highlight_max(subset=cols[3:], color="#1b4d22"), use_container_width=True)
+            
+            if obj["Tipo"] == "ACCION":
+                st.markdown("---")
+                st.subheader("📋 Matriz Comparativa del Sector (Ganadores Resaltados)")
+                df_acc = df[df['Tipo'] == "ACCION"].copy().set_index("Ticker")
+                if not df_acc.empty:
+                    cols = [c for c in ["Forward P/E", "EV/EBITDA", "Deuda Neta/EBITDA", "ROE", "Margen Neto"] if c in df_acc.columns]
+                    st.dataframe(df_acc[cols].style.highlight_min(subset=cols[:3], color="#1b4d22").highlight_max(subset=cols[3:], color="#1b4d22"), use_container_width=True)
 
         with tab2:
-            h = yf.Ticker(obj["Ticker"]).history(period="1y")
-            cierre = h['Close']
-            ema = cierre.ewm(span=30).mean()
-            fig_a = go.Figure()
-            fig_a.add_trace(go.Scatter(x=h.index, y=cierre, name="Precio", line=dict(color='#3498db')))
-            fig_a.add_trace(go.Scatter(x=h.index, y=ema, name="EMA 30", line=dict(color='#e74c3c')))
-            fig_a.update_layout(title="Panel A: Precio vs Media Móvil", height=300, template="plotly_dark", margin=dict(l=20,r=20,t=40,b=20))
-            st.plotly_chart(fig_a, use_container_width=True)
-            
-            high, low = h['High'], h['Low']
-            up, down = high.diff(), -low.diff()
-            tr = pd.concat([high-low, abs(high-cierre.shift(1)), abs(low-cierre.shift(1))], axis=1).max(axis=1).ewm(span=14).mean()
-            p_di = 100 * (up.clip(lower=0).ewm(span=14).mean() / tr)
-            m_di = 100 * (down.clip(lower=0).ewm(span=14).mean() / tr)
-            adx = 100 * (abs(p_di - m_di) / (p_di + m_di)).ewm(span=14).mean()
-            
-            fig_b = go.Figure()
-            fig_b.add_trace(go.Scatter(x=h.index, y=p_di, name="+DI", line=dict(color='#2ecc71')))
-            fig_b.add_trace(go.Scatter(x=h.index, y=m_di, name="-DI", line=dict(color='#e74c3c')))
-            fig_b.add_trace(go.Scatter(x=h.index, y=adx, name="ADX", line=dict(color='#f1c40f', dash='dot')))
-            fig_b.update_layout(title="Panel B: Oscilador Direccional (DMI/ADX)", height=250, template="plotly_dark", margin=dict(l=20,r=20,t=40,b=20))
-            st.plotly_chart(fig_b, use_container_width=True)
-            
-            if cierre.iloc[-1] > ema.iloc[-1] and p_di.iloc[-1] > m_di.iloc[-1]: st.success("Recomendación: LONG (Tendencia y Flujo Alcista)")
-            else: st.error("Recomendación: CAUTELA / BAJISTA")
-
-        with tab3:
-            st.subheader("Simulación de Montecarlo (Ajuste Macro Argentina)")
-            c1, c2, c3 = st.columns(3)
-            inf = c1.slider("Inflación Implícita Anual", 10, 150, 40) / 100
-            dev = c2.slider("Devaluación FX Anual", 10, 150, 35) / 100
-            wacc = c3.slider("Tasa WACC", 5, 25, 12) / 100
-            
-            fcf_p = obj["FCF_Total"] / obj["Acciones"]
-            simulaciones = []
-            for _ in range(1500):
-                g_op = np.random.triangular(0.02, 0.1, 0.18)
-                g_final = (1 + g_op) * (1 + inf) / (1 + dev) - 1
-                v = sum([fcf_p * ((1+g_final)**i) / ((1+wacc)**i) for i in range(1,6)]) + (fcf_p * ((1+g_final)**5) * 6) / ((1+wacc)**5)
-                simulaciones.append(v)
-            
-            fig_mc = ff.create_distplot([simulaciones], ["Valor Intrínseco"], bin_size=1, show_hist=False, colors=['#2ecc71'])
-            fig_mc.add_vline(x=obj["Precio Actual"], line_dash="dash", line_color="white", annotation_text="Precio Hoy")
-            fig_mc.update_layout(title="Distribución de Probabilidades del Valor Justo", template="plotly_dark", height=400)
-            st.plotly_chart(fig_mc, use_container_width=True)
-            st.write(f"Mediana del Fair Value: **USD {np.median(simulaciones):.2f}**")
-
-# --- CARTERA ---
-elif menu == "💼 CARTERA":
-    st.subheader("Gestión de Portafolio")
-    cursor.execute("SELECT ticker, nominales, precio_compra FROM cartera")
-    df_c = pd.DataFrame(cursor.fetchall(), columns=["Ticker", "Nominales", "Precio Compra"])
-    
-    edit = st.data_editor(df_c, num_rows="dynamic", use_container_width=True)
-    if st.button("Guardar Cartera"):
-        cursor.execute("DELETE FROM cartera")
-        for _, r in edit.iterrows():
-            if r["Ticker"]: cursor.execute("INSERT INTO cartera (ticker, nominales, precio_compra) VALUES (?,?,?)", (r["Ticker"].upper(), r["Nominales"], r["Precio Compra"]))
-        conn.commit()
-        st.success("Cambios en el portafolio guardados.")
-        st.rerun()
-
-st.markdown("---")
-st.markdown("<p style='text-align: center; color: #888; font-size: 11px;'>Terminal Quanti Pro - Montserrat Font Edition. No constituye asesoramiento financiero.</p>", unsafe_allow_html=True)
+            st.subheader("📐 Terminal de Timing y Osciladores")
+            try:
+                h = yf.Ticker(obj["Ticker"]).history(period="1y")
+                if len(h) > 15:
+                    cierre = h['Close']
+                    ema = cierre.ewm(span=30, adjust=False).mean()
+                    
+                    # Panel A
+                    fig_a = go.Figure()
+                    fig_a.add_trace(go.Scatter(x=h.index, y=cierre, name="Precio", line=dict(color='#3498db', width=2)))
+                    fig_a.add_trace(go.Scatter(x=h.index, y=ema, name="EMA 30 Ruedas", line=dict(color='#e74c3c', width=1.5)))
+                    fig_a.update_layout(title="Panel A: Estructura de Mediano Plazo vs. EMA 30", height=280, template="plotly_dark", margin=dict(l=15
