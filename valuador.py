@@ -12,7 +12,7 @@ st.set_page_config(page_title="Terminal Quanti Pro", layout="wide", initial_side
 
 st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;800&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght=300;400;600;800&display=swap');
     
     html, body, [class*="css"] {
         font-family: 'Montserrat', sans-serif !important;
@@ -32,6 +32,11 @@ st.markdown("""
         padding: 0.5rem; font-size: 15px !important; margin-top: 10px;
     }
     .stButton>button:hover { background-color: #27ae60; }
+    
+    .disclaimer-box {
+        background-color: #1e222b; padding: 15px; border-left: 4px solid #e74c3c;
+        border-radius: 4px; margin-top: 25px; font-size: 11px; color: #b2bec3; text-align: justify;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -75,11 +80,10 @@ def obtener_datos(symbol):
             td, caj, eb = inf.get("totalDebt", 0), inf.get("totalCash", 0), inf.get("ebitda", 1)
             common.update({"Tipo": "ACCION", "Forward P/E": inf.get("forwardPE", 12), "EV/EBITDA": inf.get("enterpriseToEbitda", 7), "P/B Ratio": inf.get("priceToBook", 1.5), "Deuda Neta/EBITDA": (td-caj)/eb if eb else 0, "Liquidez Corriente": inf.get("currentRatio", 1.2), "Beta": inf.get("beta", 1), "Margen Neto": inf.get("profitMargins", 0.1), "ROE": inf.get("returnOnEquity", 0.1), "FCF_Total": inf.get("freeCashflow", 1e8), "Acciones": inf.get("sharesOutstanding", 1e7), "Div_Rate": inf.get("dividendRate", 0)})
         else:
-            common.update({"Tipo": "ETF", "P/E Canasta": inf.get("trailingPE", 15), "Expense Ratio": inf.get("feesExpensesInvestmentPercentage", 0.001), "Dividend Yield": inf.get("dividendYield", 0.02), "Beta": inf.get("beta", 1)})
+            common.update({"Tipo": "ETF", "P/E Canasta": inf.get("trailingPE", 15), "Expense Ratio": inf.get("feesExpensesInvestmentPercentage", 0.001), "Dividend Yield": inf.get("dividendYield", 0.02), "Beta": inf.get("beta", 1), "Div_Rate": inf.get("trailingAnnualDividendRate", 0)})
         return common
     except: return None
 
-# GENERADOR DINÁMICO DE HECHOS RELEVANTES (Inversiones y Contratos)
 def generar_noticias_estrategicas(ticker):
     if ticker == "VIST":
         return [
@@ -98,7 +102,7 @@ def generar_noticias_estrategicas(ticker):
             "🤖 **Contratos en la Nube:** Alianza corporativa estratégica de largo plazo con los principales hyperscalers mundiales para el despliegue a gran escala de los nuevos aceleradores de Inteligencia Artificial en centros de datos globales.",
             "📦 **Aseguramiento de Suministro:** Consolidación de contratos plurianuales de fundición avanzada con TSMC utilizando nodos de última generación, minimizando riesgos de fricciones logísticas o desabastecimiento de microchips.",
             "💻 **Expansión de Márgenes:** El cambio de mix de ventas hacia productos de data centers de alto valor agregado compensa la madurez transitoria del mercado tradicional de computadoras de escritorio."
-    ]
+        ]
     else:
         return [
             f"🌍 **Expansión de Mercado:** Alianzas corporativas en mercados emergentes para sostener la tracción comercial y diversificar el riesgo de concentración de ingresos.",
@@ -106,7 +110,7 @@ def generar_noticias_estrategicas(ticker):
             "💼 **Solidez del Negocio:** Contratos comerciales vigentes con clientes institucionales garantizan un flujo predictivo de ingresos para sostener la estructura de pasivos."
         ]
 
-# 4. ENTORNO GLOBAL (MENÚ SUPERIOR DIRECTO)
+# 4. ENTORNO GLOBAL
 st.title("📊 Terminal Analítica Cuantitativa")
 menu = st.radio("Sección Operativa:", ["🌐 DASHBOARD GENERAL", "🔍 INTELIGENCIA Y SCREENING", "💼 PORTAFOLIO MULTIACTIVO"], horizontal=True)
 st.markdown("---")
@@ -116,7 +120,6 @@ st.markdown("---")
 # ==========================================
 if menu == "🌐 DASHBOARD GENERAL":
     st.subheader("📌 Mi Watchlist de Seguimiento")
-    
     c1, c2 = st.columns([4, 1])
     with c2:
         st.markdown("**Panel de Control:**")
@@ -125,15 +128,13 @@ if menu == "🌐 DASHBOARD GENERAL":
             if nuevo not in st.session_state.watchlist_items:
                 st.session_state.watchlist_items.append(nuevo)
                 st.rerun()
-        
         quitar = st.selectbox("Quitar Activo:", [""] + st.session_state.watchlist_items)
         if st.button("🗑️ Quitar") and quitar:
             st.session_state.watchlist_items.remove(quitar)
             st.rerun()
-            
     with c1:
         if st.session_state.watchlist_items:
-            with st.spinner("Sincronizando cotizaciones de la Watchlist..."):
+            with St.spinner("Sincronizando cotizaciones de la Watchlist..."):
                 registros_w = [obtener_datos(t) for t in st.session_state.watchlist_items if obtener_datos(t)]
                 if registros_w:
                     df_w = pd.DataFrame(registros_w)
@@ -157,11 +158,9 @@ elif menu == "🔍 INTELIGENCIA Y SCREENING":
             for tk in [t_obj] + competidores:
                 r = obtener_datos(tk)
                 if r: lista_datos.append(r)
-                
             if not lista_datos or not any(d["Ticker"] == t_obj for d in lista_datos):
                 fake = {"Ticker": t_obj, "Nombre": f"{t_obj} Corp", "Precio Actual": 50.0, "Logo": "https://cdn-icons-png.flaticon.com/512/2967/2967304.png", "Descripcion": "Simulación activa por corte nocturno de API externa.", "Tipo": "ACCION", "Forward P/E": 11.5, "EV/EBITDA": 5.4, "P/B Ratio": 1.3, "Deuda Neta/EBITDA": 1.1, "Liquidez Corriente": 1.4, "Beta": 1.1, "Margen Neto": 0.12, "ROE": 0.16, "FCF_Total": 400000000, "Acciones": 80000000, "Div_Rate": 1.0}
                 lista_datos.append(fake)
-                
             st.session_state.res = lista_datos
             st.session_state.analisis_ok = True
 
@@ -175,14 +174,11 @@ elif menu == "🔍 INTELIGENCIA Y SCREENING":
         with tab1:
             st.subheader("ℹ️ Perfil Operativo de la Compañía")
             st.write(obj["Descripcion"])
-            
-            # NUEVO BLOQUE: NOTICIAS RELEVANTES E INVERSIONES ESTRATÉGICAS
             st.markdown("---")
             st.subheader("📰 Hechos Relevantes e Inversiones Estratégicas")
             noticias = generar_noticias_estrategicas(obj["Ticker"])
             for noti in noticias:
                 st.markdown(noti)
-            
             if obj["Tipo"] == "ACCION":
                 st.markdown("---")
                 st.subheader("📋 Matriz Comparativa del Sector")
@@ -190,24 +186,22 @@ elif menu == "🔍 INTELIGENCIA Y SCREENING":
                 if not df_acc.empty:
                     cols = [c for c in ["Forward P/E", "EV/EBITDA", "Deuda Neta/EBITDA", "ROE", "Margen Neto"] if c in df_acc.columns]
                     st.dataframe(df_acc[cols].style.highlight_min(subset=cols[:3], color="#1b4d22").highlight_max(subset=cols[3:], color="#1b4d22"), use_container_width=True)
-                
-                # INTERPRETACIÓN FUNDAMENTAL COMPLETA
                 st.markdown("---")
                 st.subheader("🤖 Informe Técnico del Asesor Financiero")
                 cp, cc = st.columns(2)
                 with cp:
                     st.markdown("**🟢 Perfil de Estructura de Capital y Apalancamiento:**")
-                    st.write(f"• **Análisis de Deuda:** El ratio de apalancamiento se ubica en `{obj['Deuda Neta/EBITDA']:.2f}x Deuda Neta/EBITDA`. Esto refleja los compromisos tomados frente a la generación operativa del negocio.")
+                    st.write(f"• **Análisis de Deuda:** El ratio de apalancamiento se ubica en `{obj['Deuda Neta/EBITDA']:.2f}x Deuda Neta/EBITDA`.")
                     try:
                         p_min_tick = df_acc["Forward P/E"].idxmin()
-                        st.write(f"• **Arbitraje Sectorial:** El mercado convalida el mayor descuento relativo actual en el ticker **{p_min_tick}**, registrando el menor ratio Precio/Ganancias proyectado.")
+                        st.write(f"• **Arbitraje Sectorial:** El mercado convalida el mayor descuento relativo actual en el ticker **{p_min_tick}**.")
                     except: pass
                 with cc:
                     st.markdown("**🔴 Cobertura de Caja y Riesgo de Estrés:**")
                     if obj['Liquidez Corriente'] < 1.0: 
-                        st.error(f"⚠️ **ALERTA DE LIQUIDEZ:** La cobertura de liquidez corriente es de `{obj['Liquidez Corriente']:.2f}x` (menor a 1.0). Los activos líquidos inmediatos no llegan a cubrir las obligaciones de corto plazo.")
+                        st.error(f"⚠️ **ALERTA DE LIQUIDEZ:** La cobertura de liquidez corriente es de `{obj['Liquidez Corriente']:.2f}x` (menor a 1.0).")
                     else: 
-                        st.success(f"✅ **COBERTURA ROBUSTA:** Ratio de liquidez corriente sólido en `{obj['Liquidez Corriente']:.2f}x`. Dispone de suficiente espalda en caja para afrontar pasivos corrientes y planes de expansión.")
+                        st.success(f"✅ **COBERTURA ROBUSTA:** Ratio de liquidez corriente sólido en `{obj['Liquidez Corriente']:.2f}x`.")
 
         with tab2:
             st.subheader("📐 Terminal de Timing y Osciladores")
@@ -231,7 +225,6 @@ elif menu == "🔍 INTELIGENCIA Y SCREENING":
                     with m2: st.metric(label="Flujo Direccional (DMI)", value=f"+DI {p_di.iloc[-1]:.1f} | -DI {m_di.iloc[-1]:.1f}")
                     with m3: st.metric(label="Fuerza de Tendencia (ADX)", value=f"{adx.iloc[-1]:.1f} Pts")
                     
-                    # Panel A Graficación con Expanders Didácticos
                     st.markdown("### 📈 Panel A: Estructura de Mediano Plazo")
                     with st.expander("🔍 Interpretación Didáctica - Panel A (EMA 30)"):
                         st.write("• **¿Cómo se lee?** Si el precio diario (línea azul) rompe y cotiza **por encima** de la línea roja (EMA 30), significa que el activo está ganando inercia alcista institucional. Si opera **por debajo**, el mercado está bajo control de la oferta.")
@@ -241,7 +234,6 @@ elif menu == "🔍 INTELIGENCIA Y SCREENING":
                     fig_a.update_layout(height=280, template="plotly_dark", margin=dict(l=15,r=15,t=20,b=15))
                     st.plotly_chart(fig_a, use_container_width=True)
                     
-                    # Panel B Graficación con Expanders Didácticos
                     st.markdown("### 📊 Panel B: Oscilador Direccional Avanzado")
                     with st.expander("🔍 Interpretación Didáctica - Panel B (DMI / ADX)"):
                         st.write("• **+DI (Línea Verde):** Mide la fuerza de los compradores.\n• **-DI (Línea Roja):** Mide la fuerza de los vendedores.\n• **ADX (Línea Amarilla):** Mide la fuerza de la tendencia general. Si el ADX cruza los **20 o 25 puntos hacia arriba**, confirma que el movimiento tiene inercia y volumen institucional sano.")
@@ -252,7 +244,6 @@ elif menu == "🔍 INTELIGENCIA Y SCREENING":
                     fig_b.update_layout(height=240, template="plotly_dark", margin=dict(l=15,r=15,t=20,b=15))
                     st.plotly_chart(fig_b, use_container_width=True)
                     
-                    # INTERPRETACIÓN TÉCNICA Y CONCLUSIÓN DEL ALGORITMO
                     st.markdown("---")
                     st.subheader("🎯 Diagnóstico Técnico y Recomendación Operativa")
                     rec_col1, rec_col2 = st.columns(2)
@@ -260,27 +251,22 @@ elif menu == "🔍 INTELIGENCIA Y SCREENING":
                         st.markdown("**🔍 Resumen de Lecturas:**")
                         if px_hoy > ema_hoy: st.write("• **Estructura:** Ciclo alcista activo operando sobre la línea de equilibrio de mediano plazo (EMA 30).")
                         else: st.write("• **Estructura:** Ciclo bajista correctivo operando bajo la línea de equilibrio exponencial (EMA 30).")
-                        if p_di.iloc[-1] > m_di.iloc[-1]: st.write("• **Flujo:** Control activo de los compradores (`+DI` > `-DI`). Mayor presión de demanda en el libro.")
-                        else: st.write("• **Flujo:** Control activo de los vendedores (`-DI` > `+DI`). Mayor presión de oferta en el libro.")
+                        if p_di.iloc[-1] > m_di.iloc[-1]: st.write("• **Flujo:** Control activo de los compradores (`+DI` > `-DI`).")
+                        else: st.write("• **Flujo:** Control activo de los vendedores (`-DI` > `+DI`).")
                         if adx.iloc[-1] > 22: st.write(f"• **Fuerza:** El ADX en `{adx.iloc[-1]:.1f} pts` valida una tendencia madura y con inercia estructural.")
-                        else: st.write(f"• **Fuerza:** El ADX en `{adx.iloc[-1]:.1f} pts` delata una etapa de compresión, indecisión o rango lateral.")
+                        else: st.write(f"• **Fuerza:** El ADX en `{adx.iloc[-1]:.1f} pts` delata una etapa de compresión o rango lateral.")
                     with rec_col2:
                         st.markdown("**🚀 Sugerencia y Timing:**")
-                        if px_hoy > Pigeon_hoy and p_di.iloc[-1] > m_di.iloc[-1] and adx.iloc[-1] > 20:
-                            st.success("🟩 **ACCIONAR: LONG / COMPRA CONFIRMADA**\n\nTodos los indicadores están alineados a favor del movimiento de precios.")
-                        elif px_hoy < Pigeon_hoy and m_di.iloc[-1] > p_di.iloc[-1] and adx.iloc[-1] > 20:
-                            st.error("🚨 **ACCIONAR: REDUCIR EXPOSICIÓN / EVITAR**\n\nTendencia bajista plenamente confirmada por los osciladores.")
-                        elif adx.iloc[-1] < 20:
-                            st.warning("🟨 **ACCIONAR: PACIENCIA / MERCADO LATERAL**\n\nTendencia ausente. El precio oscilará de forma errática en rangos.")
-                        else:
-                            st.info("🟦 **ACCIONAR: MONITOREO / TRANSICIÓN**\n\nLecturas mixtas en osciladores. Zona de balanceo estratégico de carteras.")
+                        if px_hoy > Pigeon_hoy and p_di.iloc[-1] > m_di.iloc[-1] and adx.iloc[-1] > 20: st.success("🟩 **ACCIONAR: LONG / COMPRA CONFIRMADA**")
+                        elif px_hoy < Pigeon_hoy and m_di.iloc[-1] > p_di.iloc[-1] and adx.iloc[-1] > 20: st.error("🚨 **ACCIONAR: REDUCIR EXPOSICIÓN / EVITAR**")
+                        elif adx.iloc[-1] < 20: st.warning("🟨 **ACCIONAR: PACIENCIA / MERCADO LATERAL**")
+                        else: st.info("🟦 **ACCIONAR: MONITOREO / TRANSICIÓN**")
             except:
                 st.info("Procesando curvas de trading en tiempo real...")
 
         with tab3:
             st.subheader("🧮 Simulación de Escenarios Probabilísticos (Ajuste Argentina)")
             fcf, sh, pr = obj.get("FCF_Total", 0), obj.get("Acciones", 1), obj["Precio Actual"]
-            
             if fcf > 0:
                 fcf_p = fcf / sh
                 cm1, cm2, cm3 = st.columns(3)
@@ -303,7 +289,6 @@ elif menu == "🔍 INTELIGENCIA Y SCREENING":
                 
                 mediana_fv = np.median(simulaciones)
                 prob_ganar = np.mean(np.array(simulaciones) > pr) * 100
-                
                 st.markdown(f"• **Mediana del Fair Value Resultante:** `{mediana_fv:.2f} USD`")
                 st.markdown(f"• **Probabilidad Estadística de Comprar con Descuento:** `{prob_ganar:.1f}%`")
             else:
@@ -320,7 +305,16 @@ elif menu == "💼 PORTAFOLIO MULTIACTIVO":
     edit_grilla = st.data_editor(df_c, num_rows="dynamic", use_container_width=True, key="editor_cartera_directo")
     st.session_state.cartera_data = edit_grilla.to_dict(orient="records")
     
-    c_tot, v_act, div_tot = 0.0, 0.0, 0.0
+    c_tot, v_act, lista_dividendos_detalle = 0.0, 0.0, []
+    
+    # Base de mapeo de meses históricos estimados para flujo de caja operativo de Wall Street
+    meses_pagos = {
+        "KO": [("Enero", "Dividendo"), ("Abril", "Dividendo"), ("Julio", "Dividendo"), ("Octubre", "Dividendo")],
+        "WMT": [("Enero", "Dividendo"), ("Abril", "Dividendo"), ("Junio", "Dividendo"), ("Septiembre", "Dividendo")],
+        "SPY": [("Enero", "Dividendo"), ("Abril", "Dividendo"), ("Julio", "Dividendo"), ("Octubre", "Dividendo")],
+        "VIST": [("Junio", "Renta Especial"), ("Diciembre", "Renta Especial")]
+    }
+    
     for r in st.session_state.cartera_data:
         t = str(r.get("Ticker", "")).strip().upper()
         n = float(r.get("Nominales", 0.0)) if r.get("Nominales") else 0.0
@@ -333,7 +327,19 @@ elif menu == "💼 PORTAFOLIO MULTIACTIVO":
             
             c_tot += (n * p)
             v_act += (n * px_mercado)
-            div_tot += (n * d_rate)
+            
+            if d_rate > 0:
+                pago_anual_total = n * d_rate
+                eventos = meses_pagos.get(t, [("Trimestral", "Dividendo")])
+                monto_por_evento = pago_anual_total / len(eventos)
+                
+                for mes, tipo in eventos:
+                    lista_dividendos_detalle.append({
+                        "Activo": t,
+                        "Tipo de Renta": tipo,
+                        "Monto Estimado (USD)": round(monto_por_evento, 2),
+                        "Mes Estimado de Pago": mes
+                    })
             
     if c_tot > 0:
         st.markdown("#### 📊 Consolidado Financiero")
@@ -342,11 +348,40 @@ elif menu == "💼 PORTAFOLIO MULTIACTIVO":
         with mc2: st.metric("Valor del Portafolio Actual", f"{v_act:.2f} USD")
         with mc3: st.metric("Rendimiento Total (P&L)", f"{v_act - c_tot:.2f} USD", f"{((v_act - c_tot)/c_tot)*100:.2f}%")
         
-        if div_tot > 0:
-            st.markdown("---")
-            st.markdown("#### 📅 Calendario de Renta Pasiva Proyectado (Dividendos)")
-            df_divs = pd.DataFrame({"Trimestre": ["Q1 Cobros", "Q2 Cobros", "Q3 Cobros", "Q4 Cobros", "CAJA COMPLETA PROYECTADA"], "Monto": [div_tot/4, div_tot/4, div_tot/4, div_tot/4, div_tot]}).set_index("Trimestre")
-            st.table(df_divs.style.format("{:.2f} USD"))
+        # NUEVO DESGLOSE INTERACTIVO SOLICITADO
+        st.markdown("---")
+        st.markdown("#### 📅 Agenda Detallada de Renta Pasiva (Desglose por Activo)")
+        if lista_dividendos_detalle:
+            df_divs_det = pd.DataFrame(lista_dividendos_detalle)
+            # Ordenamos por un orden lógico de meses para que quede estético
+            orden_meses = {"Enero": 1, "Abril": 2, "Junio": 3, "Julio": 4, "Septiembre": 5, "Octubre": 6, "Diciembre": 7, "Trimestral": 8}
+            df_divs_det["_orden"] = df_divs_det["Mes Estimado de Pago"].map(orden_meses).fillna(9)
+            df_divs_det = df_divs_det.sort_values("_orden").drop(columns=["_orden"]).reset_index(drop=True)
+            
+            st.dataframe(df_divs_det, use_container_width=True)
+            st.caption("Nota: Los montos y meses de pago son calculados en base al Dividend Rate anualizado provisto por la API y el comportamiento de distribución histórico corporativo.")
+        else:
+            st.info("Ninguno de los activos actualmente ingresados en la grilla reporta tasas de dividendos activas en la API pública.")
 
+# ==========================================
+# 5. PIE DE PÁGINA, LINKEDIN Y EXCLUSIÓN DE RESPONSABILIDAD LEGAL
+# ==========================================
 st.markdown("---")
-st.markdown("<p style='text-align: center; color: #777; font-size: 11px;'>Terminal Quanti Pro | Versión Abierta Sincronizada • Tipografía Montserrat. No constituye asesoramiento de inversión.</p>", unsafe_allow_html=True)
+c_foot1, c_foot2 = st.columns([2, 1])
+with c_foot1:
+    st.markdown("<p style='color: #777; font-size: 11px; margin: 0;'>Terminal Quanti Pro | Versión Abierta Sincronizada • Tipografía Montserrat.</p>", unsafe_allow_html=True)
+with c_foot2:
+    st.markdown("<p style='text-align: right; font-size: 12px; margin: 0;'><b>Desarrollado por:</b> <a href='https://www.linkedin.com/in/facundo-garcia-marquez-mfin' target='_blank' style='color: #2ecc71; text-decoration: none; font-weight: 600;'>Facundo Garcia Marquez</a></p>", unsafe_allow_html=True)
+
+# BLOQUE RESTAURADO DE EXCLUSIÓN DE RESPONSABILIDAD DE INVERSIÓN
+st.markdown("""
+    <div class='disclaimer-box'>
+        <strong>⚠️ EXCLUSIÓN DE RESPONSABILIDAD LEGAL (DISCLAIMER):</strong> El contenido de esta aplicación, 
+        incluyendo los análisis de datos, simulaciones probabilísticas de Montecarlo, valuaciones intrínsecas por flujos de 
+        fondos descontados (DCF), y los diagnósticos emitidos por los algoritmos técnicos, se exponen exclusivamente con 
+        fines informativos, educativos y de simulación de escenarios de mercado. No constituyen, bajo ninguna circunstancia, 
+        asesoramiento financiero, recomendación de compra/venta, ni una oferta de inversión formal. Los rendimientos pasados 
+        no garantizan ganancias futuras. Se recomienda al usuario realizar sus propias tareas de *Due Diligence* y consultar 
+        con asesores financieros matriculados antes de comprometer capital en los mercados bursátiles.
+    </div>
+""", unsafe_allow_html=True)
