@@ -12,7 +12,7 @@ st.set_page_config(page_title="Terminal Quanti Pro", layout="wide", initial_side
 
 st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght=300;400;600;800&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;800&display=swap');
     
     html, body, [class*="css"] {
         font-family: 'Montserrat', sans-serif !important;
@@ -116,7 +116,7 @@ menu = st.radio("Sección Operativa:", ["🌐 DASHBOARD GENERAL", "🔍 INTELIGE
 st.markdown("---")
 
 # ==========================================
-# SECCIÓN 1: DASHBOARD GENERAL
+# SECCIÓN 1: DASHBOARD GENERAL (CORREGIDO EL TYPO)
 # ==========================================
 if menu == "🌐 DASHBOARD GENERAL":
     st.subheader("📌 Mi Watchlist de Seguimiento")
@@ -134,7 +134,8 @@ if menu == "🌐 DASHBOARD GENERAL":
             st.rerun()
     with c1:
         if st.session_state.watchlist_items:
-            with St.spinner("Sincronizando cotizaciones de la Watchlist..."):
+            # CORRECCIÓN DE LA S MAYÚSCULA AQUÍ: st.spinner en minúsculas fija el NameError de raíz
+            with st.spinner("Sincronizando cotizaciones de la Watchlist..."):
                 registros_w = [obtener_datos(t) for t in st.session_state.watchlist_items if obtener_datos(t)]
                 if registros_w:
                     df_w = pd.DataFrame(registros_w)
@@ -266,6 +267,19 @@ elif menu == "🔍 INTELIGENCIA Y SCREENING":
 
         with tab3:
             st.subheader("🧮 Simulación de Escenarios Probabilísticos (Ajuste Argentina)")
+            
+            # NUEVO EXPANDER DE EXPLICACIÓN METODOLÓGICA DEL MONTECARLO
+            with st.expander("📚 ¿Cómo funciona este modelo y cómo interpretarlo? (Guía de Uso)"):
+                st.write(
+                    "• **El Concepto:** Las valuaciones tradicionales fijan variables rígidas. El modelo cuantitativo de **Montecarlo**, en cambio, "
+                    "ejecuta **1500 escenarios matemáticos alternativos** aleatorios en un segundo. "
+                    "\n• **La Lógica Macro Local:** El algoritmo toma el rango de crecimiento operativo estimado del negocio y lo tensiona en vivo cruzándolo con la "
+                    "**Inflación Implícita (Breakeven)** y el ritmo de devaluación del **Tipo de Cambio (FX)**. "
+                    "\n• **Cómo leer el Gráfico:** La campana verde representa la concentración estadística de todos los valores justos posibles calculados. "
+                    "La línea punteada roja marca la cotización de mercado actual. **Si la línea roja está muy a la izquierda de la joroba de la campana, "
+                    "significa que el activo está fuertemente subvaluado (barato) y tiene una alta probabilidad matemática de generar retornos.**"
+                )
+                
             fcf, sh, pr = obj.get("FCF_Total", 0), obj.get("Acciones", 1), obj["Precio Actual"]
             if fcf > 0:
                 fcf_p = fcf / sh
@@ -284,13 +298,15 @@ elif menu == "🔍 INTELIGENCIA Y SCREENING":
                 
                 fig_mc = ff.create_distplot([simulaciones], ["Densidad de Valor Justo"], bin_size=1, show_hist=False, colors=['#2ecc71'])
                 fig_mc.add_vline(x=pr, line_dash="dash", line_color="#e74c3c", line_width=2, annotation_text="Precio de Mercado Hoy")
-                fig_mc.update_layout(title="Campana de Gauss: Distribución de Probabilidades", template="plotly_dark", height=380, margin=dict(l=10,r=10,t=40,b=10))
+                fig_mc.update_layout(title="Campana de Gauss: Distribución de Probabilidades del Valor Justo", template="plotly_dark", height=380, margin=dict(l=10,r=10,t=40,b=10))
                 st.plotly_chart(fig_mc, use_container_width=True)
                 
                 mediana_fv = np.median(simulaciones)
                 prob_ganar = np.mean(np.array(simulaciones) > pr) * 100
-                st.markdown(f"• **Mediana del Fair Value Resultante:** `{mediana_fv:.2f} USD`")
-                st.markdown(f"• **Probabilidad Estadística de Comprar con Descuento:** `{prob_ganar:.1f}%`")
+                
+                st.markdown("### 📊 Interpretación del Diagnóstico Automatizado:")
+                st.write(f"• **Fair Value Central (Mediana de Escenarios):** `{mediana_fv:.2f} USD` por acción.")
+                st.write(f"• **Análisis Cuantitativo de Riesgo:** El modelo determina que existe un **{prob_ganar:.1f}% de probabilidad estadística** de que los flujos de caja futuros descontados bajo el entorno macro seleccionado superen el valor de cotización actual del mercado.")
             else:
                 st.info("El activo no registra flujos corporativos positivos estables para modelar Montecarlo.")
 
@@ -307,7 +323,6 @@ elif menu == "💼 PORTAFOLIO MULTIACTIVO":
     
     c_tot, v_act, lista_dividendos_detalle = 0.0, 0.0, []
     
-    # Base de mapeo de meses históricos estimados para flujo de caja operativo de Wall Street
     meses_pagos = {
         "KO": [("Enero", "Dividendo"), ("Abril", "Dividendo"), ("Julio", "Dividendo"), ("Octubre", "Dividendo")],
         "WMT": [("Enero", "Dividendo"), ("Abril", "Dividendo"), ("Junio", "Dividendo"), ("Septiembre", "Dividendo")],
@@ -348,16 +363,13 @@ elif menu == "💼 PORTAFOLIO MULTIACTIVO":
         with mc2: st.metric("Valor del Portafolio Actual", f"{v_act:.2f} USD")
         with mc3: st.metric("Rendimiento Total (P&L)", f"{v_act - c_tot:.2f} USD", f"{((v_act - c_tot)/c_tot)*100:.2f}%")
         
-        # NUEVO DESGLOSE INTERACTIVO SOLICITADO
         st.markdown("---")
         st.markdown("#### 📅 Agenda Detallada de Renta Pasiva (Desglose por Activo)")
         if lista_dividendos_detalle:
             df_divs_det = pd.DataFrame(lista_dividendos_detalle)
-            # Ordenamos por un orden lógico de meses para que quede estético
             orden_meses = {"Enero": 1, "Abril": 2, "Junio": 3, "Julio": 4, "Septiembre": 5, "Octubre": 6, "Diciembre": 7, "Trimestral": 8}
             df_divs_det["_orden"] = df_divs_det["Mes Estimado de Pago"].map(orden_meses).fillna(9)
             df_divs_det = df_divs_det.sort_values("_orden").drop(columns=["_orden"]).reset_index(drop=True)
-            
             st.dataframe(df_divs_det, use_container_width=True)
             st.caption("Nota: Los montos y meses de pago son calculados en base al Dividend Rate anualizado provisto por la API y el comportamiento de distribución histórico corporativo.")
         else:
@@ -371,9 +383,9 @@ c_foot1, c_foot2 = st.columns([2, 1])
 with c_foot1:
     st.markdown("<p style='color: #777; font-size: 11px; margin: 0;'>Terminal Quanti Pro | Versión Abierta Sincronizada • Tipografía Montserrat.</p>", unsafe_allow_html=True)
 with c_foot2:
-    st.markdown("<p style='text-align: right; font-size: 12px; margin: 0;'><b>Desarrollado por:</b> <a href='https://www.linkedin.com/in/facundo-garcia-marquez-mfin' target='_blank' style='color: #2ecc71; text-decoration: none; font-weight: 600;'>Facundo Garcia Marquez</a></p>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: right; font-size: 12px; margin: 0;'><b>Desarrollado por:</b> <a href='https://www.linkedin.com/in/facundo-garciamarquez/?locale=es' target='_blank' style='color: #2ecc71; text-decoration: none; font-weight: 600;'>Facundo Garcia Marquez</a></p>", unsafe_allow_html=True)
 
-# BLOQUE RESTAURADO DE EXCLUSIÓN DE RESPONSABILIDAD DE INVERSIÓN
+# BLOQUE DE EXCLUSIÓN DE RESPONSABILIDAD DE INVERSIÓN (DISCLAIMER COMPLETAMENTE RESTAURADO)
 st.markdown("""
     <div class='disclaimer-box'>
         <strong>⚠️ EXCLUSIÓN DE RESPONSABILIDAD LEGAL (DISCLAIMER):</strong> El contenido de esta aplicación, 
@@ -381,7 +393,7 @@ st.markdown("""
         fondos descontados (DCF), y los diagnósticos emitidos por los algoritmos técnicos, se exponen exclusivamente con 
         fines informativos, educativos y de simulación de escenarios de mercado. No constituyen, bajo ninguna circunstancia, 
         asesoramiento financiero, recomendación de compra/venta, ni una oferta de inversión formal. Los rendimientos pasados 
-        no garantizan ganancias futuras. Se recomienda al usuario realizar sus propias tareas de *Due Diligence* y consultar 
+        no garantizan ganancias futures. Se recomienda al usuario realizar sus propias tareas de *Due Diligence* y consultar 
         con asesores financieros matriculados antes de comprometer capital en los mercados bursátiles.
     </div>
 """, unsafe_allow_html=True)
