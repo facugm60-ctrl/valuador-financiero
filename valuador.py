@@ -5,7 +5,6 @@ import yfinance as yf
 import plotly.graph_objects as go
 import plotly.figure_factory as ff
 import sqlite3
-import hashlib
 import urllib.parse
 import requests
 
@@ -35,55 +34,57 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# 2. BASE DE DATOS
+# CONFIGURACIÓN DE CREDENCIALES FIJAS (Modificalas si querés)
+USUARIO_MASTER = "facundo"
+PASSWORD_MASTER = "galicia2026"
+RESPUESTA_SEGURIDAD = "ramos mejia"  # Tu ciudad de residencia como llave de recuperación
+
+# 2. BASE DE DATOS LOCAL PARA LA CARTERA Y WATCHLIST
 def conectar_db():
-    conn = sqlite3.connect("terminal_privada.db", check_same_thread=False)
+    conn = sqlite3.connect("terminal_data.db", check_same_thread=False)
     c = conn.cursor()
-    c.execute("CREATE TABLE IF NOT EXISTS usuarios (id INTEGER PRIMARY KEY AUTOINCREMENT, user TEXT UNIQUE, password TEXT)")
-    c.execute("CREATE TABLE IF NOT EXISTS watchlist (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, ticker TEXT)")
-    c.execute("CREATE TABLE IF NOT EXISTS cartera (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, ticker TEXT, nominales REAL, precio_compra REAL)")
+    c.execute("CREATE TABLE IF NOT EXISTS watchlist (id INTEGER PRIMARY KEY AUTOINCREMENT, ticker TEXT)")
+    c.execute("CREATE TABLE IF NOT EXISTS cartera (id INTEGER PRIMARY KEY AUTOINCREMENT, ticker TEXT, nominales REAL, precio_compra REAL)")
     conn.commit()
     return conn, c
 
 conn, cursor = conectar_db()
 
-def hash_pass(password): return hashlib.sha256(password.encode()).hexdigest()
+# 3. LOGIN CON FORM_SUBMIT INTERNO (SOPORTE DE GUARDADO NATIVO)
+if "autenticado" not in st.session_state:
+    st.session_state.autenticado = False
 
-# 3. LOGIN CON SOPORTE PARA GUARDAR CONTRASEÑA
-if "user_id" not in st.session_state:
-    st.session_state.user_id = None
-
-if st.session_state.user_id is None:
+if not st.session_state.autenticado:
     st.title("🔐 Acceso Terminal Cuantitativa")
-    col1, col2 = st.columns(2)
     
-    with col1:
-        with st.form("login_form"):
-            st.subheader("Iniciar Sesión")
+    tab_login, tab_recuperar = st.tabs(["🔑 INICIAR SESIÓN", "🛠️ RECUPERAR CREDENCIALES"])
+    
+    with tab_login:
+        with st.form("login_master_form"):
+            st.subheader("Ingresar credenciales de analista")
             u = st.text_input("Usuario", autocomplete="username")
             p = st.text_input("Contraseña", type="password", autocomplete="current-password")
-            submit = st.form_submit_button("Entrar")
+            submit = st.form_submit_button("Entrar a la Terminal")
+            
             if submit:
-                cursor.execute("SELECT id FROM usuarios WHERE user=? AND password=?", (u, hash_pass(p)))
-                res = cursor.fetchone()
-                if res:
-                    st.session_state.user_id = res[0]
+                if u == USUARIO_MASTER and p == PASSWORD_MASTER:
+                    st.session_state.autenticado = True
                     st.session_state.username = u
                     st.rerun()
-                else: st.error("Error de acceso.")
-    
-    with col2:
-        with st.form("reg_form"):
-            st.subheader("Nuevo Perfil")
-            nu = st.text_input("Nuevo Usuario")
-            np = st.text_input("Nueva Contraseña", type="password")
-            reg_submit = st.form_submit_button("Crear Cuenta")
-            if reg_submit and nu and np:
-                try:
-                    cursor.execute("INSERT INTO usuarios (user, password) VALUES (?, ?)", (nu, hash_pass(np)))
-                    conn.commit()
-                    st.success("¡Cuenta creada! Ya podés loguearte a la izquierda.")
-                except: st.error("El usuario ya existe.")
+                else:
+                    st.error("Usuario o contraseña incorrectos.")
+                    
+    with tab_recuperar:
+        st.subheader("Validación de Identidad")
+        st.markdown("Contestá tu pregunta de seguridad para recordar tus credenciales de acceso:")
+        pregunta = st.text_input("¿Cuál es tu ciudad de residencia actual? (en minúsculas)").strip().lower()
+        
+        if st.button("Verificar Pregunta"):
+            if pregunta == RESPUESTA_SEGURIDAD:
+                st.info(f"🔑 **Credenciales recuperadas:**\n• **Usuario:** `{USUARIO_MASTER}`\n• **Contraseña:** `{PASSWORD_MASTER}`")
+                st.markdown("*Copiá los datos e ingresalos en la pestaña de Iniciar Sesión.*")
+            else:
+                st.error("Respuesta de seguridad incorrecta.")
     st.stop()
 
 # 4. BACKEND ANALÍTICO
@@ -120,20 +121,23 @@ menu = st.radio("Sección:", ["📊 DASHBOARD", "🔍 SCREENING", "💼 CARTERA"
 # --- DASHBOARD / WATCHLIST ---
 if menu == "📊 DASHBOARD":
     st.subheader("📌 Mi Watchlist")
-    cursor.execute("SELECT ticker FROM watchlist WHERE user_id=?", (st.session_state.user_id,))
+    cursor.execute("SELECT ticker FROM watchlist")
     items = [r[0] for r in cursor.fetchall()]
     
     c1, c2 = st.columns([4, 1])
     with c2:
         nuevo = st.text_input("Agregar Ticker:").upper()
         if st.button("➕") and nuevo:
-            cursor.execute("INSERT INTO watchlist (user_id, ticker) VALUES (?,?)", (st.session_state.user_id, nuevo))
+            cursor.execute("INSERT INTO watchlist (ticker) VALUES (?)", (nuevo,))
             conn.commit()
             st.rerun()
     with c1:
         if items:
             df_w = pd.DataFrame([obtener_datos(t) for t in items if obtener_datos(t)])
-            st.dataframe(df_w[["Ticker", "Nombre", "Precio Actual", "Tipo"]].set_index("Ticker"), use_container_width=True)
+            if not df_w.empty:
+                st.dataframe(df_w[["Ticker", "Nombre", "Precio Actual", "Tipo"]].set_index("Ticker"), use_container_width=True)
+        else:
+            st.info("Tu watchlist está vacía.")
 
 # --- SCREENING ---
 elif menu == "🔍 SCREENING":
@@ -162,7 +166,6 @@ elif menu == "🔍 SCREENING":
 
         with tab2:
             h = yf.Ticker(obj["Ticker"]).history(period="1y")
-            # Panel A
             cierre = h['Close']
             ema = cierre.ewm(span=30).mean()
             fig_a = go.Figure()
@@ -171,7 +174,6 @@ elif menu == "🔍 SCREENING":
             fig_a.update_layout(title="Panel A: Precio vs Media Móvil", height=300, template="plotly_dark", margin=dict(l=20,r=20,t=40,b=20))
             st.plotly_chart(fig_a, use_container_width=True)
             
-            # Panel B (DMI/ADX)
             high, low = h['High'], h['Low']
             up, down = high.diff(), -low.diff()
             tr = pd.concat([high-low, abs(high-cierre.shift(1)), abs(low-cierre.shift(1))], axis=1).max(axis=1).ewm(span=14).mean()
@@ -204,7 +206,6 @@ elif menu == "🔍 SCREENING":
                 v = sum([fcf_p * ((1+g_final)**i) / ((1+wacc)**i) for i in range(1,6)]) + (fcf_p * ((1+g_final)**5) * 6) / ((1+wacc)**5)
                 simulaciones.append(v)
             
-            # Gráfico de Campana
             fig_mc = ff.create_distplot([simulaciones], ["Valor Intrínseco"], bin_size=1, show_hist=False, colors=['#2ecc71'])
             fig_mc.add_vline(x=obj["Precio Actual"], line_dash="dash", line_color="white", annotation_text="Precio Hoy")
             fig_mc.update_layout(title="Distribución de Probabilidades del Valor Justo", template="plotly_dark", height=400)
@@ -214,16 +215,16 @@ elif menu == "🔍 SCREENING":
 # --- CARTERA ---
 elif menu == "💼 CARTERA":
     st.subheader("Gestión de Portafolio")
-    cursor.execute("SELECT ticker, nominales, precio_compra FROM cartera WHERE user_id=?", (st.session_state.user_id,))
+    cursor.execute("SELECT ticker, nominales, precio_compra FROM cartera")
     df_c = pd.DataFrame(cursor.fetchall(), columns=["Ticker", "Nominales", "Precio Compra"])
     
     edit = st.data_editor(df_c, num_rows="dynamic", use_container_width=True)
     if st.button("Guardar Cartera"):
-        cursor.execute("DELETE FROM cartera WHERE user_id=?", (st.session_state.user_id,))
+        cursor.execute("DELETE FROM cartera")
         for _, r in edit.iterrows():
-            if r["Ticker"]: cursor.execute("INSERT INTO cartera (user_id, ticker, nominales, precio_compra) VALUES (?,?,?,?)", (st.session_state.user_id, r["Ticker"].upper(), r["Nominales"], r["Precio Compra"]))
+            if r["Ticker"]: cursor.execute("INSERT INTO cartera (ticker, nominales, precio_compra) VALUES (?,?,?)", (r["Ticker"].upper(), r["Nominales"], r["Precio Compra"]))
         conn.commit()
-        st.success("Guardado.")
+        st.success("Cambios en el portafolio guardados.")
         st.rerun()
 
 st.markdown("---")
