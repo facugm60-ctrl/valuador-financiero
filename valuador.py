@@ -7,42 +7,79 @@ import plotly.figure_factory as ff
 import urllib.parse
 import requests
 
-# 1. CONFIGURACIÓN PREMIUM Y TIPOGRAFÍA MONTSERRAT
+# 1. CONFIGURACIÓN PREMIUM Y ARQUITECTURA DE DISEÑO SAAS FINANCIAL
 st.set_page_config(page_title="Terminal Quanti Pro", layout="wide", initial_sidebar_state="collapsed")
 
 st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght=300;400;600;800&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;800&display=swap');
     
+    /* Reset e Identidad Dark Institutional */
     html, body, [class*="css"] {
         font-family: 'Montserrat', sans-serif !important;
+        background-color: #0b0e14;
+        color: #e2e8f0;
     }
     
     .block-container {padding-top: 1.5rem; padding-bottom: 2rem;}
-    h1 {font-weight: 800; color: #FFFFFF; font-size: 28px !important;}
-    h2 {font-weight: 700; color: #F0F2F6; font-size: 20px !important;}
-    h3 {font-weight: 700; color: #F0F2F6; font-size: 16px !important;}
+    h1 {font-weight: 800; color: #FFFFFF; font-size: 28px !important; letter-spacing: -0.5px;}
+    h2 {font-weight: 700; color: #f0f2f6; font-size: 20px !important; margin-bottom: 12px;}
+    h3 {font-weight: 700; color: #f0f2f6; font-size: 16px !important;}
     
-    .stMetric label {font-size: 13px !important; font-weight: 600;}
-    .stMetric div {font-size: 24px !important; font-weight: 700;}
+    /* Tarjetas de Métricas Custom (Estilo Bloomberg) */
+    div[data-testid="stMetric"] {
+        background-color: #161b22 !important;
+        border: 1px solid #30363d !important;
+        border-radius: 8px !important;
+        padding: 12px 20px !important;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+    }
+    .stMetric label {font-size: 12px !important; font-weight: 600; color: #8b949e !important;}
+    .stMetric div {font-size: 24px !important; font-weight: 700; color: #ffffff !important;}
     
+    /* Botones Operativos con Animación */
     .stButton>button {
         width: 100%; background-color: #2ecc71; color: white;
-        font-weight: bold; border-radius: 8px; border: none;
-        padding: 0.5rem; font-size: 14px !important; margin-top: 5px;
+        font-weight: bold; border-radius: 6px; border: none;
+        padding: 0.6rem; font-size: 14px !important; margin-top: 5px;
+        transition: background-color 0.3s ease, transform 0.1s ease;
     }
-    .stButton>button:hover { background-color: #27ae60; }
+    .stButton>button:hover { background-color: #27ae60; transform: translateY(-1px); }
     
-    .radar-box-gainer-high { background: linear-gradient(135deg, #113f17, #1b4d22); border: 1px solid #2ecc71; padding: 12px; border-radius: 8px; font-weight: bold; margin-bottom: 10px; }
-    .radar-box-loser { background: linear-gradient(135deg, #4d1c1c, #632222); border: 1px solid #e74c3c; padding: 12px; border-radius: 8px; font-weight: bold; margin-bottom: 10px; }
+    /* Barra de Navegación Custom (Ocultando Radios Nativos) */
+    div[data-testid="stRadio"] > label { display: none !important; }
+    div[data-testid="stRadio"] > div {
+        background-color: #161b22 !important;
+        padding: 6px !important;
+        border-radius: 8px !important;
+        border: 1px solid #30363d !important;
+        gap: 10px !important;
+    }
+    div[data-testid="stRadio"] label[data-baseweb="radio"] {
+        background-color: #0b0e14 !important;
+        border: 1px solid #30363d !important;
+        padding: 8px 16px !important;
+        border-radius: 6px !important;
+        color: #c9d1d9 !important;
+        transition: all 0.3s ease !important;
+    }
+    div[data-testid="stRadio"] label[data-baseweb="radio"]:hover {
+        border-color: #58a6ff !important;
+        color: #ffffff !important;
+    }
     
+    /* Badges del Market Radar */
+    .radar-box-gainer-high { background: linear-gradient(135deg, #113f17, #1b4d22); border: 1px solid #2ecc71; padding: 14px; border-radius: 8px; font-weight: bold; margin-bottom: 10px; }
+    .radar-box-loser { background: linear-gradient(135deg, #4d1c1c, #632222); border: 1px solid #e74c3c; padding: 14px; border-radius: 8px; font-weight: bold; margin-bottom: 10px; }
+    
+    /* Marcos y Cajas de Interpretación Avanzadas */
     .disclaimer-box {
-        background-color: #1e222b; padding: 15px; border-left: 4px solid #e74c3c;
-        border-radius: 4px; margin-top: 25px; font-size: 11px; color: #b2bec3; text-align: justify;
+        background-color: #161b22; padding: 15px; border-left: 4px solid #e74c3c;
+        border-radius: 4px; margin-top: 25px; font-size: 11px; color: #8b949e; text-align: justify; border: 1px solid #30363d;
     }
     .interpretation-box {
-        background-color: #1e222b; padding: 15px; border-left: 4px solid #3498db;
-        border-radius: 4px; margin-top: 10px; font-size: 13px; color: #dcdde1; line-height: 1.5;
+        background-color: #161b22; padding: 15px; border-left: 4px solid #58a6ff;
+        border-radius: 6px; margin-top: 10px; font-size: 13px; color: #c9d1d9; line-height: 1.5; border: 1px solid #30363d;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -192,12 +229,12 @@ def engine_ml_scoring(estrategia):
         except: continue
     return pd.DataFrame(scored_list).sort_values("Score", ascending=False).head(10).to_dict(orient="records")
 
-# MENÚ DE NAVEGACIÓN
+# MENÚ DE NAVEGACIÓN ESTILIZADO CON INTERFAZ PREMIUM
 menu = st.radio("Sección Operativa:", ["🌐 DASHBOARD GENERAL", "🔍 INTELIGENCIA Y SCREENING", "💼 PORTAFOLIO MULTIACTIVO"], horizontal=True)
 st.markdown("---")
 
 # ==========================================
-# SECCIÓN 1: DASHBOARD GENERAL (SÍMPLE Y ESTABLE)
+# SECCIÓN 1: DASHBOARD GENERAL
 # ==========================================
 if menu == "🌐 DASHBOARD GENERAL":
     st.subheader("⚡ Market Radar: Momentum de Mercado")
@@ -400,7 +437,7 @@ elif menu == "🔍 INTELIGENCIA Y SCREENING":
                 st.info("El activo objetivo no registra flujos operativos de caja positivos estables para modelar la simulación de Montecarlo.")
 
 # ==========================================
-# SECCIÓN 3: PORTAFOLIO Y REPORTE UTF-8 COMPLIANT
+# SECCIÓN 3: PORTAFOLIO Y REPORTE REPARADO
 # ==========================================
 elif menu == "💼 PORTAFOLIO MULTIACTIVO":
     st.subheader("🤖 Asistente de Asignación por Factores (iShares & BlackRock Matrix Engine)")
@@ -419,7 +456,7 @@ elif menu == "💼 PORTAFOLIO MULTIACTIVO":
     st.markdown("---")
     st.subheader("💼 Mi Cartera de Inversiones Consolidada")
     df_c = pd.DataFrame(st.session_state.cartera_data)
-    edit_grilla = st.data_editor(df_c, num_rows="dynamic", use_container_width=True, key="editor_vfinal_fix_v10")
+    edit_grilla = st.data_editor(df_c, num_rows="dynamic", use_container_width=True, key="editor_vfinal_fix_v11")
     st.session_state.cartera_data = edit_grilla.to_dict(orient="records")
     
     c_tot, v_act, lista_p_l, pares_ticker_div = 0.0, 0.0, [], []
@@ -488,15 +525,15 @@ elif menu == "💼 PORTAFOLIO MULTIACTIVO":
         else:
             st.info("No se registran cobros proyectados de dividendos corporativos para los próximos 12 meses.")
             
-        # INPUT INTERACTIVO REQUERIDO PARA SELECCIONAR/CONFIGURAR NOMBRE DEL ANALISTA
+        # 🛠️ AJUSTE CRÍTICO: INPUT UBICADO ARRIBA DEL CONSTRUCTOR DEL BOTÓN PARA ELIMINAR EL LAG DE ASIGNACIÓN
         st.markdown("---")
-        st.markdown("#### 📥 Parámetros de Exportación Institucional")
-        analista_input = st.text_input("Nombre del Analista Financiero Responsable:", value="Facundo Garcia Marquez")
+        st.markdown("#### 📥 Parámetros de Exportación")
+        analista_input = st.text_input("Asesor Financiero a cargo de la cuenta:", value="Facundo Garcia Marquez")
         
+        # Armar bloques HTML recorriendo la grilla real de la sesión
         filas_html_pl = "".join([f"<tr><td>{x['Ticker']}</td><td>{x['Nominales']:.0f}</td><td>${x['Precio Compra']:.2f}</td><td>${x['Precio Actual']:.2f}</td><td>${x['Valor Mercado']:.2f}</td><td style='color:{'#2ecc71' if '-' not in x['P&L (%)'] else '#e74c3c'}'>{x['P&L (%)']}</td></tr>" for x in lista_p_l])
         filas_html_cf = "".join([f"<tr><td>{x['Mes / Año']}</td><td>{x['Activo']}</td><td>{x['Concepto']}</td><td>${x['Monto Proyectado (USD)']:.2f}</td></tr>" for x in filas_cashflow]) if filas_cashflow else "<tr><td colspan='4'>No hay rentas proyectadas en el periodo.</td></tr>"
         
-        # BLINDAJE DE ENCODING UTF-8 VIA META TAG PARA LIQUIDAR CARACTERES RAROS
         html_reporte_completo = f"""
         <!DOCTYPE html>
         <html>
@@ -516,7 +553,7 @@ elif menu == "💼 PORTAFOLIO MULTIACTIVO":
         </head>
         <body>
             <h1>Terminal Quanti Pro - Reporte de Asignación Estratégica</h1>
-            <p><strong>Analista Responsable:</strong> {analista_input}</p>
+            <p><strong>Asesor Financiero:</strong> {analista_input}</p>
             <div class='summary'>
                 <strong>Inversión de Capital Inicial:</strong> ${c_tot:,.2f} USD<br>
                 <strong>Valorización de Mercado Actual:</strong> ${v_act:,.2f} USD<br>
@@ -541,17 +578,16 @@ elif menu == "💼 PORTAFOLIO MULTIACTIVO":
             
             <div class='disclaimer-box'>
                 <strong>⚠️ EXCLUSIÓN DE RESPONSABILIDAD LEGAL Y NOTA DE CONTROL DE RENTAS:</strong> Los flujos por dividendos e intereses 
-                detallados en este documento representan un movimiento estrictamente **estimativo y proyectado**, sujeto a la efectiva asignación, 
+                detallados en este documento representan un movimiento estrictamente **docu-estimativo y proyectado**, sujeto a la efectiva asignación, 
                 corte de cupón y distribución que aprueben las respectivas asambleas de accionistas o directorios de las firmas emisoras. 
                 El contenido de esta simulación cuantitativa es de carácter educativo y no constituye recomendación formal de inversión. 
                 Firma de auditoría: **{analista_input}**.
             </div>
-            <div class='footer'>Reporte de Auditoría Corporativa Sincronizado v5.0</div>
+            <div class='footer'>Reporte de Auditoría Corporativa Sincronizado v6.0</div>
         </body>
         </html>
         """
         
-        # Forzado explícito de conversión binaria utf-8 en el download trigger
         st.download_button(
             label="📥 Descargar Reporte de Cartera Autorizado (Format Fixed)",
             data=html_reporte_completo.encode('utf-8'),
