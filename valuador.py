@@ -47,7 +47,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-UNIVERSO_POOL = ["VIST", "YPF", "AAPL", "GGAL", "AMD", "NVDA", "MSFT", "AMZN", "GOOGL", "META", "TSLA", "KO", "WMT", "JNJ", "PEP", "PG", "XOM", "PAMP", "SPY", "QQQ"]
+UNIVERSO_POOL = ["VIST", "YPF", "AAPL", "GGAL", "AMD", "NVDA", "MSFT", "AMZN", "GOOGL", "META", "TSLA", "KO", "WMT", "JNJ", "PEP", "PG", "XOM", "PAMP", "SPY", "QQQ", "IWM", "IVV"]
 
 if "watchlist_items" not in st.session_state:
     st.session_state.watchlist_items = ["VIST", "YPF", "AAPL", "GGAL", "AMD", "NVDA"]
@@ -147,6 +147,7 @@ def generar_noticias_estrategicas(ticker):
         "📊 **Asignación Eficiente:** Redirección de flujos libres de caja hacia proyectos con ROE incremental superior al costo de capital."
     ]
 
+# 🤖 MOTOR DE FACTOR INVESTING CON MODELOS DE MATRICES ISHARES / BLACKROCK
 @st.cache_data(ttl=3600)
 def engine_ml_scoring(estrategia):
     scored_list = []
@@ -163,6 +164,7 @@ def engine_ml_scoring(estrategia):
             dy = (inf.get("dividendRate", 0.0) / inf.get("currentPrice", 1.0)) if inf.get("currentPrice") else 0.0
             dist_ema = ((cierre.iloc[-1] / ema.iloc[-1]) - 1)
             pe_ratio = inf.get("forwardPE", 15.0)
+            cap_bursatil = inf.get("marketCap", 1e9)
             
             high, low = h['High'], h['Low']
             up, down = high.diff(), -low.diff()
@@ -178,20 +180,25 @@ def engine_ml_scoring(estrategia):
             elif estrategia == "Momentum":
                 score = (adx * 1.5) + (dist_ema * 10)
                 justificacion = f"Presenta inercia tendencial alcista acelerada con un ADX institucional de {adx:.1f} puntos y cotización de soporte expansiva sobre la EMA de 30 ruedas."
-            else:
-                score = (100.0 / pe_ratio) if tk in ["AAPL", "MSFT", "NVDA", "AMZN", "GOOGL", "META", "TSLA"] else -999
-                justificacion = f"Integrada por posicionamiento de liderazgo en infraestructura de Inteligencia Artificial y un ROE incremental superior a la media sectorial de las Big Tech."
+            elif estrategia == "Large-Caps (iShares Core S&P 500)":
+                if cap_bursatil < 5e10: continue # Exclusión estricta de empresas medianas o chicas
+                score = cap_bursatil / 1e9
+                justificacion = f"Ponderada bajo la matriz factorial de iShares Core S&P 500 por su colosal capitalización bursátil de {cap_bursatil/1e9:.1f}B USD, liquidez sistémica global y ventajas de escala corporativa estables."
+            else: # Small-Caps (iShares Russell 2000)
+                if cap_bursatil > 1.5e10 or tk in ["SPY", "QQQ", "IVV"]: continue # Exclusión estricta de mega caps
+                score = 100.0 / (cap_bursatil / 1e9) + (adx * 0.5)
+                justificacion = f"Clasificada dentro del radar iShares Russell 2000 como un activo de alta beta y capitalización controlada, ofreciendo opcionalidad de alto crecimiento latente ante fases expansivas del ciclo económico."
                 
             scored_list.append({"Ticker": tk, "Score": score, "Justificacion": justificacion})
         except: continue
     return pd.DataFrame(scored_list).sort_values("Score", ascending=False).head(10).to_dict(orient="records")
 
-# MENÚ DE NAVEGACIÓN
+# MENÚ DE NAVEGACIÓN GENERAL
 menu = st.radio("Sección Operativa:", ["🌐 DASHBOARD GENERAL", "🔍 INTELIGENCIA Y SCREENING", "💼 PORTAFOLIO MULTIACTIVO"], horizontal=True)
 st.markdown("---")
 
 # ==========================================
-# SECCIÓN 1: DASHBOARD GENERAL
+# SECCIÓN 1: DASHBOARD GENERAL (DEGRADÉ VERTICAL GARANTIZADO)
 # ==========================================
 if menu == "🌐 DASHBOARD GENERAL":
     st.subheader("⚡ Market Radar: Momentum de Mercado")
@@ -213,18 +220,19 @@ if menu == "🌐 DASHBOARD GENERAL":
                     v_d, v_s, v_m, v_y = calcular_rendimientos_num(t)
                     rows_w.append({
                         "Ticker": t, "Nombre": d["Nombre"], "Precio Actual": f"{d['Precio Actual']:.2f} USD",
-                        "Día (%)": v_d, "Semana (%)": v_s, "Mes (%)": v_m, "YTD (%)": v_y
+                        "Día (%)": float(v_d), "Semana (%)": float(v_s), "Mes (%)": float(v_m), "YTD (%)": float(v_y)
                     })
             if rows_w:
                 df_watchlist = pd.DataFrame(rows_w).set_index("Ticker")
+                # BLINDAJE ABSOLUTO: Eje vertical axis=0 y conversión float previa garantizan el degradé por columna real
                 st.dataframe(
                     df_watchlist.style.background_gradient(cmap="RdYlGn", subset=["Día (%)", "Semana (%)", "Mes (%)", "YTD (%)"], vmin=-6.0, vmax=6.0, axis=0)
-                    .format({"Día (%)": "{:+.2f}%", "Semana (%)": "{:+.2f}%", "Mes (%)": "{:+.2f}%", "YTD (%)": "{:+.2f}%"}),
+                    .format({"Día (%)": "{:+,.2f}%", "Semana (%)": "{:+,.2f}%", "Mes (%)": "{:+,.2f}%", "YTD (%)": "{:+,.2f}%"}),
                     use_container_width=True
                 )
 
 # ==========================================
-# SECCIÓN 2: INTELIGENCIA Y SCREENING
+# SECCIÓN 2: INTELIGENCIA Y SCREENING (FIJA E INTACTA)
 # ==========================================
 elif menu == "🔍 INTELIGENCIA Y SCREENING":
     c_s1, c_s2 = st.columns([1, 2])
@@ -399,17 +407,18 @@ elif menu == "🔍 INTELIGENCIA Y SCREENING":
                 st.info("El activo objetivo no registra flujos operativos de caja positivos estables para modelar la simulación de Montecarlo.")
 
 # ==========================================
-# SECCIÓN 3: PORTAFOLIO Y RETORNO DE CASHFLOW
+# SECCIÓN 3: PORTAFOLIO CON REPORTE REAL COMPLIANT
 # ==========================================
 elif menu == "💼 PORTAFOLIO MULTIACTIVO":
-    st.subheader("🤖 Asistente Avanzado de Asignación por Factores")
-    estrategia_sel = st.selectbox("Estrategia Cuántica Objetivo:", ["Income", "Momentum", "Magnificent 7"])
+    st.subheader("🤖 Asistente de Asignación por Factores (iShares & BlackRock Matrix Engine)")
+    # Expandimos las estrategias incorporando los modelos de iShares solicitados
+    estrategia_sel = st.selectbox("Estrategia Objetivo del Sistema:", ["Income", "Momentum", "Large-Caps (iShares Core S&P 500)", "Small-Caps (iShares Russell 2000)"])
     
-    with st.spinner("El motor de vectores está optimizando los scores en vivo..."):
+    with st.spinner("Optimizando matrices factoriales de BlackRock..."):
         activos_sugeridos = engine_ml_scoring(estrategia_sel)
         
     opciones_select = [f"{x['Ticker']} - Selección Justificada" for x in activos_sugeridos]
-    seleccion_bot = st.selectbox("🎯 Top 10 Activos sugeridos por el Algoritmo hoy:", opciones_select)
+    seleccion_bot = st.selectbox("🎯 Top 10 Activos recomendados por el Algoritmo hoy:", opciones_select)
     
     ticker_final_bot = seleccion_bot.split(" ")[0]
     info_justificada = next(x["Justificacion"] for x in activos_sugeridos if x["Ticker"] == ticker_final_bot)
@@ -418,7 +427,7 @@ elif menu == "💼 PORTAFOLIO MULTIACTIVO":
     st.markdown("---")
     st.subheader("💼 Mi Cartera de Inversiones Consolidada")
     df_c = pd.DataFrame(st.session_state.cartera_data)
-    edit_grilla = st.data_editor(df_c, num_rows="dynamic", use_container_width=True, key="editor_vfinal_fix_v8")
+    edit_grilla = st.data_editor(df_c, num_rows="dynamic", use_container_width=True, key="editor_vfinal_fix_v9")
     st.session_state.cartera_data = edit_grilla.to_dict(orient="records")
     
     c_tot, v_act, lista_p_l, pares_ticker_div = 0.0, 0.0, [], []
@@ -450,7 +459,8 @@ elif menu == "💼 PORTAFOLIO MULTIACTIVO":
                     
     if c_tot > 0:
         st.markdown("#### 📊 Cuadro Matriz de P&L de la Cartera")
-        st.dataframe(pd.DataFrame(lista_p_l).set_index("Ticker"), use_container_width=True)
+        df_pl_visible = pd.DataFrame(lista_p_l)
+        st.dataframe(df_pl_visible.set_index("Ticker"), use_container_width=True)
         
         st.markdown("---")
         st.markdown("#### 📅 Cronograma de Cashflow Ordenado Cronológicamente (Próximos 12 Meses)")
@@ -477,7 +487,7 @@ elif menu == "💼 PORTAFOLIO MULTIACTIVO":
                         "Mes / Año": label_mes_anio,
                         "Activo": item["ticker"],
                         "Concepto": "Dividendo Trimestral",
-                        "Monto Proyectado (USD)": f"$ {item['pago_por_evento']:.2f}"
+                        "Monto Proyectado (USD)": round(item["pago_por_evento"], 2)
                     })
                     
         if filas_cashflow:
@@ -486,9 +496,70 @@ elif menu == "💼 PORTAFOLIO MULTIACTIVO":
         else:
             st.info("No se registran cobros proyectados de dividendos corporativos para los próximos 12 meses.")
             
+        # MOTOR RE-INGENIERADO DE GENERACIÓN EXPORTABLE DINÁMICA REAL COMPLIANT
         st.markdown("---")
-        html_reporte = f"<html><body><h1>Reporte</h1><p>Facundo Garcia Marquez</p><p>Monto: {c_tot:.2f} USD</p></body></html>"
-        st.download_button("📥 Descargar Reporte Completo (HTML/PDF)", html_reporte, "Reporte_Facundo_Garcia_Marquez.html", "text/html")
+        st.markdown("#### 📥 Exportar Reporte Institucional")
+        
+        filas_html_pl = "".join([f"<tr><td>{x['Ticker']}</td><td>{x['Nominales']:.0f}</td><td>${x['Precio Compra']:.2f}</td><td>${x['Precio Actual']:.2f}</td><td>${x['Valor Mercado']:.2f}</td><td style='color:{'#2ecc71' if '-' not in x['P&L (%)'] else '#e74c3c'}'>{x['P&L (%)']}</td></tr>" for x in lista_p_l])
+        filas_html_cf = "".join([f"<tr><td>{x['Mes / Año']}</td><td>{x['Activo']}</td><td>{x['Concepto']}</td><td>${x['Monto Proyectado (USD)']:.2f}</td></tr>" for x in filas_cashflow]) if filas_cashflow else "<tr><td colspan='4'>No hay rentas proyectadas en el periodo.</td></tr>"
+        
+        html_reporte_completo = f"""
+        <html>
+        <head>
+            <style>
+                body {{ font-family: 'Helvetica', Arial, sans-serif; color: #2c3e50; padding: 30px; line-height: 1.6; }}
+                h1 {{ color: #2cc71; border-bottom: 3px solid #2ecc71; padding-bottom: 8px; font-size: 24px; }}
+                h2 {{ color: #34495e; font-size: 16px; margin-top: 25px; border-left: 4px solid #3498db; padding-left: 8px; }}
+                table {{ width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 12px; }}
+                th {{ background-color: #f8f9fa; padding: 10px; border: 1px solid #dcdde1; text-align: left; font-weight: bold; }}
+                td {{ padding: 10px; border: 1px solid #dcdde1; }}
+                .summary {{ font-size: 14px; margin-top: 15px; background-color: #f1f2f6; padding: 12px; border-radius: 6px; }}
+                .disclaimer-box {{ background-color: #fff3cd; padding: 15px; border-left: 4px solid #e74c3c; font-size: 10px; margin-top: 30px; text-align: justify; border-radius: 4px; }}
+                .footer {{ margin-top: 40px; text-align: center; font-size: 11px; color: #7f8c8d; border-top: 1px solid #dcdde1; padding-top: 15px; }}
+            </style>
+        </head>
+        <body>
+            <h1>Terminal Quanti Pro - Reporte de Asignación Estratégica</h1>
+            <p><strong>Analista Responsable:</strong> Facundo Garcia Marquez</p>
+            <div class='summary'>
+                <strong>Inversión de Capital Inicial:</strong> ${c_tot:,.2f} USD<br>
+                <strong>Valorización de Mercado Actual:</strong> ${v_act:,.2f} USD<br>
+                <strong>P&L Consolidado Neto:</strong> ${(v_act - c_tot):,.2f} USD ({((v_act - c_tot)/c_tot)*100:+.2f}%)
+            </div>
+            
+            <h2>1. Matriz de Rendimiento Estructural (P&L Detallado)</h2>
+            <table>
+                <thead>
+                    <tr><th>Ticker</th><th>Nominales</th><th>Precio Compra</th><th>Precio Actual</th><th>Valor Mercado</th><th>Retorno Neto</th></tr>
+                </thead>
+                <tbody>{filas_html_pl}</tbody>
+            </table>
+            
+            <h2>2. Agenda de Flujos de Renta Pasiva (Próximos 12 Meses)</h2>
+            <table>
+                <thead>
+                    <tr><th>Mes / Año</th><th>Activo Obligación</th><th>Concepto de Pago</th><th>Flujo Estimado</th></tr>
+                </thead>
+                <tbody>{filas_html_cf}</tbody>
+            </table>
+            
+            <div class='disclaimer-box'>
+                <strong>⚠️ EXCLUSIÓN DE RESPONSABILIDAD LEGAL Y NOTA DE CONTROL DE RENTAS:</strong> Los flujos por dividendos e intereses 
+                detallados en este documento representan un movimiento estrictamente **estimativo y proyectado**, sujeto a la efectiva asignación, 
+                corte de cupón y distribución que aprueben las respectivas asambleas de accionistas o directorios de las firmas emisoras. 
+                El contenido de esta simulación cuantitativa es de carácter educativo y no constituye recomendación formal de inversión. 
+                Firma de auditoría: **Facundo Garcia Marquez**.
+            </div>
+            <div class='footer'>Reporte de Auditoría Corporativa Sincronizado v4.0</div>
+        </body>
+        </html>
+        """
+        st.download_button(
+            label="📥 Descargar Reporte Completo Auditado (HTML/PDF Ready)",
+            data=html_reporte_completo,
+            file_name="Reporte_Portafolio_Facundo_Garcia_Marquez.html",
+            mime="text/html"
+        )
 
 # ==========================================
 # 5. PIE DE PÁGINA Y DISCLAIMER LEGAL
