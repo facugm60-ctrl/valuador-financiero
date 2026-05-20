@@ -96,7 +96,7 @@ def calcular_alfa_beta(ticker, period="1y"):
 def calcular_rendimientos_num(ticker):
     try:
         h = yf.Ticker(ticker).history(period="1y")
-        if h.empty or len(h) < 20: return 0.0, 0.0, 0.0, 0.0
+        if h.empty or len(h) < 20: return "0.0%", "0.0%", "0.0%", "0.0%"
         c = h["Close"]
         px_hoy = c.iloc[-1]
         var_dia = ((px_hoy / c.iloc[-2]) - 1) * 100
@@ -105,8 +105,8 @@ def calcular_rendimientos_num(ticker):
         ytd_start = c.index[c.index >= '2026-01-02']
         px_ytd = c.loc[ytd_start[0]] if len(ytd_start) > 0 else c.iloc[0]
         var_ytd = ((px_hoy / px_ytd) - 1) * 100
-        return round(var_dia, 2), round(var_sem, 2), round(var_mes, 2), round(var_ytd, 2)
-    except: return 0.0, 0.0, 0.0, 0.0
+        return f"{var_dia:+.2f}%", f"{var_sem:+.2f}%", f"{var_mes:+.2f}%", f"{var_ytd:+.2f}%"
+    except: return "N/A", "N/A", "N/A", "N/A"
 
 def obtener_datos(symbol):
     try:
@@ -147,7 +147,6 @@ def generar_noticias_estrategicas(ticker):
         "📊 **Asignación Eficiente:** Redirección de flujos libres de caja hacia proyectos con ROE incremental superior al costo de capital."
     ]
 
-# 🤖 MOTOR DE FACTOR INVESTING CON MODELOS DE MATRICES ISHARES / BLACKROCK
 @st.cache_data(ttl=3600)
 def engine_ml_scoring(estrategia):
     scored_list = []
@@ -181,11 +180,11 @@ def engine_ml_scoring(estrategia):
                 score = (adx * 1.5) + (dist_ema * 10)
                 justificacion = f"Presenta inercia tendencial alcista acelerada con un ADX institucional de {adx:.1f} puntos y cotización de soporte expansiva sobre la EMA de 30 ruedas."
             elif estrategia == "Large-Caps (iShares Core S&P 500)":
-                if cap_bursatil < 5e10: continue # Exclusión estricta de empresas medianas o chicas
+                if cap_bursatil < 5e10: continue
                 score = cap_bursatil / 1e9
                 justificacion = f"Ponderada bajo la matriz factorial de iShares Core S&P 500 por su colosal capitalización bursátil de {cap_bursatil/1e9:.1f}B USD, liquidez sistémica global y ventajas de escala corporativa estables."
-            else: # Small-Caps (iShares Russell 2000)
-                if cap_bursatil > 1.5e10 or tk in ["SPY", "QQQ", "IVV"]: continue # Exclusión estricta de mega caps
+            else:
+                if cap_bursatil > 1.5e10 or tk in ["SPY", "QQQ", "IVV"]: continue
                 score = 100.0 / (cap_bursatil / 1e9) + (adx * 0.5)
                 justificacion = f"Clasificada dentro del radar iShares Russell 2000 como un activo de alta beta y capitalización controlada, ofreciendo opcionalidad de alto crecimiento latente ante fases expansivas del ciclo económico."
                 
@@ -193,12 +192,12 @@ def engine_ml_scoring(estrategia):
         except: continue
     return pd.DataFrame(scored_list).sort_values("Score", ascending=False).head(10).to_dict(orient="records")
 
-# MENÚ DE NAVEGACIÓN GENERAL
+# MENÚ DE NAVEGACIÓN
 menu = st.radio("Sección Operativa:", ["🌐 DASHBOARD GENERAL", "🔍 INTELIGENCIA Y SCREENING", "💼 PORTAFOLIO MULTIACTIVO"], horizontal=True)
 st.markdown("---")
 
 # ==========================================
-# SECCIÓN 1: DASHBOARD GENERAL (DEGRADÉ VERTICAL GARANTIZADO)
+# SECCIÓN 1: DASHBOARD GENERAL (SÍMPLE Y ESTABLE)
 # ==========================================
 if menu == "🌐 DASHBOARD GENERAL":
     st.subheader("⚡ Market Radar: Momentum de Mercado")
@@ -220,19 +219,13 @@ if menu == "🌐 DASHBOARD GENERAL":
                     v_d, v_s, v_m, v_y = calcular_rendimientos_num(t)
                     rows_w.append({
                         "Ticker": t, "Nombre": d["Nombre"], "Precio Actual": f"{d['Precio Actual']:.2f} USD",
-                        "Día (%)": float(v_d), "Semana (%)": float(v_s), "Mes (%)": float(v_m), "YTD (%)": float(v_y)
+                        "Día": v_d, "Semana": v_s, "Mes": v_m, "YTD": v_y
                     })
             if rows_w:
-                df_watchlist = pd.DataFrame(rows_w).set_index("Ticker")
-                # BLINDAJE ABSOLUTO: Eje vertical axis=0 y conversión float previa garantizan el degradé por columna real
-                st.dataframe(
-                    df_watchlist.style.background_gradient(cmap="RdYlGn", subset=["Día (%)", "Semana (%)", "Mes (%)", "YTD (%)"], vmin=-6.0, vmax=6.0, axis=0)
-                    .format({"Día (%)": "{:+,.2f}%", "Semana (%)": "{:+,.2f}%", "Mes (%)": "{:+,.2f}%", "YTD (%)": "{:+,.2f}%"}),
-                    use_container_width=True
-                )
+                st.dataframe(pd.DataFrame(rows_w).set_index("Ticker"), use_container_width=True)
 
 # ==========================================
-# SECCIÓN 2: INTELIGENCIA Y SCREENING (FIJA E INTACTA)
+# SECCIÓN 2: INTELIGENCIA Y SCREENING
 # ==========================================
 elif menu == "🔍 INTELIGENCIA Y SCREENING":
     c_s1, c_s2 = st.columns([1, 2])
@@ -407,11 +400,10 @@ elif menu == "🔍 INTELIGENCIA Y SCREENING":
                 st.info("El activo objetivo no registra flujos operativos de caja positivos estables para modelar la simulación de Montecarlo.")
 
 # ==========================================
-# SECCIÓN 3: PORTAFOLIO CON REPORTE REAL COMPLIANT
+# SECCIÓN 3: PORTAFOLIO Y REPORTE UTF-8 COMPLIANT
 # ==========================================
 elif menu == "💼 PORTAFOLIO MULTIACTIVO":
     st.subheader("🤖 Asistente de Asignación por Factores (iShares & BlackRock Matrix Engine)")
-    # Expandimos las estrategias incorporando los modelos de iShares solicitados
     estrategia_sel = st.selectbox("Estrategia Objetivo del Sistema:", ["Income", "Momentum", "Large-Caps (iShares Core S&P 500)", "Small-Caps (iShares Russell 2000)"])
     
     with st.spinner("Optimizando matrices factoriales de BlackRock..."):
@@ -427,7 +419,7 @@ elif menu == "💼 PORTAFOLIO MULTIACTIVO":
     st.markdown("---")
     st.subheader("💼 Mi Cartera de Inversiones Consolidada")
     df_c = pd.DataFrame(st.session_state.cartera_data)
-    edit_grilla = st.data_editor(df_c, num_rows="dynamic", use_container_width=True, key="editor_vfinal_fix_v9")
+    edit_grilla = st.data_editor(df_c, num_rows="dynamic", use_container_width=True, key="editor_vfinal_fix_v10")
     st.session_state.cartera_data = edit_grilla.to_dict(orient="records")
     
     c_tot, v_act, lista_p_l, pares_ticker_div = 0.0, 0.0, [], []
@@ -496,19 +488,23 @@ elif menu == "💼 PORTAFOLIO MULTIACTIVO":
         else:
             st.info("No se registran cobros proyectados de dividendos corporativos para los próximos 12 meses.")
             
-        # MOTOR RE-INGENIERADO DE GENERACIÓN EXPORTABLE DINÁMICA REAL COMPLIANT
+        # INPUT INTERACTIVO REQUERIDO PARA SELECCIONAR/CONFIGURAR NOMBRE DEL ANALISTA
         st.markdown("---")
-        st.markdown("#### 📥 Exportar Reporte Institucional")
+        st.markdown("#### 📥 Parámetros de Exportación Institucional")
+        analista_input = st.text_input("Nombre del Analista Financiero Responsable:", value="Facundo Garcia Marquez")
         
         filas_html_pl = "".join([f"<tr><td>{x['Ticker']}</td><td>{x['Nominales']:.0f}</td><td>${x['Precio Compra']:.2f}</td><td>${x['Precio Actual']:.2f}</td><td>${x['Valor Mercado']:.2f}</td><td style='color:{'#2ecc71' if '-' not in x['P&L (%)'] else '#e74c3c'}'>{x['P&L (%)']}</td></tr>" for x in lista_p_l])
         filas_html_cf = "".join([f"<tr><td>{x['Mes / Año']}</td><td>{x['Activo']}</td><td>{x['Concepto']}</td><td>${x['Monto Proyectado (USD)']:.2f}</td></tr>" for x in filas_cashflow]) if filas_cashflow else "<tr><td colspan='4'>No hay rentas proyectadas en el periodo.</td></tr>"
         
+        # BLINDAJE DE ENCODING UTF-8 VIA META TAG PARA LIQUIDAR CARACTERES RAROS
         html_reporte_completo = f"""
+        <!DOCTYPE html>
         <html>
         <head>
+            <meta charset="utf-8">
             <style>
                 body {{ font-family: 'Helvetica', Arial, sans-serif; color: #2c3e50; padding: 30px; line-height: 1.6; }}
-                h1 {{ color: #2cc71; border-bottom: 3px solid #2ecc71; padding-bottom: 8px; font-size: 24px; }}
+                h1 {{ color: #2ecc71; border-bottom: 3px solid #2ecc71; padding-bottom: 8px; font-size: 24px; }}
                 h2 {{ color: #34495e; font-size: 16px; margin-top: 25px; border-left: 4px solid #3498db; padding-left: 8px; }}
                 table {{ width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 12px; }}
                 th {{ background-color: #f8f9fa; padding: 10px; border: 1px solid #dcdde1; text-align: left; font-weight: bold; }}
@@ -520,7 +516,7 @@ elif menu == "💼 PORTAFOLIO MULTIACTIVO":
         </head>
         <body>
             <h1>Terminal Quanti Pro - Reporte de Asignación Estratégica</h1>
-            <p><strong>Analista Responsable:</strong> Facundo Garcia Marquez</p>
+            <p><strong>Analista Responsable:</strong> {analista_input}</p>
             <div class='summary'>
                 <strong>Inversión de Capital Inicial:</strong> ${c_tot:,.2f} USD<br>
                 <strong>Valorización de Mercado Actual:</strong> ${v_act:,.2f} USD<br>
@@ -548,16 +544,18 @@ elif menu == "💼 PORTAFOLIO MULTIACTIVO":
                 detallados en este documento representan un movimiento estrictamente **estimativo y proyectado**, sujeto a la efectiva asignación, 
                 corte de cupón y distribución que aprueben las respectivas asambleas de accionistas o directorios de las firmas emisoras. 
                 El contenido de esta simulación cuantitativa es de carácter educativo y no constituye recomendación formal de inversión. 
-                Firma de auditoría: **Facundo Garcia Marquez**.
+                Firma de auditoría: **{analista_input}**.
             </div>
-            <div class='footer'>Reporte de Auditoría Corporativa Sincronizado v4.0</div>
+            <div class='footer'>Reporte de Auditoría Corporativa Sincronizado v5.0</div>
         </body>
         </html>
         """
+        
+        # Forzado explícito de conversión binaria utf-8 en el download trigger
         st.download_button(
-            label="📥 Descargar Reporte Completo Auditado (HTML/PDF Ready)",
-            data=html_reporte_completo,
-            file_name="Reporte_Portafolio_Facundo_Garcia_Marquez.html",
+            label="📥 Descargar Reporte de Cartera Autorizado (Format Fixed)",
+            data=html_reporte_completo.encode('utf-8'),
+            file_name=f"Reporte_Portafolio_{analista_input.replace(' ', '_')}.html",
             mime="text/html"
         )
 
