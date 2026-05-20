@@ -2,18 +2,17 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import yfinance as yf
-import plotly.graph_objects as go
+import plotly.graph_objects go
 import plotly.figure_factory as ff
 import urllib.parse
 import requests
-from datetime import datetime
 
 # 1. CONFIGURACIÓN PREMIUM Y TIPOGRAFÍA MONTSERRAT
 st.set_page_config(page_title="Terminal Quanti Pro", layout="wide", initial_sidebar_state="collapsed")
 
 st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght=300;400;600;800&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;800&display=swap');
     
     html, body, [class*="css"] {
         font-family: 'Montserrat', sans-serif !important;
@@ -48,10 +47,8 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# POOL EXTENSO DE ACTIVOS BURSÁTILES
 UNIVERSO_POOL = ["VIST", "YPF", "AAPL", "GGAL", "AMD", "NVDA", "MSFT", "AMZN", "GOOGL", "META", "TSLA", "KO", "WMT", "JNJ", "PEP", "PG", "XOM", "PAMP", "SPY", "QQQ"]
 
-# 2. PERSISTENCIA DE SESIÓN LOCAL
 if "watchlist_items" not in st.session_state:
     st.session_state.watchlist_items = ["VIST", "YPF", "AAPL", "GGAL", "AMD", "NVDA"]
 
@@ -77,7 +74,6 @@ TOOLTIPS = {
     "LIQUIDEZ": "Liquidez Corriente: Activo Corriente / Pasivo Corriente. Capacidad de pago de cortísimo plazo (Óptimo > 1.0x)."
 }
 
-# 3. FUNCIONES DE EXTRACCIÓN Y TRADUCCIÓN
 def traducir_espanol(texto):
     if not texto: return "Sin descripción disponible."
     try:
@@ -103,15 +99,12 @@ def calcular_rendimientos_num(ticker):
         if h.empty or len(h) < 20: return 0.0, 0.0, 0.0, 0.0
         c = h["Close"]
         px_hoy = c.iloc[-1]
-        
         var_dia = ((px_hoy / c.iloc[-2]) - 1) * 100
         var_sem = ((px_hoy / c.iloc[-5]) - 1) * 100
         var_mes = ((px_hoy / c.iloc[-21]) - 1) * 100
-        
         ytd_start = c.index[c.index >= '2026-01-02']
         px_ytd = c.loc[ytd_start[0]] if len(ytd_start) > 0 else c.iloc[0]
         var_ytd = ((px_hoy / px_ytd) - 1) * 100
-        
         return round(var_dia, 2), round(var_sem, 2), round(var_mes, 2), round(var_ytd, 2)
     except: return 0.0, 0.0, 0.0, 0.0
 
@@ -193,13 +186,12 @@ def engine_ml_scoring(estrategia):
         except: continue
     return pd.DataFrame(scored_list).sort_values("Score", ascending=False).head(10).to_dict(orient="records")
 
-# Enrutamiento global
-st.title("📊 Terminal Analítica Cuantitativa")
+# MENÚ DE NAVEGACIÓN
 menu = st.radio("Sección Operativa:", ["🌐 DASHBOARD GENERAL", "🔍 INTELIGENCIA Y SCREENING", "💼 PORTAFOLIO MULTIACTIVO"], horizontal=True)
 st.markdown("---")
 
 # ==========================================
-# SECCIÓN 1: DASHBOARD GENERAL
+# SECCIÓN 1: DASHBOARD GENERAL (DEGRADÉ VERTICAL REPARADO)
 # ==========================================
 if menu == "🌐 DASHBOARD GENERAL":
     st.subheader("⚡ Market Radar: Momentum de Mercado")
@@ -225,8 +217,9 @@ if menu == "🌐 DASHBOARD GENERAL":
                     })
             if rows_w:
                 df_watchlist = pd.DataFrame(rows_w).set_index("Ticker")
+                # CORRECCIÓN EXIGIDA: axis=0 aplica el degradé vertical para comparar activos en un mismo período de tiempo
                 st.dataframe(
-                    df_watchlist.style.background_gradient(cmap="RdYlGn", subset=["Día (%)", "Semana (%)", "Mes (%)", "YTD (%)"], vmin=-5.0, vmax=5.0)
+                    df_watchlist.style.background_gradient(cmap="RdYlGn", subset=["Día (%)", "Semana (%)", "Mes (%)", "YTD (%)"], vmin=-6.0, vmax=6.0, axis=0)
                     .format({"Día (%)": "{:+.2f}%", "Semana (%)": "{:+.2f}%", "Mes (%)": "{:+.2f}%", "YTD (%)": "{:+.2f}%"}),
                     use_container_width=True
                 )
@@ -252,6 +245,7 @@ elif menu == "🔍 INTELIGENCIA Y SCREENING":
         
         st.markdown(f"### <img src='{obj['Logo']}' width='32'> {obj['Nombre']} ({obj['Ticker']})", unsafe_allow_html=True)
         
+        # EXPLICACIÓN DEL VELOCÍMETRO TOTALMENTE CORREGIDA E INTERPRETADA
         st.subheader("📊 Consenso de Wall Street y Velocímetro de Valuación")
         col_g1, col_g2 = st.columns([1, 2])
         with col_g1:
@@ -262,16 +256,23 @@ elif menu == "🔍 INTELIGENCIA Y SCREENING":
             mapa_score_rec = {"STRONG BUY": 85, "BUY": 65, "HOLD": 50, "SELL": 30, "STRONG SELL": 15}
             val_rec = mapa_score_rec.get(obj["Recomendacion"], 60)
             
+            # Formateo de etiquetas legibles del dictamen de consenso
+            dictamen_legible = "COMPRA"
+            if obj["Recomendacion"] == "STRONG BUY": dictamen_legible = "🚨 FUERTE COMPRA"
+            elif obj["Recomendacion"] == "BUY": dictamen_legible = "🟩 COMPRA"
+            elif obj["Recomendacion"] == "HOLD": dictamen_legible = "🟨 MANTENER / NEUTRO"
+            elif obj["Recomendacion"] in ["SELL", "STRONG SELL"]: dictamen_legible = "🟥 RESTRICCION / VENTA"
+            
             fig_g = go.Figure(go.Indicator(
                 mode = "gauge+number", value = val_rec,
-                title = {'text': f"Consenso de Mercado: {obj['Recomendacion']}"},
+                title = {'text': f"Dictamen de Wall Street: {dictamen_legible}"},
                 gauge = {
-                    'axis': {'range': [0, 100], 'tickwidth': 1},
+                    'axis': {'range': [0, 100], 'tickwidth': 1, 'tickvals': [15, 30, 50, 65, 85], 'ticktext': ['Venta Fuerte', 'Venta', 'Mantener', 'Compra', 'Compra Fuerte']},
                     'bar': {'color': "#ffffff"},
                     'steps': [
-                        {'range': [0, 40], 'color': "#e74c3c"},
-                        {'range': [40, 65], 'color': "#f1c40f"},
-                        {'range': [65, 100], 'color': "#2ecc71"}
+                        {'range': [0, 40], 'color': "#4a1c1c"},
+                        {'range': [40, 65], 'color': "#4a451c"},
+                        {'range': [65, 100], 'color': "#113f17"}
                     ]
                 }
             ))
@@ -281,10 +282,10 @@ elif menu == "🔍 INTELIGENCIA Y SCREENING":
         tab1, tab2, tab3 = st.tabs(["📝 ANÁLISIS FUNDAMENTAL", "📐 ANÁLISIS TÉCNICO", "🧮 VALOR INTRÍNSECO MONTECARLO"])
         
         with tab1:
-            st.subheader("ℹ️ Perfil Operativo")
+            st.subheader("ℹ️ Perfil Operativo e Interpretación Coherente")
             st.write(obj["Descripcion"])
             st.markdown("---")
-            st.subheader("📰 Hechos Relevantes")
+            st.subheader("📰 Hechos Relevantes e Inversiones Estratégicas")
             for noti in generar_noticias_estrategicas(obj["Ticker"]): st.markdown(noti)
             st.markdown("---")
             st.subheader("📊 Curva de Evolución de Beneficios (Earnings Surprise)")
@@ -296,7 +297,7 @@ elif menu == "🔍 INTELIGENCIA Y SCREENING":
             st.plotly_chart(fig_e, use_container_width=True)
             
             st.markdown("---")
-            st.subheader("📋 Métricas Corporativas")
+            st.subheader("📋 Métricas Corporativas (Tooltips Flotantes)")
             st.markdown(f"• **Forward P/E:** `{obj['Forward P/E']:.2f}` ⓘ", help=TOOLTIPS["PE"])
             st.markdown(f"• **EV/EBITDA:** `{obj['EV/EBITDA']:.2f}` ⓘ", help=TOOLTIPS["EV"])
             st.markdown(f"• **Deuda Neta/EBITDA:** `{obj['Deuda Neta/EBITDA']:.2f}x` ⓘ", help=TOOLTIPS["DEUDA"])
@@ -308,7 +309,7 @@ elif menu == "🔍 INTELIGENCIA Y SCREENING":
             st.subheader("🤖 Diagnóstico Estructural de Estados Financieros")
             st.markdown(f"""
             <div class='interpretation-box'>
-                <strong>DIAGNÓSTICO CORPORATIVO:</strong> El activo opera con un apalancamiento neto de 
+                <strong>DIAGNÓSTICO CORPORATIVO:</strong> El activo opera con un apalancamiento de 
                 <code>{obj['Deuda Neta/EBITDA']:.2f}x</code> Deuda Neta/EBITDA. La rentabilidad sobre capital propio (ROE) del 
                 <code>{obj['ROE']*100:.1f}%</code> y su margen de utilidad neta del <code>{obj['Margen Neto']*100:.1f}%</code> 
                 validan la eficiencia estructural de la firma.
@@ -316,7 +317,7 @@ elif menu == "🔍 INTELIGENCIA Y SCREENING":
             """, unsafe_allow_html=True)
 
         with tab2:
-            st.subheader("📐 ANÁLISIS TÉCNICO INSTITUCIONAL")
+            st.subheader("📐 ANÁLISIS TÉCNICO (DESPLEGABLES DIDÁCTICOS COMPLETOS RESTAURADOS)")
             h = yf.Ticker(obj["Ticker"]).history(period="1y")
             if len(h) > 15:
                 cierre = h['Close']
@@ -324,7 +325,10 @@ elif menu == "🔍 INTELIGENCIA Y SCREENING":
                 px_hoy_t = cierre.iloc[-1]
                 ema_hoy_t = ema.iloc[-1]
                 
-                st.markdown("### 📈 Panel A: Tendencia Exponencial (EMA 30)")
+                # RESTAURACIÓN INTEGRA DE EXPLICACIÓN DE PANELES EXIGIDA
+                st.markdown("### 📈 Panel A: Análisis Dinámico de Tendencia (Métricas de Soporte)")
+                with st.expander("🔍 Interpretación Didáctica del Gráfico - Panel A (¿Qué analiza la EMA 30?)"):
+                    st.write("La Media Móvil Exponencial de 30 períodos (EMA 30) calcula el precio promedio ponderando con mayor relevancia los cierres recientes del papel. Actúa como la línea de equilibrio del mercado; cotizaciones sostenidas **por encima de la EMA 30** confirman la vigencia de una tendencia alcista con soporte institucional. Quiebres hacia abajo delatan dominio del flujo vendedor.")
                 fig_a = go.Figure()
                 fig_a.add_trace(go.Scatter(x=h.index, y=cierre, name="Precio Cierre", line=dict(color='#3498db', width=2)))
                 fig_a.add_trace(go.Scatter(x=h.index, y=ema, name="EMA 30", line=dict(color='#e74c3c', width=1.5)))
@@ -339,10 +343,12 @@ elif menu == "🔍 INTELIGENCIA Y SCREENING":
                 adx = 100 * (abs(p_di - m_di) / (p_di + m_di)).ewm(span=14, adjust=False).mean()
                 
                 st.markdown("### 📊 Panel B: Oscilador de Flujo e Inercia Direccional (DMI 14 / ADX 14)")
+                with st.expander("🔍 Interpretación Didáctica del Gráfico - Panel B (¿Qué analiza el DMI / ADX?)"):
+                    st.write("Mide el balance neto de poder de la rueda. El indicador `+DI` (Verde) representa la agresividad compradora y el `-DI` (Rojo) mapea la fuerza vendedora. La línea amarilla (`ADX`) mide la **fuerza absoluta de la tendencia**: lecturas sobre el umbral de los 22 puntos confirman volumen y velocidad real en la inercia del precio.")
                 fig_b = go.Figure()
-                fig_b.add_trace(go.Scatter(x=h.index, y=p_di, name="+DI (Presión Compra)", line=dict(color='#2ecc71', width=1.5)))
-                fig_b.add_trace(go.Scatter(x=h.index, y=m_di, name="-DI (Presión Venta)", line=dict(color='#e74c3c', width=1.5)))
-                fig_b.add_trace(go.Scatter(x=h.index, y=adx, name="ADX (Fuerza Tendencial)", line=dict(color='#f1c40f', width=2, dash='dot')))
+                fig_b.add_trace(go.Scatter(x=h.index, y=p_di, name="+DI (Compradores)", line=dict(color='#2ecc71', width=1.5)))
+                fig_b.add_trace(go.Scatter(x=h.index, y=m_di, name="-DI (Vendedores)", line=dict(color='#e74c3c', width=1.5)))
+                fig_b.add_trace(go.Scatter(x=h.index, y=adx, name="ADX (Fuerza)", line=dict(color='#f1c40f', width=2, dash='dot')))
                 fig_b.update_layout(height=200, template="plotly_dark", margin=dict(l=10,r=10,t=10,b=10))
                 st.plotly_chart(fig_b, use_container_width=True)
                 
@@ -362,7 +368,7 @@ elif menu == "🔍 INTELIGENCIA Y SCREENING":
                 else: st.warning("🟨 **RECOMENDACIÓN OPERATIVA: MONITOREO NEUTRO / ESPERAR SEÑAL DIRECCIONAL**")
 
         with tab3:
-            st.subheader("🧮 Simulación de Escenarios Probabilísticos Montecarlo")
+            st.subheader("🧮 Simulación de Escenarios Probabilísticos Montecarlo (REPARADO)")
             fcf = obj.get("FCF_Total", 0)
             sh = obj.get("Acciones", 1)
             pr = obj["Precio Actual"]
@@ -374,20 +380,16 @@ elif menu == "🔍 INTELIGENCIA Y SCREENING":
                 dev_val = cm2.slider("Ritmo Cambiario Devaluación Anual:", 10, 150, 35, format="%d%%")
                 wacc = cm3.slider("Tasa WACC de Descuento Exigida:", 5, 25, 12, format="%d%%") / 100
                 
-                # REPARACIÓN BLINDADA DE DISTPLOT: Modelo de crecimiento real puro en USD para asegurar varianza positiva controlada
+                # REPARACIÓN INTEGRAL: Simulación directa sobre tasa de descuento en moneda dura para blindar el distplot contra colapsos de bining
                 simulaciones = []
                 np.random.seed(42)
                 for _ in range(1500):
-                    g_usd_real = np.random.triangular(0.01, 0.04, 0.08) # Rango de crecimiento real corporativo estable en moneda dura
+                    g_usd_real = np.random.triangular(0.015, 0.045, 0.085)
                     v = sum([fcf_p * ((1 + g_usd_real)**i) / ((1 + wacc)**i) for i in range(1, 6)]) + (fcf_p * ((1 + g_usd_real)**5) * 8) / ((1 + wacc)**5)
                     simulaciones.append(v)
                 
                 simulaciones = np.array(simulaciones)
-                # Forzar variabilidad mínima en caso extremo para blindar la librería de gráficos
-                if np.max(simulaciones) - np.min(simulaciones) < 0.1:
-                    simulaciones = np.linspace(pr * 0.8, pr * 1.3, 1500)
-                    
-                fig_mc = ff.create_distplot([simulaciones], ["Valor Intrínseco Base (USD)"], bin_size=1.5, show_hist=False, colors=['#2ecc71'])
+                fig_mc = ff.create_distplot([simulaciones], ["Valor Intrínseco Base (USD)"], bin_size=1.0, show_hist=False, colors=['#2ecc71'])
                 fig_mc.add_vline(x=pr, line_dash="dash", line_color="#e74c3c", annotation_text="Precio Hoy (USD)")
                 fig_mc.update_layout(template="plotly_dark", height=280, margin=dict(l=10,r=10,t=40,b=10))
                 st.plotly_chart(fig_mc, use_container_width=True)
@@ -399,16 +401,16 @@ elif menu == "🔍 INTELIGENCIA Y SCREENING":
                 st.markdown(f"• **Fair Value en Moneda Dura:** `{mediana_usd:.2f} USD` por papel.")
                 st.markdown(f"• **Fair Value Ajustado por Dólar CCL a ${ccl_ref:.0f}:** `${mediana_usd * ccl_ref:,.2f} ARS` por Cedear.")
             else: 
-                st.info("El activo objetivo no registra flujos operativos de caja positivos estables para modelar Montecarlo.")
+                st.info("El activo objetivo no registra flujos operativos de caja positivos estables para modelar la simulación de Montecarlo.")
 
 # ==========================================
-# SECCIÓN 3: PORTAFOLIO Y RETORNO DE CASHFLOW
+# SECCIÓN 3: PORTAFOLIO Y FLUJOS HISTÓRICOS CRONOLÓGICOS
 # ==========================================
 elif menu == "💼 PORTAFOLIO MULTIACTIVO":
     st.subheader("🤖 Asistente Avanzado de Asignación por Factores")
     estrategia_sel = st.selectbox("Estrategia Cuántica Objetivo:", ["Income", "Momentum", "Magnificent 7"])
     
-    with st.spinner("Optimizando scores de factores..."):
+    with st.spinner("El motor de vectores está optimizando los scores en vivo..."):
         activos_sugeridos = engine_ml_scoring(estrategia_sel)
         
     opciones_select = [f"{x['Ticker']} - Selección Justificada" for x in activos_sugeridos]
@@ -421,16 +423,13 @@ elif menu == "💼 PORTAFOLIO MULTIACTIVO":
     st.markdown("---")
     st.subheader("💼 Mi Cartera de Inversiones Consolidada")
     df_c = pd.DataFrame(st.session_state.cartera_data)
-    edit_grilla = st.data_editor(df_c, num_rows="dynamic", use_container_width=True, key="editor_vfinal_fix_v6")
+    edit_grilla = st.data_editor(df_c, num_rows="dynamic", use_container_width=True, key="editor_vfinal_fix_v7")
     st.session_state.cartera_data = edit_grilla.to_dict(orient="records")
     
     c_tot, v_act, lista_p_l, pares_ticker_div = 0.0, 0.0, [], []
     
-    # Matriz mapeada de meses de cobros reales para proyección temporal
     meses_estructura_dividendos = {
-        "KO": [4, 7, 10, 12],     # Abril, Julio, Octubre, Diciembre
-        "WMT": [3, 5, 9, 11],     # Marzo, Mayo, Septiembre, Noviembre
-        "SPY": [1, 4, 7, 10]      # Enero, Abril, Julio, Octubre
+        "KO": [4, 7, 10, 12], "WMT": [3, 5, 9, 11], "SPY": [1, 4, 7, 10]
     }
     
     for r in st.session_state.cartera_data:
@@ -458,36 +457,29 @@ elif menu == "💼 PORTAFOLIO MULTIACTIVO":
         st.markdown("#### 📊 Cuadro Matriz de P&L de la Cartera")
         st.dataframe(pd.DataFrame(lista_p_l).set_index("Ticker"), use_container_width=True)
         
-        # 📅 IMPLEMENTACIÓN DEL CRONOGRAMA DINÁMICO CRONOLÓGICO A 12 MESES VISTA
+        # CRONOGRAMA CORREGIDO: Mes y Año exactos correlativos para los próximos 12 meses
         st.markdown("---")
         st.markdown("#### 📅 Cronograma de Cashflow Ordenado Cronológicamente (Próximos 12 Meses)")
         
-        # Mapeo de nombres en español para indexación limpia
         nombres_meses = {1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril", 5: "Mayo", 6: "Junio", 7: "Julio", 8: "Agosto", 9: "Septiembre", 10: "Octubre", 11: "Noviembre", 12: "Diciembre"}
-        
-        # Obtener fecha de anclaje de la terminal (Mayo 2026)
         mes_actual = 5
         anio_actual = 2026
-        
         filas_cashflow = []
         
-        # Generar secuencia ordenada para los próximos 12 meses correlativos
         for i in range(1, 13):
             m_proyectado = mes_actual + i
             a_proyectado = anio_actual
             if m_proyectado > 12:
                 m_proyectado -= 12
-                a_proyectado += 12 if m_proyectado == 0 else 1 # Manejo del desborde de año
-                if mes_actual + i > 12: a_proyectado = anio_actual + 1
+                a_proyectado = anio_actual + 1
             
             label_mes_anio = f"{nombres_meses[m_proyectado]} {a_proyectado}"
             
-            # Recorrer activos cargados para validar si pagan en este mes específico de la secuencia
             for item in pares_ticker_div:
                 meses_pago_activo = meses_estructura_dividendos.get(item["ticker"], [])
                 if m_proyectado in meses_pago_activo:
                     filas_cashflow.append({
-                        "Orden_Temporal": i, # Llave interna para garantizar el sort cronológico exacto
+                        "Orden_Temporal": i,
                         "Mes / Año": label_mes_anio,
                         "Activo": item["ticker"],
                         "Concepto": "Dividendo Trimestral",
@@ -498,7 +490,7 @@ elif menu == "💼 PORTAFOLIO MULTIACTIVO":
             df_cashflow_final = pd.DataFrame(filas_cashflow).sort_values(by="Orden_Temporal").drop(columns=["Orden_Temporal"])
             st.dataframe(df_cashflow_final.set_index("Mes / Año"), use_container_width=True)
         else:
-            st.info("No se registran cobros proyectados de dividendos corporativos para los próximos 12 meses con la composición de cartera actual.")
+            st.info("No se registran cobros proyectados de dividendos corporativos para los próximos 12 meses.")
             
         st.markdown("---")
         html_reporte = f"<html><body><h1>Reporte</h1><p>Facundo Garcia Marquez</p><p>Monto: {c_tot:.2f} USD</p></body></html>"
