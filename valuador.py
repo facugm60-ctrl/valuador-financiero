@@ -8,13 +8,13 @@ from bs4 import BeautifulSoup
 import plotly.graph_objects as go
 
 # ==============================================================================
-# 1. CONFIGURACIÓN DE PÁGINA Y ESTILOS PREMIUM SAAS FINTECH
+# 1. CONFIGURACIÓN DE PÁGINA Y PARAMETRIZACIÓN DE ESTILOS FINTECH
 # ==============================================================================
 st.set_page_config(page_title="Terminal Quanti Pro", layout="wide", initial_sidebar_state="collapsed")
 
 st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght=300;400;600;700;800&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;700;800&display=swap');
     
     html, body, [class*="css"], [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
         background-color: #0c0f16 !important;
@@ -27,9 +27,9 @@ st.markdown("""
     }
     
     .block-container {padding-top: 1.5rem; padding-bottom: 2rem;}
-    <h1> {font-weight: 800; color: #ffffff !important; font-size: 30px !important; letter-spacing: -0.8px;}
-    <h2> {font-weight: 700; color: #f8fafc !important; font-size: 21px !important; margin-top: 15px;}
-    <h3> {font-weight: 600; color: #f1f5f9 !important; font-size: 16px !important;}
+    h1 {font-weight: 800; color: #ffffff !important; font-size: 30px !important; letter-spacing: -0.8px;}
+    h2 {font-weight: 700; color: #f8fafc !important; font-size: 21px !important; margin-top: 15px;}
+    h3 {font-weight: 600; color: #f1f5f9 !important; font-size: 16px !important;}
     
     /* Selector de Navegación Premium - Glassmorphism */
     div[data-testid="stRadio"] > label { display: none !important; }
@@ -59,7 +59,7 @@ st.markdown("""
         border-color: rgba(88, 166, 255, 0.3) !important;
     }
     
-    /* KPIs Custom */
+    /* KPIs Bloques */
     div[data-testid="stMetric"] {
         background-color: #111520 !important;
         border: 1px solid #1f2937 !important;
@@ -70,7 +70,7 @@ st.markdown("""
     div[data-testid="stMetric"] label { font-size: 11px !important; font-weight: 600; color: #64748b !important; text-transform: uppercase; }
     div[data-testid="stMetric"] div[data-testid="stMetricValue"] { font-size: 24px !important; font-weight: 800; color: #ffffff !important; }
     
-    /* Botones Operativos */
+    /* Botonera */
     .stButton>button {
         width: 100%; background: linear-gradient(135deg, #2ecc71, #27ae60) !important;
         color: white !important; font-weight: 700; border-radius: 8px; border: none;
@@ -83,20 +83,20 @@ st.markdown("""
         background-color: #111520 !important; color: #ffffff !important; border: 1px solid #1f2937 !important; border-radius: 8px !important;
     }
     
-    /* Marcos Especiales */
+    /* Estructuras Informativas */
     .radar-box-gainer-high { background: linear-gradient(135deg, #064e3b, #047857); border: 1px solid #10b981; padding: 14px; border-radius: 8px; font-weight: bold; color: #34d399 !important; }
     .radar-box-loser { background: linear-gradient(135deg, #7f1d1d, #b91c1c); border: 1px solid #f87171; padding: 14px; border-radius: 8px; font-weight: bold; color: #f87171 !important; }
     .interpretation-box { background-color: #111520; padding: 16px; border-radius: 8px; font-size: 13px; color: #e2e8f0; line-height: 1.6; border: 1px solid #1f2937; border-left: 4px solid #2ecc71; }
     .agent-box { background-color: #090d16; padding: 18px; border-radius: 8px; font-size: 13px; color: #e2e8f0; border: 1px solid #1f2937; border-left: 4px solid #dfa427; line-height: 1.6; }
     
-    /* Tablas HTML e Inyección Financiera */
+    /* Estilos para Tablas HTML Corporativas */
     .custom-table { width: 100%; border-collapse: collapse; margin: 15px 0; font-size: 13px; background-color: #111520; border-radius: 8px; overflow: hidden; border: 1px solid #1f2937; }
     .custom-table th { background-color: #161b22; color: #ffffff; padding: 12px; text-align: left; font-weight: 600; border-bottom: 2px solid #1f2937; position: relative; }
     .custom-table td { padding: 12px; border-bottom: 1px solid #1f2937; color: #e2e8f0; }
     .custom-table tr:hover { background-color: #1c2331; }
     .winner-cell { background-color: rgba(46, 204, 113, 0.15) !important; color: #2ecc71 !important; font-weight: bold; border: 1px solid rgba(46, 204, 113, 0.3) !important; }
     
-    /* Tooltips Flotantes */
+    /* CSS Tooltips */
     .tooltip { position: relative; display: inline-block; cursor: pointer; color: #3498db; margin-left: 4px; font-weight: bold; }
     .tooltip .tooltiptext { visibility: hidden; width: 280px; background-color: #1f2937; color: #fff; text-align: left; padding: 12px; border-radius: 6px; position: absolute; z-index: 999; bottom: 125%; left: 50%; margin-left: -140px; opacity: 0; transition: opacity 0.3s; font-size: 11px; font-weight: normal; line-height: 1.4; border: 1px solid #3b82f6; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
     .tooltip:hover .tooltiptext { visibility: visible; opacity: 1; }
@@ -104,7 +104,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==============================================================================
-# 2. EXTRACCIÓN DINÁMICA DE VALOR EN TIEMPO REAL DESDE DOLARITO.AR
+# 2. CONEXIÓN EN VIVO A DOLARITO PARA EXTRACCIÓN REAL DEL MEP
 # ==============================================================================
 @st.cache_data(ttl=600)
 def obtener_dolar_mep_real():
@@ -129,6 +129,7 @@ def obtener_dolar_mep_real():
 
 DOLAR_MEP = obtener_dolar_mep_real()
 
+# Ratios oficiales de conversión BCBA / BYMA actualizados
 RATIOS_CEDEAR = {
     "VIST": 1, "YPF": 1, "AAPL": 10, "GGAL": 1, "AMD": 10, "NVDA": 24, 
     "MSFT": 30, "AMZN": 14, "GOOGL": 11, "META": 24, "TSLA": 15, "KO": 5, 
@@ -140,22 +141,25 @@ RATIOS_CEDEAR = {
 UNIVERSO_POOL = ["VIST", "YPF", "AAPL", "GGAL", "AMD", "NVDA", "MSFT", "AMZN", "GOOGL", "META", "TSLA", "KO", "WMT", "XOM", "SPY", "QQQ", "JNJ", "PEP", "PG", "MO", "CVX", "MCD", "BRKB", "MELI", "BABA", "PYPL", "NFLX", "DESP", "VALE"]
 
 EXPLICACIONES_TECNICAS = {
-    "PE": "<b>Forward Price-to-Earnings (P/E):</b> Múltiplo que proyecta el costo del activo frente a las ganancias estimadas de la empresa a 12 meses. Un número bajo implica descuento relativo.",
-    "EV": "<b>Enterprise Value / EBITDA:</b> Mide el costo teórico de absorción total de la firma respecto a su generación operativa limpia de caja. Filtro principal institucional.",
-    "DEUDA": "<b>Net Debt / EBITDA:</b> Cobertura de apalancamiento financiero. Valores sobre las 3.0x delatan un perfil crediticio riesgoso.",
-    "LIQUIDEZ": "<b>Current Ratio:</b> Activos a corto plazo sobre pasivos exigibles inmediatos. Capacidades de cobertura operativa superior a 1.0x denotan solvencia.",
-    "MARGEN": "<b>Margen Neto:</b> El porcentaje remanente de ganancia pura de la firma por cada unidad de facturación bruta registrada.",
-    "ROE": "<b>Return on Equity (ROE):</b> Rentabilidad pura sobre el capital propio invertido por los accionistas de la firma."
+    "PE": "<b>Forward Price-to-Earnings (P/E): Múltiplo de Valuación</b><br>Te dice cuántos años tardarías en recuperar la inversión si la empresa sigue ganando lo mismo siempre. Mientras más bajo sea el número, más barato estás comprando el negocio.",
+    "EV": "<b>EV/EBITDA: Métrica de Absorción Corporativa</b><br>Es el costo teórico de adquirir la firma completa (con sus deudas incluidas) respecto a la caja operativa limpia que genera al año. Si es bajo, el negocio se paga solo rápido.",
+    "DEUDA": "<b>Net Debt / EBITDA: Cobertura de Riesgo Crediticio</b><br>Compara las deudas financieras netas con lo que se genera en un año. Es como ver si debés 1 sueldo o 5 sueldos enteros. Valores sobre las 3.0x indican zona de peligro.",
+    "LIQUIDEZ": "<b>Liquidez Corriente: Capacidad Operativa Corto Plazo</b><br>Compara lo que la empresa tiene disponible en efectivo inmediato contra las deudas que vencen este mes. Valores mayores a 1.0x indican espalda financiera.",
+    "MARGEN": "<b>Margen Neto: Pricing Power Corporativo</b><br>Es la porción de ganancia neta remanente que le queda a la empresa de cada $100 facturados, tras liquidar costos, sueldos e impuestos corporativos.",
+    "ROE": "<b>Return on Equity (ROE): Eficiencia del Capital</b><br>Muestra qué tan despiertos son los administradores para hacer rendir cada peso que los dueños invirtieron de su bolsillo. Mientras más alto, más jugo le sacan al capital."
 }
 
 # ==============================================================================
-# 3. CONSOLIDACIÓN DE SERIES TEMPORALES COMPLETA (WATCHLIST 1D, 1W, 1M, YTD)
+# 3. MOTOR UNIFICADO E HISTÓRICO DE SERIES DE TIEMPO (EVITA DESCALCES Y CEROS)
 # ==============================================================================
 @st.cache_data(ttl=600)
 def descargar_datos_historicos_unificados(universo):
     datos_dict = {}
     try:
         df_hist = yf.download(universo, period="2y", progress=False)["Close"]
+        # Limpieza de índices temporales rellenando nulos (FFILL) para liquidar los saltos a 0 por descalces de feriados
+        df_hist = df_hist.ffill().bfill()
+        
         año_actual = datetime.datetime.now().year
         fecha_ytd = f"{año_actual}-01-02"
         
@@ -203,7 +207,7 @@ def obtener_fundamental_completo(symbol):
     try:
         t = yf.Ticker(symbol)
         inf = t.info
-        if not inf or len(inf) < 5: raise ValueError()
+        if not inf or len(inf) < 5: return None
         px = POOL_DATA.get(symbol, {}).get("precio", inf.get("currentPrice", 50.0))
         td, caj, eb = inf.get("totalDebt", 0), inf.get("totalCash", 0), inf.get("ebitda", 1)
         return {
@@ -213,8 +217,7 @@ def obtener_fundamental_completo(symbol):
             "MARGEN": inf.get("profitMargins", 0.12), "ROE": inf.get("returnOnEquity", 0.15)
         }
     except:
-        # Fallbacks limpios específicos por sector reales en caso de rate-limits transitorios
-        return {"Ticker": symbol, "Nombre": f"{symbol} Corporation", "Precio": POOL_DATA.get(symbol, {}).get("precio", 80.0), "PE": 14.2, "EV": 7.1, "DEUDA": 1.1, "LIQUIDEZ": 1.2, "MARGEN": 0.18, "ROE": 0.24}
+        return None
 
 def filtrar_peers_por_sector(ticker_raiz, lista_ingresada):
     try:
@@ -231,34 +234,34 @@ def filtrar_peers_por_sector(ticker_raiz, lista_ingresada):
         except: peers_validos.append(p_clean)
     return peers_validos
 
-# INITIAL STATE DE LA PLATAFORMA
-if "cartera_list_v3" not in st.session_state:
-    st.session_state.cartera_list_v3 = [
-        {"Ticker": "VIST", "Nominales": 100, "Fecha_Compra": datetime.date(2025, 6, 15), "Costo_Unitario": 52.0, "Comision": 0.5, "Impuesto": 0.1, "Dividendos_Edit": 0.0},
-        {"Ticker": "XOM", "Nominales": 50, "Fecha_Compra": datetime.date(2025, 8, 10), "Costo_Unitario": 110.0, "Comision": 0.4, "Impuesto": 0.05, "Dividendos_Edit": 0.0}
+# CONFIGURACIÓN DEL SESSION STATE DE CARTERA
+if "cartera_list_v4" not in st.session_state:
+    st.session_state.cartera_list_v4 = [
+        {"Ticker": "VIST", "Nominales": 100, "Fecha_Compra": datetime.date(2025, 6, 15), "Costo_Unitario_Cedear": 77200.0, "Comision_USD": 0.5, "Impuesto_USD": 0.1, "Dividendos_Edit": 0.0},
+        {"Ticker": "XOM", "Nominales": 50, "Fecha_Compra": datetime.date(2025, 8, 10), "Costo_Unitario_Cedear": 31500.0, "Comision_USD": 0.4, "Impuesto_USD": 0.05, "Dividendos_Edit": 0.0}
     ]
-    for pos in st.session_state.cartera_list_v3:
+    for pos in st.session_state.cartera_list_v4:
         pos["Dividendos_Edit"] = calcular_dividendos_historicos(pos["Ticker"], pos["Fecha_Compra"], pos["Nominales"])
 
-menu = st.radio("Secciones de la Terminal:", ["🌐 DASHBOARD GENERAL Y WATCHLIST", "🔍 ANÁLISIS", "🐾 EL SABUESO DE WALL STREET", "💼 PORTAFOLIO Y ESTRATEGIAS iSHARES"], horizontal=True)
+# COMPONENTES DE MENÚ E IDENTIDAD LOCAL
+menu = st.radio("Secciones operativas de la Terminal:", ["🌐 DASHBOARD GENERAL Y WATCHLIST", "🔍 ANÁLISIS", "🐾 EL SABUESO DE WALL STREET", "💼 PORTAFOLIO Y MODELOS FACTORIALES"], horizontal=True)
 st.markdown("---")
 
 # ==============================================================================
-# SECCIÓN 1: DASHBOARD GENERAL Y WATCHLIST
+# SECCIÓN 1: DASHBOARD GENERAL Y WATCHLIST (SINCRO TOTAL)
 # ==============================================================================
 if menu == "🌐 DASHBOARD GENERAL Y WATCHLIST":
-    st.subheader("⚡ Market Radar: Momentum de Ruedas")
+    st.subheader("⚡ Market Radar: Sincronización Estructural del Mercado")
     ordenados = sorted(POOL_DATA.items(), key=lambda x: x[1]["1D"], reverse=True)
     
     c_rad1, c_rad2, c_rad3, c_rad4 = st.columns(4)
     with c_rad1: st.markdown(f"<div class='radar-box-gainer-high'>🟢 Liderando la Rueda (1D)<br><br>• {ordenados[0][0]}: {ordenados[0][1]['1D']:+.2f}%<br>• {ordenados[1][0]}: {ordenados[1][1]['1D']:+.2f}%</div>", unsafe_allow_html=True)
-    with c_rad2: st.markdown(f"<div class='radar-box-loser'>🔴 Compresión de la Rueda (1D)<br><br>• {ordenados[-1][0]}: {ordenados[-1][1]['1D']:+.2f}%<br>• {ordenados[-2][0]}: {ordenados[-2][1]['1D']:+.2f}%</div>", unsafe_allow_html=True)
+    with c_rad2: st.markdown(f"<div class='radar-box-loser'>🔴 Mayor Compresión (1D)<br><br>• {ordenados[-1][0]}: {ordenados[-1][1]['1D']:+.2f}%<br>• {ordenados[-2][0]}: {ordenados[-2][1]['1D']:+.2f}%</div>", unsafe_allow_html=True)
     with c_rad3: st.markdown("<div class='radar-box-gainer-high'>🚀 Impulso Factorial Continuo<br><br>• VIST: Flujo en Expansión<br>• NVDA: Escalamiento Operativo</div>", unsafe_allow_html=True)
     with c_rad4: st.markdown("<div class='radar-box-loser'>📉 Compresión de Margen Cíclico<br><br>• KO: Estructura de Resguardo<br>• WMT: Ajuste de Retornos</div>", unsafe_allow_html=True)
         
     st.markdown("---")
-    st.subheader("📌 Monitoreo del Portafolio Ampliado (Watchlist Recompuesta)")
-    
+    st.subheader("📌 Monitoreo General del Mercado (Watchlist Histórica Recompuesta)")
     watchlist_items = ["VIST", "YPF", "AAPL", "GGAL", "NVDA", "KO", "XOM", "WMT"]
     rows_w = []
     for t in watchlist_items:
@@ -274,88 +277,94 @@ if menu == "🌐 DASHBOARD GENERAL Y WATCHLIST":
     st.dataframe(pd.DataFrame(rows_w).set_index("Ticker"), use_container_width=True)
 
 # ==============================================================================
-# SECCIÓN 2: ANÁLISIS (SÓLIDO, PROFESIONAL Y AISLANDO SECTORES)
+# SECCIÓN 2: ANÁLISIS (ELIMINACIÓN DE HARDCODEO / ARREGLO DE ERROR)
 # ==============================================================================
 elif menu == "🔍 ANÁLISIS":
-    st.subheader("🔍 Matriz de Desempeño Contable y Multiplicadores de Capital")
+    st.subheader("🔍 Matriz de Desempeño Contable y Multiplicadores Sectoriales")
     c_s1, c_s2 = st.columns([1, 2])
-    t_obj = c_s1.text_input("📍 Activo Principal:", value="VIST").upper().strip()
-    t_comp_raw = c_s2.text_input("Peers de Control Industrial (Separados por coma):", value="YPF, XOM")
+    t_obj = c_s1.text_input("📍 Activo Bajo Estudio:", value="VIST").upper().strip()
+    t_comp_raw = c_s2.text_input("Peers de Control (Separados por coma):", value="YPF, XOM").upper()
     
-    if st.button("🔥 CORRER ANÁLISIS FUNDAMENTAL"):
-        with st.spinner("Descargando estados contables auditados..."):
+    if st.button("🔥 CORRER ANÁLISIS"):
+        with st.spinner("Descargando balances corporativos reales en vivo..."):
             raw_peers = [c.strip() for c in t_comp_raw.split(",") if c.strip()]
             peers_filtrados = filtrar_peers_por_sector(t_obj, raw_peers)
             lista_tickers = [t_obj] + peers_filtrados
             
-            dataset = [obtener_fundamental_completo(tk) for tk in lista_tickers]
+            # Descarga limpia sin simulación genérica repetitiva
+            dataset = []
+            for tk in lista_tickers:
+                res_f = obtener_fundamental_completo(tk)
+                if res_f: dataset.append(res_f)
             
-            # Asignación precisa de flags por mérito contable puro
-            ganador_pe = min(dataset, key=lambda x: x["PE"])["Ticker"]
-            ganador_ev = min(dataset, key=lambda x: x["EV"])["Ticker"]
-            ganador_deuda = min(dataset, key=lambda x: x["DEUDA"])["Ticker"]
-            ganador_liquidez = max(dataset, key=lambda x: x["LIQUIDEZ"])["Ticker"]
-            ganador_margen = max(dataset, key=lambda x: x["MARGEN"])["Ticker"]
-            ganador_roe = max(dataset, key=lambda x: x["ROE"])["Ticker"]
-            
-            html_table = f"""
-            <table class='custom-table'>
-                <thead>
-                    <tr>
-                        <th>Ticker</th>
-                        <th>Razón Social</th>
-                        <th>Forward P/E <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['PE']}</span></div></th>
-                        <th>EV/EBITDA <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['EV']}</span></div></th>
-                        <th>Net Debt/EBITDA <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['DEUDA']}</span></div></th>
-                        <th>Liquidez Corriente <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['LIQUIDEZ']}</span></div></th>
-                        <th>Margen Neto <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['MARGEN']}</span></div></th>
-                        <th>ROE <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['ROE']}</span></div></th>
-                    </tr>
-                </thead>
-                <tbody>
-            """
-            for row in dataset:
-                c_pe = "class='winner-cell'" if row["Ticker"] == ganador_pe else ""
-                c_ev = "class='winner-cell'" if row["Ticker"] == ganador_ev else ""
-                c_deuda = "class='winner-cell'" if row["Ticker"] == ganador_deuda else ""
-                c_liq = "class='winner-cell'" if row["Ticker"] == ganador_liquidez else ""
-                c_margen = "class='winner-cell'" if row["Ticker"] == ganador_margen else ""
-                c_roe = "class='winner-cell'" if row["Ticker"] == ganador_roe else ""
+            if dataset:
+                ganador_pe = min(dataset, key=lambda x: x["PE"])["Ticker"]
+                ganador_ev = min(dataset, key=lambda x: x["EV"])["Ticker"]
+                ganador_deuda = min(dataset, key=lambda x: x["DEUDA"])["Ticker"]
+                ganador_liquidez = max(dataset, key=lambda x: x["LIQUIDEZ"])["Ticker"]
+                ganador_margen = max(dataset, key=lambda x: x["MARGEN"])["Ticker"]
+                ganador_roe = max(dataset, key=lambda x: x["ROE"])["Ticker"]
                 
-                html_table += f"""
-                    <tr>
-                        <td><b>{row['Ticker']}</b></td>
-                        <td>{row['Nombre']}</td>
-                        <td {c_pe}>{row['PE']:.2f}</td>
-                        <td {c_ev}>{row['EV']:.2f}</td>
-                        <td {c_deuda}>{row['DEUDA']:.2f}x</td>
-                        <td {c_liq}>{row['LIQUIDEZ']:.2f}x</td>
-                        <td {c_margen}>{row['MARGEN']*100:.1f}%</td>
-                        <td {c_roe}>{row['ROE']*100:.1f}%</td>
-                    </tr>
+                html_table = f"""
+                <table class='custom-table'>
+                    <thead>
+                        <tr>
+                            <th>Ticker</th>
+                            <th>Razón Social</th>
+                            <th>Forward P/E <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['PE']}</span></div></th>
+                            <th>EV/EBITDA <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['EV']}</span></div></th>
+                            <th>Net Debt/EBITDA <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['DEUDA']}</span></div></th>
+                            <th>Liquidez Corriente <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['LIQUIDEZ']}</span></div></th>
+                            <th>Margen Neto <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['MARGEN']}</span></div></th>
+                            <th>ROE <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['ROE']}</span></div></th>
+                        </tr>
+                    </thead>
+                    <tbody>
                 """
-            html_table += "</tbody></table>"
-            st.write(html_table, unsafe_allow_html=True)
-            
-            st.markdown("### 📊 Informe Ejecutivo de Posicionamiento")
-            st.markdown(f"""
-            <div class='interpretation-box'>
-                <b>VEREDICTO DE COBERTURA:</b> El mapeo fundamental confirma que la firma 
-                <strong>{ganador_roe}</strong> ostenta el Retorno sobre el Capital (ROE) más sólido del bloque analizado, maximizando la rentabilidad corporativa de los fondos invertidos. 
-                De manera simultánea, <strong>{ganador_pe}</strong> valida un posicionamiento de descuento por múltiplos (P/E comprimido), abriendo una ventana de oportunidad táctica de asignación. 
-                Se sugiere priorizar al activo de control <strong>{t_obj}</strong> en la medida que mantenga niveles de liquidez de cobertura holgados frente a la media del sector industrial.
-            </div>
-            """, unsafe_allow_html=True)
+                for row in dataset:
+                    c_pe = "class='winner-cell'" if row["Ticker"] == ganador_pe else ""
+                    c_ev = "class='winner-cell'" if row["Ticker"] == ganador_ev else ""
+                    c_deuda = "class='winner-cell'" if row["Ticker"] == ganador_deuda else ""
+                    c_liq = "class='winner-cell'" if row["Ticker"] == ganador_liquidez else ""
+                    c_margen = "class='winner-cell'" if row["Ticker"] == ganador_margen else ""
+                    c_roe = "class='winner-cell'" if row["Ticker"] == ganador_roe else ""
+                    
+                    html_table += f"""
+                        <tr>
+                            <td><b>{row['Ticker']}</b></td>
+                            <td>{row['Nombre']}</td>
+                            <td {c_pe}>{row['PE']:.2f}</td>
+                            <td {c_ev}>{row['EV']:.2f}</td>
+                            <td {c_deuda}>{row['DEUDA']:.2f}x</td>
+                            <td {c_liq}>{row['LIQUIDEZ']:.2f}x</td>
+                            <td {c_margen}>{row['MARGEN']*100:.1f}%</td>
+                            <td {c_roe}>{row['ROE']*100:.1f}%</td>
+                        </tr>
+                    """
+                html_table += "</tbody></table>"
+                st.write(html_table, unsafe_allow_html=True)
+                
+                st.markdown("### 📊 Perspectiva de Asignación Estratégica")
+                st.markdown(f"""
+                <div class='interpretation-box'>
+                    <b>INFORME CONSULTIVO DE ASIGNACIÓN:</b> El análisis fundamental sectorial determina que la firma 
+                    <strong>{ganador_roe}</strong> registra el Retorno sobre el Capital Propio (ROE) más competitivo, validando la mayor eficiencia operativa. 
+                    Por su parte, <strong>{ganador_pe}</strong> expone el mayor nivel de descuento por flujo de ganancias proyectado (mínimo Forward P/E). 
+                    Se sugiere estructurar asignaciones con sesgo positivo hacia el activo bajo estudio <strong>{t_obj}</strong> en caso de que convalide coberturas de liquidez corriente defensivas frente al bloque.
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.error("No se registran datos suficientes de balances para los tickers ingresados. Verifique el estado de las llamadas.")
 
-# ==============================================================================
-# SECCIÓN 3: EL SABUESO DE WALL STREET (PROFESIONAL, LIMPIO, CON CONTRASTE +/-)
-# ==============================================================================
+# ==========================================
+# SECCIÓN 3: EL SABUESO DE WALL STREET
+# ==========================================
 elif menu == "🐾 EL SABUESO DE WALL STREET":
-    st.subheader("🐾  El Sabueso de Wall Street: Auditoría y Relevamiento de Campo")
-    tk_sabueso = st.text_input("Fijar Ticker para soltar al Sabueso:", value="VIST").upper().strip()
+    st.subheader("🐾 El Sabueso de Wall Street: Reporte Operativo de Campo")
+    tk_sabueso = st.text_input("Ticker para relevamiento autónomo:", value="VIST").upper().strip()
     
-    if st.button("🛰️ EJECUTAR RELEVAMIENTO AUTÓNOMO"):
-        with st.spinner("Rastreando informes contables e infraestructura de transporte..."):
+    if st.button("🛰️ EJECUTAR RELEVAMIENTO DE CAMPO"):
+        with st.spinner("Rastreando minutas operativas y novedades logísticas..."):
             st.markdown(f"### 📋 Reporte de Relevamiento de Mercado: {tk_sabueso}")
             st.markdown(f"""
             <div class='agent-box'>
@@ -371,147 +380,179 @@ elif menu == "🐾 EL SABUESO DE WALL STREET":
             </div>
             """, unsafe_allow_html=True)
 
-# ==============================================================================
-# SECCIÓN 4: PORTAFOLIO INTEGRADO Y CARTERAS FACTORIALES iSHARES BLACKROCK
-# ==============================================================================
-elif menu == "💼 PORTAFOLIO Y ESTRATEGIAS iSHARES":
-    st.subheader("🤖 Estrategias Factoriales Corporativas Modelo (Matriz iShares)")
+# ==========================================
+# SECCIÓN 4: PORTAFOLIO MULTIACTIVO E IDEAS FACTORIALES COLO TRATADAS ONE BY ONE
+# ==========================================
+elif menu == "💼 PORTAFOLIO Y MODELOS FACTORIALES":
+    st.subheader("🤖 Modelos Factoriales de iShares (Estrategias de Asignación Táctica)")
     
-    # Renderizado y Fundamentación de las Estrategias Factoriales
-    est_sel = st.selectbox("Seleccionar Factor Estratégico iShares:", ["Estrategia: Dividend Income (Flujo Defensivo)", "Estrategia: Institutional Momentum (Inercia de Tendencia)", "Estrategia: Large Caps Alpha (Líderes Core)", "Estrategia: Small & Mid Caps Growth (Expansión Temprana)"])
+    # Base de Datos de Ideas de Inversión con Justificación por Activo
+    CARTERAS_FACTORIALES = {
+        "Dividend Income (Flujo Defensivo)": {
+            "desc": "Capturar firmas maduras con distribución predecible de efectivo y flujos inelásticos.",
+            "activos": {
+                "KO": "Resiliencia extrema de consumo; caja estable inmune a ciclos y dividendos crecientes hace 60 años.",
+                "XOM": "Protección energética global; dueña de infraestructura crítica que devuelve flujos masivos al inversor.",
+                "JNJ": "Sector salud inelástico; la demanda de tratamientos médicos no se posterga por coyunturas.",
+                "PEP": "Sólido portafolio diversificado de marcas globales con alta recurrencia de flujos operativos.",
+                "PG": "Líder mundial en productos de consumo básico esencial; pricing power defensivo comprobado.",
+                "WMT": "La mayor escala de distribución retail global; captura volumen de consumo en fases de contracción.",
+                "MCD": "Franquicia global inmobiliaria y de consumo masivo con generación de caja rígida e indexada."
+            }
+        },
+        "Institutional Momentum (Inercia de Tendencia)": {
+            "desc": "Replicar la inercia del flujo institucional basándose en rendimientos acumulados de 6 y 12 meses.",
+            "activos": {
+                "VIST": "Máxima aceleración por crecimiento de producción real y escala exportadora en Vaca Muerta.",
+                "NVDA": "Proveedor monopólico de la infraestructura de procesamiento para inteligencia artificial global.",
+                "MSFT": "SaaS corporativo dominante; migración en la nube que asegura flujos recurrentes masivos.",
+                "AAPL": "Fidelización de ecosistema cerrado que permite indexar precios sin perder volumen de ventas.",
+                "AMD": "Ganancia de participación factorial en procesamiento de alta densidad competitiva de servidores.",
+                "META": "Dominio absoluto en pauta publicitaria digital global con márgenes de conversión expansivos."
+            }
+        },
+        "Large Caps Alpha (Líderes de Mercado Core)": {
+            "desc": "Consolidar el núcleo del portafolio con corporaciones de alta capitalización y ROE elevado.",
+            "activos": {
+                "MSFT": "Monopolio moderno integrado; la operatividad de las corporaciones globales depende de sus licencias.",
+                "AAPL": "Estructura de balance con caja neta masiva utilizada para recompra de acciones operativas.",
+                "AMZN": "Líder de infraestructura Cloud (AWS) combinado con la mayor escala logística de e-commerce.",
+                "GOOGL": "Foso competitivo indiscutido en motores de búsqueda globales monetizados eficientemente.",
+                "BRKB": "El holding de diversificación más prudente del planeta gestionado bajo la filosofía de valor de Buffett."
+            }
+        },
+        "Small & Mid Caps Growth (Expansión Temprana)": {
+            "desc": "Capturar compañías en fase de expansión temprana o nichos con Beta elevado respecto al mercado.",
+            "activos": {
+                "MELI": "Líder indiscutido de e-commerce y fintech en LATAM, operando en mercados de baja bancarización.",
+                "PAMP": "Jugador estratégico en generación eléctrica y gas no convencional con alto potencial de desarrollo.",
+                "TSLA": "Disrupción en almacenamiento de energía y automoción automatizada con opcionalidad incremental.",
+                "NFLX": "Escala dominante en distribución de streaming con generación de flujo libre de caja positivo consolidado.",
+                "VALE": "Gigante de materias primas metálicas posicionado eficientemente en la base de costos globales."
+            }
+        }
+    }
     
-    if "Income" in est_sel:
-        st.markdown("""
-        **Composición del Modelo iShares Dividend:** `KO, XOM, PEP, JNJ, PG, WMT, MO, CVX, MCD`
-        <div class='interpretation-box'>
-            • <b>KO (Coca-Cola):</b> Elegida por su resiliencia de consumo. Venda lo que venda el mercado, la gente sigue consumiendo sus productos. Su caja rinde siempre y paga dividendos hace más de 60 años seguidos.<br>
-            • <b>XOM (ExxonMobil):</b> Aporta protección energética global. Es dueña de la infraestructura y el recurso; la gente necesita combustible para moverse. Genera caja masiva que devuelve directo al inversor.<br>
-            • <b>JNJ (Johnson & Johnson):</b> El sector salud es inmune a las crisis económicas. La gente no posterga sus tratamientos médicos. Sus ingresos estables garantizan un flujo de pagos predecible.
-        </div>
-        """, unsafe_allow_html=True)
-        id_tickers = ["KO", "XOM", "PEP", "JNJ", "PG", "WMT", "MO", "CVX", "MCD"]
-    elif "Momentum" in est_sel:
-        st.markdown("""
-        **Composición del Modelo iShares Momentum:** `VIST, NVDA, AAPL, MSFT, AMD, META, GOOGL, GGAL, YPF`
-        <div class='interpretation-box'>
-            • <b>VIST (Vista Energy):</b> Registra la mayor aceleración tendencial del sector energético local por incremento genuino de producción en Vaca Muerta. El flujo de capitales entra con fuerza porque el negocio se expande de verdad.<br>
-            • <b>NVDA (NVIDIA):</b> Es el motor indispensable de la revolución tecnológica. Fabrica los microchips que todo el planeta necesita para operar inteligencia artificial. No tiene competencia real cercana y sus ganancias viajan a máxima velocidad.<br>
-            • <b>GGAL (Grupo Financiero Galicia):</b> Actúa como el termómetro de la inercia financiera local. Cuando el mercado local se activa, el flujo institucional busca liquidez masiva y este papel canaliza la velocidad del movimiento del índice.
-        </div>
-        """, unsafe_allow_html=True)
-        id_tickers = ["VIST", "NVDA", "AAPL", "MSFT", "AMD", "META", "GOOGL", "GGAL", "YPF"]
-    elif "Large" in est_sel:
-        st.markdown("""
-        **Composición del Modelo iShares Large-Cap:** `MSFT, AAPL, AMZN, GOOGL, META, WMT, XOM, JNJ, BRKB`
-        <div class='interpretation-box'>
-            • <b>MSFT (Microsoft):</b> Es un monopolio corporativo moderno. Casi todas las empresas del mundo usan sus sistemas y su nube para trabajar a diario. Su nivel de ingresos recurrentes es un escudo indestructible.<br>
-            • <b>AAPL (Apple):</b> Su ventaja es la fidelidad ciega de sus clientes. Quien entra en su ecosistema difícilmente se vaya. Esto le permite subir los precios sin perder ventas, manteniendo ganancias gigantescas año tras año.<br>
-            • <b>BRKB (Berkshire Hathaway):</b> Es una gigantesca aspiradora de negocios sólidos comandada por Warren Buffett. Te asegura diversificación inmediata en seguros, energía y ferrocarriles bajo la administración más prudente del planeta.
-        </div>
-        """, unsafe_allow_html=True)
-        id_tickers = ["MSFT", "AAPL", "AMZN", "GOOGL", "META", "WMT", "XOM", "JNJ", "BRKB"]
-    else:
-        st.markdown("""
-        **Composición del Modelo iShares Small/Mid-Cap Growth:** `MELI, BABA, PYPL, PAMP, TSLA, NFLX, DESP, VALE`
-        <div class='interpretation-box'>
-            • <b>MELI (Mercado Libre):</b> El líder indiscutido del comercio y las finanzas digitales en América Latina. Aunque es una empresa grande, opera en una región donde la digitalización del dinero recién empieza. Tiene el motor de crecimiento intacto.<br>
-            • <b>PAMP (Pampa Energía):</b> Es un jugador clave en la matriz energética y eléctrica local. Al estar en pleno desarrollo de gas no convencional y generación, ofrece una opcionalidad de crecimiento de infraestructura muy agresiva frente a empresas maduras del exterior.<br>
-            • <b>PYPL (PayPal):</b> Se encuentra en una fase de reestructuración de su negocio financiero digital. Al cotizar a múltiplos muy deprimidos frente a su historia, ofrece un potencial de despegue vertical si estabiliza la captura de valor en transacciones globales.
-        </div>
-        """, unsafe_allow_html=True)
-        id_tickers = ["MELI", "BABA", "PYPL", "PAMP", "TSLA", "NFLX", "DESP", "VALE"]
-
-    if st.button("➕ COMPLEMENTAR E INYECTAR MODELO EN MI PORTAFOLIO ACTUAL"):
-        for s_tk in id_tickers:
-            if not any(x["Ticker"] == s_tk for x in st.session_state.cartera_list_v3):
-                div_calc = calcular_dividendos_historicos(s_tk, datetime.date(2025,1,2), 20)
-                st.session_state.cartera_list_v3.append({
-                    "Ticker": s_tk, "Nominales": 20, "Fecha_Compra": datetime.date(2025,1,2),
-                    "Costo_Unitario": POOL_DATA.get(s_tk, {"precio": 100.0})["precio"], "Comision": 0.5, "Impuesto": 0.05, "Dividendos_Edit": div_calc
-                })
-        st.success("Cartera factorial inyectada con éxito en las posiciones abiertas actuales.")
+    cat_sel = st.selectbox("Estrategia Factorial a Evaluar:", list(CARTERAS_FACTORIALES.keys()))
+    st.markdown(f"**Objetivo del Factor:** *{CARTERAS_FACTORIALES[cat_sel]['desc']}*")
+    
+    # SELECCIÓN Y COMPLEMENTACIÓN INDIVIDUAL (ONE-BY-ONE CON JUSTIFICACIÓN LLANA)
+    items_estrategia = CARTERAS_FACTORIALES[cat_sel]["activos"]
+    col_ins1, col_ins2 = st.columns([2, 1])
+    
+    tk_elegido_factor = col_ins1.selectbox("Seleccionar activo sugerido para auditar:", list(items_estrategia.keys()), key="sb_factores")
+    col_ins1.markdown(f"💡 **Fundamento de iShares (Mapeo Llano):** {items_estrategia[tk_elegido_factor]}")
+    
+    if col_ins2.button("➕ ACOPLAR ACTIVO SUGERIDO A MI CARTERA"):
+        if not any(x["Ticker"] == tk_elegido_factor for x in st.session_state.cartera_list_v4):
+            px_sub_f = POOL_DATA.get(tk_elegido_factor, {"precio": 150.0})["precio"]
+            # Entrada simulada en pesos según cotización MEP y ratio oficial de BYMA
+            ratio_f = RATIOS_CEDEAR.get(tk_elegido_factor, 1)
+            px_cedear_form = (px_sub_f / ratio_f) * DOLAR_MEP
+            
+            st.session_state.cartera_list_v4.append({
+                "Ticker": tk_elegido_factor, "Nominales": 10, "Fecha_Compra": datetime.date(2025, 1, 2),
+                "Costo_Unitario_Cedear": round(px_cedear_form, 2), "Comision_USD": 0.5, "Impuesto_USD": 0.05, "Dividendos_Edit": 0.0
+            })
+            # Calcular dividendos automáticos inmediatamente
+            st.session_state.cartera_list_v4[-1]["Dividendos_Edit"] = calcular_dividendos_historicos(tk_elegido_factor, datetime.date(2025,1,2), 10)
+            st.success(f"Inyectado {tk_elegido_factor} en la plantilla operativa.")
+            st.rerun()
 
     st.markdown("---")
-    st.subheader("💼 Mi Cartera Consolidada Abierta (Dividendos de Carga Automática e Interfaz de Conversión)")
+    st.subheader("💼 Mi Cartera de Cedears Abierta")
     currency_switch = st.segmented_control("Moneda de Muestreo de la Terminal Local:", ["PESOS ARGENTINOS (ARS)", "DÓLARES SUBYACENTES (USD)"], default="PESOS ARGENTINOS (ARS)")
     is_ars = (currency_switch == "PESOS ARGENTINOS (ARS)")
-
-    # Formulario dinámico de Carga Manual de Activos Adicionales
-    with st.expander("➕ Cargar nueva posición Cedear manualmente"):
-        with st.form("alta_manual_pos"):
-            c1, c2, c3 = st.columns(3)
-            ins_tk = c1.text_input("Ticker:", value="AAPL").upper().strip()
-            ins_nom = c2.number_input("Nominales:", min_value=1, value=10)
-            ins_date = c3.date_input("Fecha Compra:", value=datetime.date(2025,1,15))
-            c4, c5, c6 = st.columns(3)
-            ins_px = c4.number_input("Precio Compra Unitario (USD):", value=150.0)
-            ins_com = c5.number_input("Comisión Bróker (USD):", value=0.5)
-            ins_imp = c6.number_input("Impuesto Bolsa (USD):", value=0.1)
-            if st.form_submit_button("➕ INTEGRAR"):
-                div_aut = calcular_dividendos_historicos(ins_tk, ins_date, ins_nom)
-                st.session_state.cartera_list_v3.append({"Ticker": ins_tk, "Nominales": ins_nom, "Fecha_Compra": ins_date, "Costo_Unitario": ins_px, "Comision": ins_com, "Impuesto": ins_imp, "Dividendos_Edit": div_aut})
+    
+    # Formulario dinámico de Carga Manual de Activos Adicionales por Precio Cedear
+    with st.expander("➕ Cargar nueva posición de Cedears local manualmente"):
+        with st.form("alta_manual_pos_cedear"):
+            cx1, cx2, cx3 = st.columns(3)
+            ins_tk = cx1.text_input("Ticker Activo:", value="AAPL").upper().strip()
+            ins_nom = cx2.number_input("Cantidad de CEDEARs:", min_value=1, value=10)
+            ins_date = cx3.date_input("Fecha de Compra:", value=datetime.date(2025,1,15))
+            cx4, cx5, cx6 = st.columns(3)
+            ins_px_cedear = cx4.number_input("Precio pagado por CEDEAR (En Pesos - ARS):", value=25000.0)
+            ins_com_u = cx5.number_input("Gasto de Comisión del Bróker (USD):", value=0.5)
+            ins_imp_u = cx6.number_input("Derechos de Bolsa / Impuestos (USD):", value=0.1)
+            if st.form_submit_button("➕ INTEGRAR OPERACIÓN A LA MATRIZ"):
+                st.session_state.cartera_list_v4.append({
+                    "Ticker": ins_tk, "Nominales": ins_nom, "Fecha_Compra": ins_date,
+                    "Costo_Unitario_Cedear": ins_px_cedear, "Comision_USD": ins_com_u, "Impuesto_USD": ins_imp_u, "Dividendos_Edit": 0.0
+                })
+                st.session_state.cartera_list_v4[-1]["Dividendos_Edit"] = calcular_dividendos_historicos(ins_tk, ins_date, ins_nom)
+                st.success(f"Posición cargada. Dividendos calculados.")
                 st.rerun()
 
-    df_input = pd.DataFrame(st.session_state.cartera_list_v3)
+    df_input = pd.DataFrame(st.session_state.cartera_list_v4)
     if not df_input.empty:
-        # Editor interactivo con los Dividendos precargados automáticamente modificables por el Asesor
+        # Grilla interactiva editable en dividendos para deducir comisiones de cobro locais si existieran
         df_editado = st.data_editor(
             df_input,
             column_config={
-                "Ticker": st.column_config.TextColumn("Ticker", disabled=True),
-                "Nominales": st.column_config.NumberColumn("Cantidad", disabled=True),
-                "Fecha_Compra": st.column_config.DateColumn("Fecha Adquisición", disabled=True),
-                "Costo_Unitario": st.column_config.NumberColumn("Precio Compra (USD)", disabled=True),
-                "Comision": st.column_config.NumberColumn("Gastos Comisión (USD)", disabled=True),
-                "Impuesto": st.column_config.NumberColumn("Impuestos (USD)", disabled=True),
-                "Dividendos_Edit": st.column_config.NumberColumn("Dividendos Devengados Netos (USD)", disabled=False)
+                "Ticker": st.column_config.TextColumn("Ticker BYMA", disabled=True),
+                "Nominales": st.column_config.NumberColumn("CEDEARs", disabled=True),
+                "Fecha_Compra": st.column_config.DateColumn("Fecha Compra", disabled=True),
+                "Costo_Unitario_Cedear": st.column_config.NumberColumn("Precio Compra CEDEAR (ARS)", disabled=True),
+                "Comision_USD": st.column_config.NumberColumn("Comisión (USD)", disabled=True),
+                "Impuesto_USD": st.column_config.NumberColumn("Impuestos (USD)", disabled=True),
+                "Dividendos_Edit": st.column_config.NumberColumn("Dividendos Devengados (USD) - EDITABLE", disabled=False)
             }, use_container_width=True, hide_index=True
         )
-        st.session_state.cartera_list_v3 = df_editado.to_dict(orient="records")
-
-        # Procesamiento final matricial aplicando Ratios y el MEP exacto de Dolarito ($1.433,25)
+        st.session_state.cartera_list_v4 = df_editado.to_dict(orient="records")
+        
+        # Procesamiento matricial de P&L aplicando Ratios Oficiales y Dólar MEP Real de Dolarito
         filas_p = []
         c_tot_u, m_tot_u, d_tot_u = 0.0, 0.0, 0.0
-        for p in st.session_state.cartera_list_v3:
+        
+        for p in st.session_state.cartera_list_v4:
             t = p["Ticker"]
             n = p["Nominales"]
-            cu = p["Costo_Unitario"]
-            co = p["Comision"]
-            im = p["Impuesto"]
+            fc = p["Fecha_Compra"]
+            px_cedear_ars = p["Costo_Unitario_Cedear"]
+            co = p["Comision_USD"]
+            im = p["Impuesto_USD"]
             dv = p["Dividendos_Edit"]
             
             ratio = RATIOS_CEDEAR.get(t, 1)
-            px_sub = POOL_DATA.get(t, {"precio": cu})["precio"]
+            px_sub_usd = POOL_DATA.get(t, {"precio": (px_cedear_ars * ratio) / DOLAR_MEP})["precio"]
             
-            costo_operativo_u = (n * cu) + co + im
-            valor_actual_u = n * px_sub
-            pl_u = (valor_actual_u + dv) - costo_total_usd if 'costo_total_usd' in locals() else (valor_actual_u + dv) - costo_operativo_u
-            pl_pct = (pl_u / costo_operativo_u) * 100 if costo_operativo_u > 0 else 0.0
+            # Conversión de Costos Homologada a USD Subyacente
+            costo_compra_usd = ((n * px_cedear_ars) / DOLAR_MEP) * ratio + co + im
+            valor_actual_usd = n * px_sub_usd
             
-            c_tot_u += costo_operativo_u
-            m_tot_u += valor_actual_u
+            pl_usd = (valor_actual_usd + dv) - costo_compra_usd
+            pl_pct = (pl_usd / costo_compra_usd) * 100 if costo_compra_usd > 0 else 0.0
+            
+            c_tot_u += costo_compra_usd
+            m_tot_u += valor_actual_usd
             d_tot_u += dv
             
             if is_ars:
-                f_costo = (costo_operativo_u / ratio) * DOLAR_MEP
-                f_actual = (valor_actual_u / ratio) * DOLAR_MEP
-                f_div = (dv / ratio) * DOLAR_MEP
-                f_pl = (pl_u / ratio) * DOLAR_MEP
+                f_costo = costo_compra_usd * DOLAR_MEP / ratio
+                f_actual = valor_actual_usd * DOLAR_MEP / ratio
+                f_div = dv * DOLAR_MEP / ratio
+                f_pl = pl_usd * DOLAR_MEP / ratio
                 simb = "ARS"
+                label_px_unit = "Precio CEDEAR ARS"
+                px_unit_visible = px_cedear_ars
             else:
-                f_costo, f_actual, f_div, f_pl = costo_operativo_u, valor_actual_u, dv, pl_u
+                f_costo, f_actual, f_div, f_pl = costo_compra_usd, valor_actual_usd, dv, pl_usd
                 simb = "USD"
+                label_px_unit = "Precio Subyacente USD"
+                px_unit_visible = px_sub_usd
                 
             filas_p.append({
-                "Ticker": t, "Cantidad": n, "Ratio BYMA": f"{ratio}:1",
-                f"Capital Invertido ({simb})": f"${f_costo:,.2f}", f"Valor Actual ({simb})": f"${f_actual:,.2f}",
-                f"Dividendos Liquidados ({simb})": f"${f_div:,.2f}", f"P&L Total Return ({simb})": f"${f_pl:,.2f}",
-                "Rendimiento Neto (%)": f"{pl_pct:+.2f}%"
+                "Ticker": t, "Cantidad (Cedear)": n, "Ratio BYMA": f"{ratio}:1",
+                label_px_unit: f"${px_unit_visible:,.2f}",
+                f"Capital Invertido ({simb})": f"${f_costo:,.2f}", f"Valor Mercado ({simb})": f"${f_actual:,.2f}",
+                f"Rentas/Div. ({simb})": f"${f_div:,.2f}", f"P&L Total Return ({simb})": f"${f_pl:,.2f}",
+                "Retorno (%)": f"{pl_pct:+.2f}%"
             })
             
         st.dataframe(pd.DataFrame(filas_p).set_index("Ticker"), use_container_width=True)
         
-        # Métrica General Consolidada
+        # Panel Neto de Control Patrimonial
         st.markdown("### 📈 Estado Neto Patrimonial de la Cuenta")
         k1, k2, k3, k4 = st.columns(4)
         global_pct = ((m_tot_u + d_tot_u - c_tot_u) / c_tot_u) * 100 if c_tot_u > 0 else 0.0
@@ -528,36 +569,41 @@ elif menu == "💼 PORTAFOLIO Y ESTRATEGIAS iSHARES":
             k4.metric("Total Return Global", f"${(m_tot_u + d_tot_u - c_tot_u):,.2f} USD ({global_pct:+.2f}%)")
 
         # ==============================================================================
-        # 5. MÓDULO DE BENCHMARKING INTERACTIVO BASE 100 E INFORME PORTFOLIO MANAGER
+        # 5. MÓDULO DE BENCHMARKING INTERACTIVO SIN HUECOS TEMPORALES A CERO
         # ==============================================================================
         st.markdown("---")
         st.subheader("📐 Curva Evolutiva de Atribución y Benchmarking Institucional")
-        bench_sel = st.selectbox("Seleccionar Benchmark de Contraste para el Gráfico Retorno:", ["SPY", "QQQ", "DIA"])
+        bench_sel = st.selectbox("Seleccionar Benchmark para el Gráfico Retorno:", ["SPY", "QQQ", "DIA"])
         
         try:
             fechas_c = pd.date_range(start="2025-06-01", end=datetime.date.today(), freq="B")
             curva_p = pd.Series(0.0, index=fechas_c)
-            for pos in st.session_state.cartera_list_v3:
+            
+            for pos in st.session_state.cartera_list_v4:
                 tk_c = pos["Ticker"]
                 serie_tk = POOL_DATA.get(tk_c, {}).get("serie_completa", pd.Series())
-                if not serie_tk.empty: curva_p = curva_p.add(serie_tk, fill_value=0)
+                if not serie_tk.empty:
+                    # Sincronizamos las series históricas reindexando bajo el calendario comercial para borrar los ceros por nulos
+                    serie_reindexada = serie_tk.reindex(fechas_c).ffill().bfill()
+                    curva_p = curva_p.add(serie_reindexada, fill_value=0)
             
             curva_p = curva_p.dropna()
             if not curva_p.empty: curva_p = (curva_p / curva_p.iloc[0]) * 100
             
             s_bench = POOL_DATA.get(bench_sel, {}).get("serie_completa", pd.Series())
             if not s_bench.empty:
-                s_bench = s_bench.loc[curva_p.index[0]:]
-                curva_b = (s_bench / s_bench.iloc[0]) * 100
+                curva_b = s_bench.reindex(curva_p.index).ffill().bfill()
+                curva_b = (curva_b / curva_b.iloc[0]) * 100
             else:
                 curva_b = curva_p * 0.94
                 
             fig_b = go.Figure()
             fig_b.add_trace(go.Scatter(x=curva_p.index, y=curva_p.values, name="Mi Cuenta (Total Return)", line=dict(color='#2ecc71', width=3)))
-            fig_b.add_trace(go.Scatter(x=curva_b.index, y=curva_b.values, name=f"Benchmark de Referencia ({bench_sel})", line=dict(color='#3498db', width=2, dash='dash')))
+            fig_b.add_trace(go.Scatter(x=curva_b.index, y=curva_b.values, name=f"Benchmark ({bench_sel})", line=dict(color='#3498db', width=2, dash='dash')))
             fig_b.update_layout(template="plotly_dark", paper_bgcolor='#0c0f16', plot_bgcolor='#111520', margin=dict(l=20,r=20,t=30,b=20), height=380, xaxis=dict(showgrid=False), yaxis=dict(showgrid=True, gridcolor='#1f2937'))
             st.plotly_chart(fig_b, use_container_width=True)
             
+            # FUNDAMENTACIÓN TÉCNICA ESTRUCTURADA COMO PORTFOLIO MANAGER DE ISHARES
             st.markdown("#### 📐 Atribución de Factores Estratégicos")
             st.markdown(f"""
             <div class='interpretation-box'>
@@ -569,18 +615,65 @@ elif menu == "💼 PORTAFOLIO Y ESTRATEGIAS iSHARES":
             </div>
             """, unsafe_allow_html=True)
         except:
-            st.info("Alineando horizontes de tiempo para el ploteo institucional...")
+            st.info("Alineando horizontes temporales de precios subyacentes...")
+            
+        # ==============================================================================
+        # 6. EXPORTACIÓN INSTITUCIONAL COMPLIANT (REINTEGRACIÓN DE DESCARGA CON NOMBRE DEL ASESOR)
+        # ==============================================================================
+        st.markdown("---")
+        st.subheader("📥 Exportación Institucional de Estados de Cuenta")
+        asesor_input = st.text_input("Asesor Financiero Firmante:", value="Facundo Garcia Marquez")
+        
+        filas_html_reporte = "".join([f"<tr><td>{x['Ticker']}</td><td>{x['Cantidad (Cedear)']}</td><td>{x['Ratio BYMA']}</td><td>{x[list(x.keys())[3]]}</td><td>{x[list(x.keys())[5]]}</td><td>{x['Retorno (%)']}</td></tr>" for x in filas_portfolio])
+        
+        html_documento = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <style>
+                body {{ font-family: 'Helvetica', Arial, sans-serif; color: #2c3e50; padding: 25px; }}
+                h1 {{ color: #2ecc71; border-bottom: 2px solid #2ecc71; padding-bottom: 5px; font-size: 22px; }}
+                table {{ width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 12px; }}
+                th {{ background-color: #f2f2f2; padding: 10px; border: 1px solid #ddd; text-align: left; }}
+                td {{ padding: 10px; border: 1px solid #ddd; }}
+                .summary {{ background-color: #f9f9f9; padding: 12px; margin-top: 10px; border-radius: 4px; font-size: 13px; }}
+                .footer {{ margin-top: 30px; font-size: 11px; color: #7f8c8d; text-align: center; border-top: 1px solid #ddd; padding-top: 10px; }}
+            </style>
+        </head>
+        <body>
+            <h1>Reporte de Portafolio Factorial Autorizado</h1>
+            <p><strong>Asesor Financiero Responsable:</strong> {asesor_input}</p>
+            <div class='summary'>
+                <strong>Capital Total de Control (USD):</strong> ${c_tot_u:,.2f} USD<br>
+                <strong>Valuación de Liquidación (USD):</strong> ${m_tot_u:,.2f} USD<br>
+                <strong>Retorno Neto Total de la Cuenta:</strong> {global_pct:+.2f}%
+            </div>
+            <table>
+                <thead><tr><th>Ticker</th><th>CEDEARs</th><th>Ratio</th><th>Precio Unidad</th><th>Valor Mercado</th><th>Retorno (%)</th></tr></thead>
+                <tbody>{filas_html_reporte}</tbody>
+            </table>
+            <div class='footer'>Reporte de Auditoría de Cuenta Embalado v7.0 • Asesor: {asesor_input}</div>
+        </body>
+        </html>
+        """
+        st.download_button(
+            label="📥 DESCARGAR REPORTE DE CARTERA RESPALDADO (PDF/HTML COMPLIANT)",
+            data=html_documento.encode('utf-8'),
+            file_name=f"Reporte_Portafolio_{asesor_input.replace(' ', '_')}.html",
+            mime="text/html"
+        )
 
 # ==============================================================================
-# 6. PIE DE PÁGINA Y EXCLUSIÓN DE RESPONSABILIDAD LEGAL
+# 7. PIE DE PÁGINA Y DISCLAIMER LEGAL
 # ==============================================================================
 st.markdown("---")
 c_f1, c_f2 = st.columns([2, 1])
-c_f1.markdown("<p style='color: #555; font-size: 11px; margin: 0;'>Terminal Quanti Pro | Entorno de Cobertura Factorial. Precios de Referencia provistos por Dolarito.ar.</p>", unsafe_allow_html=True)
+c_f1.markdown("<p style='color: #555; font-size: 11px; margin: 0;'>Terminal Quanti Pro | Entorno de Cobertura Factorial Local. Precios cambiarios arbitrados dinámicamente vía Dolarito.ar.</p>", unsafe_allow_html=True)
 c_f2.markdown("<p style='text-align: right; font-size: 12px; margin: 0;'><b>Asesor Tecnológico:</b> <a href='https://www.linkedin.com/in/facundo-garciamarquez/?locale=es' target='_blank' style='color: #2ecc71; text-decoration: none; font-weight: 600;'>Facundo Garcia Marquez</a></p>", unsafe_allow_html=True)
 
 st.markdown("""
     <div style='background-color: rgba(231, 76, 60, 0.06); padding: 12px; border-left: 4px solid #e74c3c; font-size: 11px; color: #94a3b8; border-radius: 4px; margin-top: 15px;'>
-        <strong>⚠️ EXCLUSIÓN DE RESPONSABILIDAD AUDITORÍA:</strong> El contenido e informes factoriales emitidos se exponen exclusivamente con fines informativos y de simulación educativa de portafolios de Cedears. No constituye asesoramiento financiero formal, recomendaciones de compra/venta, ni ofertas de inversión en la plaza local. Toda pesificación y arbitraje utiliza como anclaje dinámico las cotizaciones de la plataforma externa Dolarito.ar.
+        <strong>⚠️ EXCLUSIÓN DE RESPONSABILIDAD:</strong> Las cotizaciones de mercado y el análisis automatizado se exponen únicamente con fines informativos y de simulación de portafolios. No constituyen asesoramiento financiero, recomendaciones de compra/venta ni ofertas formales de inversión matriculada. Las conversiones cambiarias toman como referencia de mercado las cotizaciones provistas por la plataforma externa Dolarito.ar.
     </div>
 """, unsafe_allow_html=True)
