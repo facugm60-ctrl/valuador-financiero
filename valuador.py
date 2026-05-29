@@ -1,3 +1,8 @@
+# -*- coding: utf-8 -*-
+
+import warnings
+warnings.filterwarnings("ignore")
+
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -122,9 +127,9 @@ def obtener_dolar_mep_real():
                             val = float(clean_token)
                             if 1300 < val < 1600:
                                 return round(val, 2)
-                        except: pass
+                        except Exception as e:     st.warning(f"Error detectado: {e}") pass
         return 1433.25
-    except:
+    except Exception as e:     st.warning(f"Error detectado: {e}")
         return 1433.25
 
 DOLAR_MEP = obtener_dolar_mep_real()
@@ -181,9 +186,9 @@ def descargar_datos_historicos_unificados(universo):
                     }
                 else:
                     datos_dict[tk] = {"precio": 100.0, "1D": 0.0, "1W": 0.0, "1M": 0.0, "YTD": 0.0, "serie_completa": pd.Series()}
-            except:
+            except Exception as e:     st.warning(f"Error detectado: {e}")
                 datos_dict[tk] = {"precio": 100.0, "1D": 0.0, "1W": 0.0, "1M": 0.0, "YTD": 0.0, "serie_completa": pd.Series()}
-    except:
+    except Exception as e:     st.warning(f"Error detectado: {e}")
         for tk in universo:
             datos_dict[tk] = {"precio": 100.0, "1D": 0.0, "1W": 0.0, "1M": 0.0, "YTD": 0.0, "serie_completa": pd.Series()}
     return datos_dict
@@ -195,10 +200,13 @@ def calcular_dividendos_historicos(ticker, fecha_compra, nominales):
         t = yf.Ticker(ticker)
         divs = t.dividends
         if divs.empty: return 0.0
-        fecha_compra_dt = pd.to_datetime(fecha_compra).tz_localize(divs.index.tz)
+        fecha_compra_dt = pd.to_datetime(fecha_compra)
+
+if fecha_compra_dt.tzinfo is None:
+    fecha_compra_dt = fecha_compra_dt.tz_localize(divs.index.tz)
         divs_filtrados = divs[divs.index >= fecha_compra_dt]
         return round(float(divs_filtrados.sum()) * nominales, 2)
-    except:
+    except Exception as e:     st.warning(f"Error detectado: {e}")
         return 0.0
 
 def calcular_dividendos_proyectados_un_año(ticker, nominales):
@@ -206,10 +214,10 @@ def calcular_dividendos_proyectados_un_año(ticker, nominales):
         t = yf.Ticker(ticker)
         divs = t.dividends
         if divs.empty: return 0.0
-        hace_un_año = pd.Timestamp.now().tz_localize(divs.index.tz) - pd.Timedelta(days=365)
+        hace_un_año = pd.Timestamp.now(tz=divs.index.tz) - pd.Timedelta(days=365)
         divs_ultimo_año = divs[divs.index >= hace_un_año]
         return round(float(divs_ultimo_año.sum()) * nominales, 2)
-    except:
+    except Exception as e:     st.warning(f"Error detectado: {e}")
         return 0.0
 
 def obtener_fundamental_completo(symbol):
@@ -225,13 +233,13 @@ def obtener_fundamental_completo(symbol):
             "DEUDA": (td-caj)/eb if eb else 0.0, "LIQUIDEZ": inf.get("currentRatio", 1.3),
             "MARGEN": inf.get("profitMargins", 0.12), "ROE": inf.get("returnOnEquity", 0.15)
         }
-    except:
+    except Exception as e:     st.warning(f"Error detectado: {e}")
         return None
 
 def filtrar_peers_por_sector(ticker_raiz, lista_ingresada):
     try:
         sec_raiz = yf.Ticker(ticker_raiz).info.get("sector", "")
-    except:
+    except Exception as e:     st.warning(f"Error detectado: {e}")
         sec_raiz = ""
     peers_validos = []
     for p in lista_ingresada:
@@ -240,7 +248,7 @@ def filtrar_peers_por_sector(ticker_raiz, lista_ingresada):
         try:
             sec_p = yf.Ticker(p_clean).info.get("sector", "")
             if sec_p == sec_raiz or not sec_raiz: peers_validos.append(p_clean)
-        except: peers_validos.append(p_clean)
+        except Exception as e:     st.warning(f"Error detectado: {e}") peers_validos.append(p_clean)
     return peers_validos
 
 # CONFIGURACIÓN DEL SESSION STATE DE CARTERA
@@ -616,16 +624,23 @@ elif menu == "💼 PORTAFOLIO Y MODELOS FACTORIALES":
             st.plotly_chart(fig_b, use_container_width=True)
             
             st.markdown("#### 📐 Atribución de Factores Estratégicos")
-            st.markdown(f\"\"\"
-            <div class='interpretation-box'>
-                <strong>INFORME DE ATRIBUCIÓN FACTORAL (iShares Strategy Framework):</strong> El análisis de atribución demuestra un sesgo intencional hacia el factor 
-                <strong>Momentum Institucional</strong>. La selección de activos dentro de la cartera se rige por un proceso sistemático que prioriza la persistencia 
-                de la tendencia en horizontes estandarizados de mediano y largo plazo (rendimientos acumulados de 6 y 12 meses), ajustados por la volatilidad idiosincrática del activo. 
-                Este enfoque mitiga el impacto de las fluctuaciones técnicas del corto plazo y optimiza la captura de Alfa genuino frente al índice de referencia 
-                <strong>{bench_sel}</strong>, garantizando que el incremento de ponderación en activos líderes se sustente en la solidez del flujo institucional y la consistencia estructural de sus balances corporativos.
-            </div>
-            \"\"\", unsafe_allow_html=True)
-        except:
+           st.markdown(f"""
+<div class='interpretation-box'>
+    <strong>INFORME DE ATRIBUCIÓN FACTORAL (iShares Strategy Framework):</strong>
+    El análisis de atribución demuestra un sesgo intencional hacia el factor
+    <strong>Momentum Institucional</strong>. La selección de activos dentro de la cartera
+    se rige por un proceso sistemático que prioriza la persistencia de la tendencia
+    en horizontes estandarizados de mediano y largo plazo (rendimientos acumulados
+    de 6 y 12 meses), ajustados por la volatilidad idiosincrática del activo.
+
+    Este enfoque mitiga el impacto de las fluctuaciones técnicas del corto plazo y
+    optimiza la captura de Alfa genuino frente al índice de referencia
+    <strong>{bench_sel}</strong>, garantizando que el incremento de ponderación en
+    activos líderes se sustente en la solidez del flujo institucional y la consistencia
+    estructural de sus balances corporativos.
+</div>
+""", unsafe_allow_html=True)
+        except Exception as e:     st.warning(f"Error detectado: {e}")
             st.info("Alineando horizons temporales de precios subyacentes...")
             
         # ==============================================================================
