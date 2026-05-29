@@ -59,7 +59,7 @@ st.markdown("""
         border-color: rgba(88, 166, 255, 0.3) !important;
     }
     
-    /* KPIs Múltiplos */
+    /* KPIs Bloques */
     div[data-testid="stMetric"] {
         background-color: #111520 !important;
         border: 1px solid #1f2937 !important;
@@ -206,7 +206,6 @@ def calcular_dividendos_proyectados_un_año(ticker, nominales):
         t = yf.Ticker(ticker)
         divs = t.dividends
         if divs.empty: return 0.0
-        # Tomamos los dividendos distribuidos en los últimos 365 días como proxy de flujo proyectado
         hace_un_año = pd.Timestamp.now().tz_localize(divs.index.tz) - pd.Timedelta(days=365)
         divs_ultimo_año = divs[divs.index >= hace_un_año]
         return round(float(divs_ultimo_año.sum()) * nominales, 2)
@@ -287,7 +286,7 @@ if menu == "🌐 DASHBOARD GENERAL Y WATCHLIST":
     st.dataframe(pd.DataFrame(rows_w).set_index("Ticker"), use_container_width=True)
 
 # ==============================================================================
-# SECCIÓN 2: ANÁLISIS (ELIMINACIÓN ABSOLUTA DE HARDCODEOS)
+# SECCIÓN 2: ANÁLISIS
 # ==============================================================================
 elif menu == "🔍 ANÁLISIS":
     st.subheader("🔍 Matriz de Desempeño Contable y Multiplicadores Sectoriales")
@@ -390,7 +389,7 @@ elif menu == "🐾 EL SABUESO DE WALL STREET":
             """, unsafe_allow_html=True)
 
 # ==============================================================================
-# SECCIÓN 4: PORTAFOLIO MULTIACTIVO E IDEAS FACTORIALES (SINCRO MAESTRA)
+# SECCIÓN 4: PORTAFOLIO MULTIACTIVO E IDEAS FACTORIALES
 # ==============================================================================
 elif menu == "💼 PORTAFOLIO Y MODELOS FACTORIALES":
     st.subheader("🤖 Modelos Factoriales de iShares (Estrategias de Asignación Táctica)")
@@ -527,7 +526,6 @@ elif menu == "💼 PORTAFOLIO Y MODELOS FACTORIALES":
             pl_usd = (valor_actual_usd + dv) - costo_compra_usd
             pl_pct = (pl_usd / costo_compra_usd) * 100 if costo_compra_usd > 0 else 0.0
             
-            # Cálculo del Cashflow Estimado Futuro a 1 Año en USD
             cf_proyectado_usd = calcular_dividendos_proyectados_un_año(t, n)
             
             c_tot_u += costo_compra_usd
@@ -558,7 +556,6 @@ elif menu == "💼 PORTAFOLIO Y MODELOS FACTORIALES":
                 "Retorno (%)": f"{pl_pct:+.2f}%"
             })
             
-            # PASADO DIRECTO: Listas homologadas para inyección limpia en el constructor del reporte PDF
             filas_portfolio_pdf.append({
                 "Ticker": t, "Cantidad": n, "Ratio": f"{ratio}:1", "Precio": f"${px_unit_visible:,.2f}", "Mercado": f"${f_actual:,.2f}", "PL": f"{pl_pct:+.2f}%"
             })
@@ -619,7 +616,7 @@ elif menu == "💼 PORTAFOLIO Y MODELOS FACTORIALES":
             st.plotly_chart(fig_b, use_container_width=True)
             
             st.markdown("#### 📐 Atribución de Factores Estratégicos")
-            st.markdown(f"""
+            st.markdown(f\"\"\"
             <div class='interpretation-box'>
                 <strong>INFORME DE ATRIBUCIÓN FACTORAL (iShares Strategy Framework):</strong> El análisis de atribución demuestra un sesgo intencional hacia el factor 
                 <strong>Momentum Institucional</strong>. La selección de activos dentro de la cartera se rige por un proceso sistemático que prioriza la persistencia 
@@ -627,9 +624,9 @@ elif menu == "💼 PORTAFOLIO Y MODELOS FACTORIALES":
                 Este enfoque mitiga el impacto de las fluctuaciones técnicas del corto plazo y optimiza la captura de Alfa genuino frente al índice de referencia 
                 <strong>{bench_sel}</strong>, garantizando que el incremento de ponderación en activos líderes se sustente en la solidez del flujo institucional y la consistencia estructural de sus balances corporativos.
             </div>
-            """, unsafe_allow_html=True)
+            \"\"\", unsafe_allow_html=True)
         except:
-            st.info("Alineando horizontes temporales de precios subyacentes...")
+            st.info("Alineando horizons temporales de precios subyacentes...")
             
         # ==============================================================================
         # 6. EXPORTACIÓN REPORTE LOCAL CON CASHFLOW INTEGRADO A 1 AÑO (RESOLUCION DEFINITIVA)
@@ -638,7 +635,6 @@ elif menu == "💼 PORTAFOLIO Y MODELOS FACTORIALES":
         st.subheader("📥 Exportación Institucional de Estados de Cuenta")
         asesor_input = st.text_input("Asesor Financiero Firmante:", value="Facundo Garcia Marquez")
         
-        # Procesamiento en espejo sin NameError
         filas_html_reporte = "".join([f"<tr><td>{x['Ticker']}</td><td>{x['Cantidad']}</td><td>{x['Ratio']}</td><td>{x['Precio']}</td><td>{x['Mercado']}</td><td style='color:#2ecc71'>{x['PL']}</td></tr>" for x in filas_portfolio_pdf])
         filas_html_cashflow = "".join([f"<tr><td>{x['Ticker']}</td><td>{x['Cantidad']}</td><td>{x['Ratio']}</td><td style='color:#2ecc71; font-weight:bold;'>{x['Flujo']}</td></tr>" for x in filas_cashflow_pdf])
         
