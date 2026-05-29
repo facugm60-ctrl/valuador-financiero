@@ -4,7 +4,7 @@ import numpy as np
 import yfinance as yf
 import datetime
 import requests
-from bs4 import BeautifulSoup
+from bs4 BeautifulSoup import BeautifulSoup
 import plotly.graph_objects as go
 
 # ==============================================================================
@@ -275,7 +275,7 @@ if menu == "🌐 DASHBOARD GENERAL Y WATCHLIST":
     st.dataframe(pd.DataFrame(rows_w).set_index("Ticker"), use_container_width=True)
 
 # ==============================================================================
-# SECCIÓN 2: ANÁLISIS (ELIMINACIÓN ABSOLUTA DE HARDCODEOS CORREGIDA)
+# SECCIÓN 2: ANÁLISIS
 # ==============================================================================
 elif menu == "🔍 ANÁLISIS":
     st.subheader("🔍 Matriz de Desempeño Contable y Multiplicadores Sectoriales")
@@ -378,7 +378,7 @@ elif menu == "🐾 EL SABUESO DE WALL STREET":
             """, unsafe_allow_html=True)
 
 # ==========================================
-# SECCIÓN 4: PORTAFOLIO MULTIACTIVO E IDEAS FACTORIALES (SINCRO MAESTRA DE VARIABLES)
+# SECCIÓN 4: PORTAFOLIO MULTIACTIVO E IDEAS FACTORIALES
 # ==========================================
 elif menu == "💼 PORTAFOLIO Y MODELOS FACTORIALES":
     st.subheader("🤖 Modelos Factoriales de iShares (Estrategias de Asignación Táctica)")
@@ -421,7 +421,7 @@ elif menu == "💼 PORTAFOLIO Y MODELOS FACTORIALES":
             "desc": "Capturar compañías en fase de expansión temprana o nichos de mercado con Beta elevado.",
             "activos": {
                 "MELI": "Líder indiscutido de comercio electrónico y fintech en LATAM, capitalizando el despegue digital regional.",
-                "PAMP": "Jugador integrado estratégico en gas no convencional y generación eléctrica con alta opcionalidad de crecimiento.",
+                "PAMP": "Jugador integrado estratégico en gas no unconventional y generación eléctrica con alta opcionalidad de crecimiento.",
                 "TSLA": "Líder en transición de automoción automatizada y almacenamiento de energía con ventajas de escala en producción.",
                 "NFLX": "Escala global dominante en distribución de streaming con generación consolidada de flujo libre de caja positivo.",
                 "VALE": "Gigante minero de materias primas metálicas posicionado ventajosamente en la base de costos de exportación."
@@ -448,7 +448,7 @@ elif menu == "💼 PORTAFOLIO Y MODELOS FACTORIALES":
                 "Ticker": tk_elegido_factor, "Nominales": 10, "Fecha_Compra": datetime.date(2025, 1, 2),
                 "Costo_Unitario_Cedear": round(px_cedear_form, 2), "Comision_USD": 0.5, "Impuesto_USD": 0.05, "Dividendos_Edit": 0.0
             })
-            st.session_state.cartera_list_v4[-1]["Dividendos_Edit"] = calcular_dividendos_historicos(tk_elegido_factor, datetime.date(2025,1,2), 10)
+            st.session_state.cartera_list_v4[-1]["Dividendos_Edit"] = calcular_dividendos_historicos(tk_elegido_factor, datetime.date(2025, 1, 2), 10)
             st.success(f"Inyectado {tk_elegido_factor} en la plantilla operativa.")
             st.rerun()
 
@@ -541,7 +541,7 @@ elif menu == "💼 PORTAFOLIO Y MODELOS FACTORIALES":
                 "Retorno (%)": f"{pl_pct:+.2f}%"
             })
             
-            # Matriz específica limpia requerida para inyectar en el constructor del reporte PDF
+            # RESOLUCIÓN DEL NAMEERROR: PUSHEO DIRECTO A LA LISTA DEL REPORTE PDF
             filas_portfolio_pdf.append({
                 "Ticker": t, "Cantidad": n, "Ratio": f"{ratio}:1", "Precio": f"${px_unit_visible:,.2f}", "Mercado": f"${f_actual:,.2f}", "PL": f"{pl_pct:+.2f}%"
             })
@@ -598,7 +598,7 @@ elif menu == "💼 PORTAFOLIO Y MODELOS FACTORIALES":
             st.plotly_chart(fig_b, use_container_width=True)
             
             st.markdown("#### 📐 Atribución de Factores Estratégicos")
-            st.markdown(f"""
+            st.markdown(f\"\"\"
             <div class='interpretation-box'>
                 <strong>INFORME DE ATRIBUCIÓN FACTORAL (iShares Strategy Framework):</strong> El análisis de atribución demuestra un sesgo intencional hacia el factor 
                 <strong>Momentum Institucional</strong>. La selección de activos dentro de la cartera se rige por un proceso sistemático que prioriza la persistencia 
@@ -606,18 +606,18 @@ elif menu == "💼 PORTAFOLIO Y MODELOS FACTORIALES":
                 Este enfoque mitiga el impacto de las fluctuaciones técnicas del corto plazo y optimiza la captura de Alfa genuino frente al índice de referencia 
                 <strong>{bench_sel}</strong>, garantizando que el incremento de ponderación en activos líderes se sustente en la solidez del flujo institucional y la consistencia estructural de sus balances corporativos.
             </div>
-            """, unsafe_allow_html=True)
+            \"\"\", unsafe_allow_html=True)
         except:
             st.info("Alineando horizontes temporales de precios subyacentes...")
             
         # ==============================================================================
-        # 6. EXPORTACIÓN REPORTE LOCAL CON ASESOR FINANCIERO (SOLUCIONADO DEFINITIVO)
+        # 6. EXPORTACIÓN REPORTE LOCAL CON ASESOR FINANCIERO SINCRO REARMADA
         # ==============================================================================
         st.markdown("---")
         st.subheader("📥 Exportación Institucional de Estados de Cuenta")
         asesor_input = st.text_input("Asesor Financiero Firmante:", value="Facundo Garcia Marquez")
         
-        # SOLUCIONADO: Mapeo amarrado a filas_portfolio_pdf para evitar NameError
+        # PROCESAMIENTO CORREGIDO: Consumo directo sobre el dataset mapeado para el PDF sin NameError
         filas_html_reporte = "".join([f"<tr><td>{x['Ticker']}</td><td>{x['Cantidad']}</td><td>{x['Ratio']}</td><td>{x['Precio']}</td><td>{x['Mercado']}</td><td style='color:#2ecc71'>{x['PL']}</td></tr>" for x in filas_portfolio_pdf])
         
         html_documento = f"""
