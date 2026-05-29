@@ -4,7 +4,7 @@ import numpy as np
 import yfinance as yf
 import datetime
 import requests
-from bs4 BeautifulSoup import BeautifulSoup
+from bs4 import BeautifulSoup
 import plotly.graph_objects as go
 
 # ==============================================================================
@@ -201,6 +201,18 @@ def calcular_dividendos_historicos(ticker, fecha_compra, nominales):
     except:
         return 0.0
 
+def calcular_dividendos_proyectados_un_año(ticker, nominales):
+    try:
+        t = yf.Ticker(ticker)
+        divs = t.dividends
+        if divs.empty: return 0.0
+        # Tomamos los dividendos distribuidos en los últimos 365 días como proxy de flujo proyectado
+        hace_un_año = pd.Timestamp.now().tz_localize(divs.index.tz) - pd.Timedelta(days=365)
+        divs_ultimo_año = divs[divs.index >= hace_un_año]
+        return round(float(divs_ultimo_año.sum()) * nominales, 2)
+    except:
+        return 0.0
+
 def obtener_fundamental_completo(symbol):
     try:
         t = yf.Ticker(symbol)
@@ -275,7 +287,7 @@ if menu == "🌐 DASHBOARD GENERAL Y WATCHLIST":
     st.dataframe(pd.DataFrame(rows_w).set_index("Ticker"), use_container_width=True)
 
 # ==============================================================================
-# SECCIÓN 2: ANÁLISIS
+# SECCIÓN 2: ANÁLISIS (ELIMINACIÓN ABSOLUTA DE HARDCODEOS)
 # ==============================================================================
 elif menu == "🔍 ANÁLISIS":
     st.subheader("🔍 Matriz de Desempeño Contable y Multiplicadores Sectoriales")
@@ -283,7 +295,7 @@ elif menu == "🔍 ANÁLISIS":
     t_obj = c_s1.text_input("📍 Activo Bajo Estudio:", value="VIST").upper().strip()
     t_comp_raw = c_s2.text_input("Peers de Control (Separados por coma):", value="YPF, XOM").upper()
     
-    if st.button("🔥 CORRER ANÁLISIS"):
+    if st.button("🔥 Correr Análisis"):
         with st.spinner("Descargando balances corporativos reales en vivo..."):
             raw_peers = [c.strip() for c in t_comp_raw.split(",") if c.strip()]
             peers_filtrados = filtrar_peers_por_sector(t_obj, raw_peers)
@@ -377,9 +389,9 @@ elif menu == "🐾 EL SABUESO DE WALL STREET":
             </div>
             """, unsafe_allow_html=True)
 
-# ==========================================
-# SECCIÓN 4: PORTAFOLIO MULTIACTIVO E IDEAS FACTORIALES
-# ==========================================
+# ==============================================================================
+# SECCIÓN 4: PORTAFOLIO MULTIACTIVO E IDEAS FACTORIALES (SINCRO MAESTRA)
+# ==============================================================================
 elif menu == "💼 PORTAFOLIO Y MODELOS FACTORIALES":
     st.subheader("🤖 Modelos Factoriales de iShares (Estrategias de Asignación Táctica)")
     
@@ -403,7 +415,7 @@ elif menu == "💼 PORTAFOLIO Y MODELOS FACTORIALES":
                 "NVDA": "Proveedor dominante global de los microprocesadores esenciales para el escalamiento de la inteligencia artificial.",
                 "MSFT": "SaaS corporativo integrado; el ecosistema informático mundial opera bajo sus licencias en la nube.",
                 "AAPL": "Fidelización de ecosistema cerrado que permite indexar precios de hardware sin perder participación de mercado.",
-                "AMD": "Ganancia estructural de cuota de mercado en procesamiento gráfico de alta densidad para centros de datos.",
+                "AMD": "Ganancia de participación en procesamiento gráfico de alta densidad para centros de datos mundiales.",
                 "META": "Dominio absoluto en redes sociales con tasas exponenciales de conversión y monetización de anuncios."
             }
         },
@@ -421,7 +433,7 @@ elif menu == "💼 PORTAFOLIO Y MODELOS FACTORIALES":
             "desc": "Capturar compañías en fase de expansión temprana o nichos de mercado con Beta elevado.",
             "activos": {
                 "MELI": "Líder indiscutido de comercio electrónico y fintech en LATAM, capitalizando el despegue digital regional.",
-                "PAMP": "Jugador integrado estratégico en gas no unconventional y generación eléctrica con alta opcionalidad de crecimiento.",
+                "PAMP": "Jugador integrado estratégico en gas no convencional y generación eléctrica con alta opcionalidad de crecimiento.",
                 "TSLA": "Líder en transición de automoción automatizada y almacenamiento de energía con ventajas de escala en producción.",
                 "NFLX": "Escala global dominante en distribución de streaming con generación consolidada de flujo libre de caja positivo.",
                 "VALE": "Gigante minero de materias primas metálicas posicionado ventajosamente en la base de costos de exportación."
@@ -435,7 +447,7 @@ elif menu == "💼 PORTAFOLIO Y MODELOS FACTORIALES":
     items_estrategia = CARTERAS_FACTORIALES[cat_sel]["activos"]
     col_ins1, col_ins2 = st.columns([2, 1])
     
-    tk_elegido_factor = col_ins1.selectbox("Seleccionar activo sugerido para auditar:", list(items_estrategia.keys()), key="sb_factores_v4")
+    tk_elegido_factor = col_ins1.selectbox("Seleccionar activo sugerido para auditar:", list(items_estrategia.keys()), key="sb_factores_v5")
     col_ins1.markdown(f"💡 **Fundamento del Portfolio Manager:** {items_estrategia[tk_elegido_factor]}")
     
     if col_ins2.button("➕ ACOPLAR ACTIVO SUGERIDO A MI CARTERA"):
@@ -458,7 +470,7 @@ elif menu == "💼 PORTAFOLIO Y MODELOS FACTORIALES":
     is_ars = (currency_switch == "PESOS ARGENTINOS (ARS)")
     
     with st.expander("➕ Cargar nueva posición de Cedears local manualmente"):
-        with st.form("alta_manual_pos_cedear_v4"):
+        with st.form("alta_manual_pos_cedear_v5"):
             cx1, cx2, cx3 = st.columns(3)
             ins_tk = cx1.text_input("Ticker Activo:", value="AAPL").upper().strip()
             ins_nom = cx2.number_input("Cantidad de CEDEARs:", min_value=1, value=10)
@@ -494,7 +506,8 @@ elif menu == "💼 PORTAFOLIO Y MODELOS FACTORIALES":
         
         filas_portfolio_html = []
         filas_portfolio_pdf = []
-        c_tot_u, m_tot_u, d_tot_u = 0.0, 0.0, 0.0
+        filas_cashflow_pdf = []
+        c_tot_u, m_tot_u, d_tot_u, cf_tot_u = 0.0, 0.0, 0.0, 0.0
         
         for p in st.session_state.cartera_list_v4:
             t = p["Ticker"]
@@ -508,27 +521,31 @@ elif menu == "💼 PORTAFOLIO Y MODELOS FACTORIALES":
             ratio = RATIOS_CEDEAR.get(t, 1)
             px_sub_usd = POOL_DATA.get(t, {"precio": (px_cedear_ars * ratio) / DOLAR_MEP})["precio"]
             
-            # Costo real homologado a la plaza internacional subyacente
             costo_compra_usd = ((n * px_cedear_ars) / DOLAR_MEP) * ratio + co + im
             valor_actual_usd = n * px_sub_usd
             
             pl_usd = (valor_actual_usd + dv) - costo_compra_usd
             pl_pct = (pl_usd / costo_compra_usd) * 100 if costo_compra_usd > 0 else 0.0
             
+            # Cálculo del Cashflow Estimado Futuro a 1 Año en USD
+            cf_proyectado_usd = calcular_dividendos_proyectados_un_año(t, n)
+            
             c_tot_u += costo_compra_usd
             m_tot_u += valor_actual_usd
             d_tot_u += dv
+            cf_tot_u += cf_proyectado_usd
             
             if is_ars:
                 f_costo = costo_compra_usd * DOLAR_MEP / ratio
                 f_actual = valor_actual_usd * DOLAR_MEP / ratio
                 f_div = dv * DOLAR_MEP / ratio
                 f_pl = pl_usd * DOLAR_MEP / ratio
+                f_cf = cf_proyectado_usd * DOLAR_MEP / ratio
                 simb = "ARS"
                 label_px_unit = "Precio CEDEAR ARS"
                 px_unit_visible = px_cedear_ars
             else:
-                f_costo, f_actual, f_div, f_pl = costo_compra_usd, valor_actual_usd, dv, pl_usd
+                f_costo, f_actual, f_div, f_pl, f_cf = costo_compra_usd, valor_actual_usd, dv, pl_usd, cf_proyectado_usd
                 simb = "USD"
                 label_px_unit = "Precio Subyacente USD"
                 px_unit_visible = px_sub_usd
@@ -541,9 +558,13 @@ elif menu == "💼 PORTAFOLIO Y MODELOS FACTORIALES":
                 "Retorno (%)": f"{pl_pct:+.2f}%"
             })
             
-            # RESOLUCIÓN DEL NAMEERROR: PUSHEO DIRECTO A LA LISTA DEL REPORTE PDF
+            # PASADO DIRECTO: Listas homologadas para inyección limpia en el constructor del reporte PDF
             filas_portfolio_pdf.append({
                 "Ticker": t, "Cantidad": n, "Ratio": f"{ratio}:1", "Precio": f"${px_unit_visible:,.2f}", "Mercado": f"${f_actual:,.2f}", "PL": f"{pl_pct:+.2f}%"
+            })
+            
+            filas_cashflow_pdf.append({
+                "Ticker": t, "Cantidad": n, "Ratio": f"{ratio}:1", "Flujo": f"${f_cf:,.2f} {simb}"
             })
             
         st.dataframe(pd.DataFrame(filas_portfolio_html).set_index("Ticker"), use_container_width=True)
@@ -598,7 +619,7 @@ elif menu == "💼 PORTAFOLIO Y MODELOS FACTORIALES":
             st.plotly_chart(fig_b, use_container_width=True)
             
             st.markdown("#### 📐 Atribución de Factores Estratégicos")
-            st.markdown(f\"\"\"
+            st.markdown(f"""
             <div class='interpretation-box'>
                 <strong>INFORME DE ATRIBUCIÓN FACTORAL (iShares Strategy Framework):</strong> El análisis de atribución demuestra un sesgo intencional hacia el factor 
                 <strong>Momentum Institucional</strong>. La selección de activos dentro de la cartera se rige por un proceso sistemático que prioriza la persistencia 
@@ -606,19 +627,22 @@ elif menu == "💼 PORTAFOLIO Y MODELOS FACTORIALES":
                 Este enfoque mitiga el impacto de las fluctuaciones técnicas del corto plazo y optimiza la captura de Alfa genuino frente al índice de referencia 
                 <strong>{bench_sel}</strong>, garantizando que el incremento de ponderación en activos líderes se sustente en la solidez del flujo institucional y la consistencia estructural de sus balances corporativos.
             </div>
-            \"\"\", unsafe_allow_html=True)
+            """, unsafe_allow_html=True)
         except:
             st.info("Alineando horizontes temporales de precios subyacentes...")
             
         # ==============================================================================
-        # 6. EXPORTACIÓN REPORTE LOCAL CON ASESOR FINANCIERO SINCRO REARMADA
+        # 6. EXPORTACIÓN REPORTE LOCAL CON CASHFLOW INTEGRADO A 1 AÑO (RESOLUCION DEFINITIVA)
         # ==============================================================================
         st.markdown("---")
         st.subheader("📥 Exportación Institucional de Estados de Cuenta")
         asesor_input = st.text_input("Asesor Financiero Firmante:", value="Facundo Garcia Marquez")
         
-        # PROCESAMIENTO CORREGIDO: Consumo directo sobre el dataset mapeado para el PDF sin NameError
+        # Procesamiento en espejo sin NameError
         filas_html_reporte = "".join([f"<tr><td>{x['Ticker']}</td><td>{x['Cantidad']}</td><td>{x['Ratio']}</td><td>{x['Precio']}</td><td>{x['Mercado']}</td><td style='color:#2ecc71'>{x['PL']}</td></tr>" for x in filas_portfolio_pdf])
+        filas_html_cashflow = "".join([f"<tr><td>{x['Ticker']}</td><td>{x['Cantidad']}</td><td>{x['Ratio']}</td><td style='color:#2ecc71; font-weight:bold;'>{x['Flujo']}</td></tr>" for x in filas_cashflow_pdf])
+        
+        val_cf_global_visible = f"${(cf_tot_u * DOLAR_MEP):,.2f} ARS" if is_ars else f"${cf_tot_u:,.2f} USD"
         
         html_documento = f"""
         <!DOCTYPE html>
@@ -626,27 +650,38 @@ elif menu == "💼 PORTAFOLIO Y MODELOS FACTORIALES":
         <head>
             <meta charset="utf-8">
             <style>
-                body {{ font-family: 'Helvetica', Arial, sans-serif; color: #2c3e50; padding: 25px; }}
-                h1 {{ color: #2ecc71; border-bottom: 2px solid #2ecc71; padding-bottom: 5px; font-size: 22px; }}
-                table {{ width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 12px; }}
-                th {{ background-color: #f2f2f2; padding: 10px; border: 1px solid #ddd; text-align: left; }}
-                td {{ padding: 10px; border: 1px solid #ddd; }}
-                .summary {{ background-color: #f9f9f9; padding: 12px; margin-top: 10px; border-radius: 4px; font-size: 13px; }}
-                .footer {{ margin-top: 30px; font-size: 11px; color: #7f8c8d; text-align: center; border-top: 1px solid #ddd; padding-top: 10px; }}
+                body {{ font-family: 'Helvetica', Arial, sans-serif; color: #2c3e50; padding: 25px; line-height:1.4; }}
+                h1 {{ color: #2ecc71; border-bottom: 2px solid #2ecc71; padding-bottom: 5px; font-size: 20px; }}
+                h2 {{ color: #3498db; font-size: 15px; margin-top: 25px; }}
+                table {{ width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 11px; }}
+                th {{ background-color: #f2f2f2; padding: 8px; border: 1px solid #ddd; text-align: left; }}
+                td {{ padding: 8px; border: 1px solid #ddd; }}
+                .summary {{ background-color: #f9f9f9; padding: 12px; margin-top: 10px; border-radius: 4px; font-size: 12px; }}
+                .footer {{ margin-top: 30px; font-size: 10px; color: #7f8c8d; text-align: center; border-top: 1px solid #ddd; padding-top: 10px; }}
             </style>
         </head>
         <body>
             <h1>Reporte de Portafolio Factorial Autorizado</h1>
             <p><strong>Asesor Financiero Responsable:</strong> {asesor_input}</p>
             <div class='summary'>
-                <strong>Capital Total de Control (USD):</strong> ${c_tot_u:,.2f} USD<br>
-                <strong>Valuación de Liquidación (USD):</strong> ${m_tot_u:,.2f} USD<br>
-                <strong>Retorno Neto Total de la Cuenta:</strong> {global_pct:+.2f}%
+                <strong>Capital Total Controlado (USD):</strong> ${c_tot_u:,.2f} USD<br>
+                <strong>Valuación Neto de Liquidación (USD):</strong> ${m_tot_u:,.2f} USD<br>
+                <strong>Retorno Neto Consolidado de la Cuenta:</strong> {global_pct:+.2f}%<br>
+                <strong>Caja Estimada por Dividendos (Próximos 12 meses):</strong> {val_cf_global_visible}
             </div>
+            
+            <h2>I. Desglose de Posiciones Abiertas</h2>
             <table>
                 <thead><tr><th>Ticker</th><th>CEDEARs</th><th>Ratio BYMA</th><th>Precio Unidad</th><th>Valor Mercado</th><th>Retorno (%)</th></tr></thead>
                 <tbody>{filas_html_reporte}</tbody>
             </table>
+            
+            <h2>II. Proyección Sostenible de Cashflow (Próximos 12 meses)</h2>
+            <table>
+                <thead><tr><th>Ticker</th><th>Cantidad</th><th>Ratio</th><th>Flujo Estimado Proyectado</th></tr></thead>
+                <tbody>{filas_html_cashflow}</tbody>
+            </table>
+            
             <div class='footer'>Reporte de Cuenta Homologado BYMA • Asesor Responsable: {asesor_input}</div>
         </body>
         </html>
