@@ -14,7 +14,7 @@ st.set_page_config(page_title="Terminal Quanti Pro", layout="wide", initial_side
 
 st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;700;800&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght=300;400;600;700;800&display=swap');
     
     html, body, [class*="css"], [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
         background-color: #0c0f16 !important;
@@ -251,7 +251,7 @@ menu = st.radio("Secciones de la Terminal:", ["🌐 DASHBOARD GENERAL Y WATCHLIS
 st.markdown("---")
 
 # ==============================================================================
-# SECCIÓN 1: DASHBOARD GENERAL Y WATCHLIST (RECOMPOSICIÓN DE LAS 4 COLUMNAS DE TEMPORALIDAD)
+# SECCIÓN 1: DASHBOARD GENERAL Y WATCHLIST
 # ==============================================================================
 if menu == "🌐 DASHBOARD GENERAL Y WATCHLIST":
     st.subheader("⚡ Market Radar: Sincronización Estructural del Mercado")
@@ -285,7 +285,7 @@ if menu == "🌐 DASHBOARD GENERAL Y WATCHLIST":
     st.dataframe(pd.DataFrame(rows_w).set_index("Ticker"), use_container_width=True)
 
 # ==============================================================================
-# SECCIÓN 2: ANÁLISIS (FILTRADO DE SECTOR ESTRICTO Y TONO PROFESIONAL)
+# SECCIÓN 2: ANÁLISIS
 # ==============================================================================
 elif menu == "🔍 ANÁLISIS":
     st.subheader("🔍 Análisis Fundamental y Factorial Comparativo")
@@ -296,7 +296,6 @@ elif menu == "🔍 ANÁLISIS":
     if st.button("🔥 EJECUTAR DIAGNÓSTICO MATRICIAL"):
         with st.spinner("Computando balances corporativos filtrados..."):
             raw_peers = [c.strip() for c in t_comp_raw.split(",") if c.strip()]
-            # Aislamiento sectorial estricto para que empresas fuera del peer group no distorsionen los badges verdes
             peers_filtrados = filtrar_peers_por_sector(t_obj, raw_peers)
             lista_tickers = [t_obj] + peers_filtrados
             
@@ -359,10 +358,10 @@ elif menu == "🔍 ANÁLISIS":
             """, unsafe_allow_html=True)
 
 # ==============================================================================
-# SECCIÓN 3: EL SABUESO DE WALL STREET (ESTRUCTURA RIGUROSA POR BULLETS +/-)
+# SECCIÓN 3: EL SABUESO DE WALL STREET
 # ==============================================================================
 elif menu == "🐾 EL SABUESO DE WALL STREET":
-    st.subheader("🐾 Inteligencia de Mercado: Relevamiento Operativo de Campo")
+    st.subheader("🐾  Inteligencia de Mercado: Relevamiento Operativo de Campo")
     tk_sabueso = st.text_input("Ingresar Ticker para auditoría de campo:", value="VIST").upper().strip()
     
     if st.button("🛰️ DESPLEGAR RELEVAMIENTO DE CAMPO"):
@@ -383,7 +382,7 @@ elif menu == "🐾 EL SABUESO DE WALL STREET":
             """, unsafe_allow_html=True)
 
 # ==============================================================================
-# SECCIÓN 4: PORTAFOLIO INTEGRADO (DIVIDENDOS AUTÓNOMOS EDITABLES Y BENCHMARKING)
+# SECCIÓN 4: PORTAFOLIO Y BENCHMARKING
 # ==============================================================================
 elif menu == "💼 PORTAFOLIO Y BENCHMARKING":
     st.subheader("💼 Matriz Integrada de Cobertura y Rendimiento Factorial")
@@ -402,13 +401,12 @@ elif menu == "💼 PORTAFOLIO Y BENCHMARKING":
         
         col4, col5, col6 = st.columns(3)
         f_px = col4.number_input("Precio Unitario de Compra (USD):", min_value=0.1, value=175.0)
-        f_com = col5.number_input("Comisión del Bróker (USD Total):", value=0.5)
+        f_com = col4.number_input("Comisión del Bróker (USD Total):", value=0.5)
         f_imp = col6.number_input("Derechos de Bolsa / Impuestos (USD Total):", value=0.1)
         
         btn_submit = st.form_submit_button("➕ INTEGRAR POSICIÓN FACTORIAL AL PORTAFOLIO")
         
         if btn_submit:
-            # Cálculo automático de dividendos devengados desde la fecha de compra elegida hasta hoy
             div_autonomo = calcular_dividendos_historicos(f_tk, f_date, f_nom)
             st.session_state.cartera_list_v2.append({
                 "Ticker": f_tk, "Nominales": f_nom, "Fecha_Compra": f_date,
@@ -422,7 +420,6 @@ elif menu == "💼 PORTAFOLIO Y BENCHMARKING":
     df_editor_input = pd.DataFrame(st.session_state.cartera_list_v2)
     
     if not df_editor_input.empty:
-        # st.data_editor para permitir la modificación manual sobre los dividendos percibidos ante comisiones de cobro
         edited_df = st.data_editor(
             df_editor_input,
             column_config={
@@ -501,7 +498,7 @@ elif menu == "💼 PORTAFOLIO Y BENCHMARKING":
             c_kpi1.metric("Capital Invertido", f"${total_costo_usd:,.2f} USD")
             c_kpi2.metric("Valuación Hoy", f"${total_mercado_usd:,.2f} USD")
             c_kpi3.metric("Bolsa Dividendos", f"${total_rentas_usd:,.2f} USD")
-            c_kpi4.metric("Total Return Global", f"${(total_mercado_usd + total_rentas_usd - total_costo_usd):,.2f} USD ({global_pl_pct:,.2f}%)")
+            c_kpi4.metric("Total Return Global", f"${(total_mercado_usd + total_rentas_usd - total_costo_usd):,.2f} USD ({global_pl_pct:+.2f}%)")
 
         st.markdown("---")
         st.subheader("📐 Módulo de Benchmarking y Atribución de Alfa")
@@ -541,7 +538,7 @@ elif menu == "💼 PORTAFOLIO Y BENCHMARKING":
             )
             st.plotly_chart(fig, use_container_width=True)
             
-            # FUNDAMENTACIÓN TÉCNICA RE-ESTRUCTURADA COMO PORTFOLIO MANAGER DE ISHARES
+            # FUNDAMENTACIÓN TÉCNICA ESTRUCTURADA COMO PORTFOLIO MANAGER DE ISHARES
             st.markdown("#### 📐 Fundamentación Técnica del Posicionamiento Factorial")
             st.markdown(f"""
             <div class='interpretation-box'>
