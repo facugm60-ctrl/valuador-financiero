@@ -13,6 +13,14 @@ from bs4 import BeautifulSoup
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
+# ------------------------------------------------------------------------------
+# DISFRAZ ANTI-BLOQUEO PARA YAHOO FINANCE (Evita que devuelva todo en 0.00)
+# ------------------------------------------------------------------------------
+yf_session = requests.Session()
+yf_session.headers.update({
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+})
+
 # Intentamos importar el traductor para pasar el resumen al español
 try:
     from deep_translator import GoogleTranslator
@@ -44,12 +52,11 @@ st.markdown("""
     h2 {font-weight: 700; color: #f8fafc !important; font-size: 21px !important; margin-top: 15px;}
     h3 {font-weight: 600; color: #f1f5f9 !important; font-size: 16px !important;}
     
-    /* Selector de Navegación Premium - Glassmorphism */
+    /* Selector de Navegación Premium */
     div[data-testid="stRadio"] > label { display: none !important; }
     div[data-testid="stRadio"] > div {
         background: rgba(22, 27, 34, 0.7) !important;
         backdrop-filter: blur(12px) !important;
-        -webkit-backdrop-filter: blur(12px) !important;
         padding: 8px !important;
         border-radius: 12px !important;
         border: 1px solid rgba(255, 255, 255, 0.08) !important;
@@ -168,7 +175,7 @@ EXPLICACIONES_TECNICAS = {
 def descargar_datos_historicos_unificados(universo):
     datos_dict = {}
     try:
-        df_hist = yf.download(universo, period="2y", progress=False)
+        df_hist = yf.download(universo, period="2y", progress=False, session=yf_session)
         if "Close" in df_hist.columns:
             df_close = df_hist["Close"]
         else:
@@ -215,7 +222,7 @@ POOL_DATA = descargar_datos_historicos_unificados(UNIVERSO_POOL)
 
 def calcular_dividendos_historicos(ticker, fecha_compra, nominales):
     try:
-        t = yf.Ticker(ticker)
+        t = yf.Ticker(ticker, session=yf_session)
         divs = t.dividends
         if divs.empty: return 0.0
         fecha_compra_dt = pd.to_datetime(fecha_compra)
@@ -228,7 +235,7 @@ def calcular_dividendos_historicos(ticker, fecha_compra, nominales):
 
 def calcular_dividendos_proyectados_un_año(ticker, nominales):
     try:
-        t = yf.Ticker(ticker)
+        t = yf.Ticker(ticker, session=yf_session)
         divs = t.dividends
         if divs.empty: return 0.0
         hace_un_año = pd.Timestamp.now().tz_localize(divs.index.tz) - pd.Timedelta(days=365)
@@ -245,12 +252,21 @@ def safe_float(val, default_val=0.0):
     except:
         return default_val
 
-# Función blindada para que NUNCA devuelva None y no rompa la app
+# Función blindada para procesar los datos fundamentales
 def obtener_fundamental_completo(symbol):
     try:
-        t = yf.Ticker(symbol)
+        t = yf.Ticker(symbol, session=yf_session)
         inf = t.info
-        if not inf: inf = {} # Si Yahoo manda vacío, creamos un dict vacío
+        
+        # Si info viene vacío o falla, usamos fast_info como respaldo
+        if not inf: 
+            fi = t.fast_info
+            inf = {
+                "currentPrice": getattr(fi, "last_price", 50.0),
+                "longName": symbol,
+                "longBusinessSummary": "Resumen no disponible. Yahoo Finance limitó el acceso a la base de datos temporalmente.",
+                "recommendationKey": "hold"
+            }
         
         px = POOL_DATA.get(symbol, {}).get("precio", inf.get("currentPrice", 50.0))
         
@@ -271,7 +287,6 @@ def obtener_fundamental_completo(symbol):
             "MARGEN": marg, "ROE": roe, "RAW_INFO": inf
         }
     except Exception as e:
-        # Fallback extremo para que la matriz siga funcionando con ceros
         px = POOL_DATA.get(symbol, {}).get("precio", 50.0)
         return {
             "Ticker": symbol, "Nombre": symbol, "Precio": px,
@@ -281,7 +296,7 @@ def obtener_fundamental_completo(symbol):
 
 def filtrar_peers_por_sector(ticker_raiz, lista_ingresada):
     try:
-        sec_raiz = yf.Ticker(ticker_raiz).info.get("sector", "")
+        sec_raiz = yf.Ticker(ticker_raiz, session=yf_session).info.get("sector", "")
     except:
         sec_raiz = ""
     peers_validos = []
@@ -289,7 +304,7 @@ def filtrar_peers_por_sector(ticker_raiz, lista_ingresada):
         p_clean = p.strip().upper()
         if not p_clean: continue
         try:
-            sec_p = yf.Ticker(p_clean).info.get("sector", "")
+            sec_p = yf.Ticker(p_clean, session=yf_session).info.get("sector", "")
             if sec_p == sec_raiz or not sec_raiz: peers_validos.append(p_clean)
         except:
             peers_validos.append(p_clean)
@@ -361,7 +376,7 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
                     if tk == t_obj:
                         info_raiz = res_f.get("RAW_INFO", {})
             
-            if dataset: # Si dataset tiene datos, avanzamos sin importar si info_raiz está vacío
+            if dataset: 
                 tab_fund, tab_tech, tab_montecarlo = st.tabs(["📊 Análisis Fundamental", "📈 Análisis Técnico (DMI)", "🎲 Simulación Montecarlo Dual"])
                 
                 # -------------------------------------------------------------
@@ -413,7 +428,7 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
                         st.markdown("#### 🎁 Caja de Sorpresas: Últimos 4 Trimestres")
                         st.markdown("*¿Cuánto vendió realmente vs cuánta plata limpia le quedó en el bolsillo?*")
                         try:
-                            tk_ticker = yf.Ticker(t_obj)
+                            tk_ticker = yf.Ticker(t_obj, session=yf_session)
                             q_fin = tk_ticker.quarterly_financials
                             if not q_fin.empty:
                                 r_rev = q_fin.index[q_fin.index.str.lower().str.replace(" ", "").str.contains("totalrevenue")][0]
@@ -430,9 +445,9 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
                                 fig_caja.update_layout(barmode='group', template="plotly_dark", paper_bgcolor='#111520', plot_bgcolor='#0c0f16', height=200, margin=dict(l=10,r=10,t=10,b=20))
                                 st.plotly_chart(fig_caja, use_container_width=True)
                             else:
-                                st.warning("Yahoo Finance no liberó los datos trimestrales todavía.")
+                                st.warning("Yahoo Finance bloqueó temporalmente el acceso a los datos trimestrales.")
                         except:
-                            st.warning("La empresa no presentó todavía la estructura de balances necesaria de forma pública.")
+                            st.warning("No se pudo graficar la caja de sorpresas debido a un bloqueo de conexión o falta de datos públicos.")
                     
                     st.markdown("---")
                     st.markdown("#### Matriz de Comparación (Frente a sus competidores)")
@@ -493,7 +508,7 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
                     * **Línea Azul (ADX - Fuerza de la Tendencia):** Te dice si el movimiento actual "va en serio" o es puro ruido. Si pasa los 25 puntos, agarrate fuerte porque la tendencia es sólida.
                     """)
                     
-                    hist_raw = yf.download(t_obj, period="1y", progress=False)
+                    hist_raw = yf.download(t_obj, period="1y", progress=False, session=yf_session)
                     
                     if "Close" in hist_raw.columns:
                         df_t = pd.DataFrame({
@@ -564,7 +579,7 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
                     Esto dibuja 100 "caminos" posibles y nos ayuda a entender tres cosas clave: cuál es el precio normal que podríamos esperar, a cuánto subiría si estuviéramos de muchísima suerte, y hasta dónde caería si hubiera pánico en el mercado.
                     """)
                     
-                    hist_mc = yf.download(t_obj, period="1y", progress=False)
+                    hist_mc = yf.download(t_obj, period="1y", progress=False, session=yf_session)
                     df_mc_close = hist_mc["Close"][t_obj] if "Close" in hist_mc.columns and isinstance(hist_mc["Close"], pd.DataFrame) else (hist_raw["Close"] if "Close" in hist_raw.columns else hist_raw)
                     
                     retornos_mc = df_mc_close.pct_change().dropna()
@@ -599,7 +614,7 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
                     
                     # SIMULACIÓN 1 AÑO (252 DÍAS)
                     with c_mc2:
-                        st.markdown("#### Largo Plazo: ¿Qué pasará en 1 año?")
+                        st.markdown("#### Largo Plazo: ¿Qué pasará en 1 año (252 días hábiles)?")
                         days_1y = 252
                         matriz_1y = np.zeros((days_1y, sims))
                         matriz_1y[0] = p_base
