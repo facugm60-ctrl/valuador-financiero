@@ -306,7 +306,7 @@ if menu == "🌐 DASHBOARD GENERAL Y WATCHLIST":
     st.dataframe(pd.DataFrame(rows_w).set_index("Ticker"), use_container_width=True)
 
 # ==============================================================================
-# SECCIÓN 2: ANÁLISIS INTEGRAL (MATRIZ + TÉCNICO + MONTECARLO)
+# SECCIÓN 2: ANÁLISIS INTEGRAL (MATRIZ + TÉCNICO DMI + MONTECARLO DUAL)
 # ==============================================================================
 elif menu == "🔍 ANÁLISIS INTEGRAL":
     st.subheader("🔍 Matriz de Desempeño Contable y Multiplicadores Sectoriales")
@@ -330,8 +330,7 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
                         info_raiz = res_f["RAW_INFO"]
             
             if dataset and info_raiz:
-                # CREACIÓN DE PESTAÑAS MULTI-ANÁLISIS
-                tab_fund, tab_tech, tab_montecarlo = st.tabs(["📊 Análisis Fundamental", "📈 Análisis Técnico", "🎲 Simulación Montecarlo"])
+                tab_fund, tab_tech, tab_montecarlo = st.tabs(["📊 Análisis Fundamental", "📈 Análisis Técnico (DMI)", "🎲 Simulación Montecarlo Dual"])
                 
                 # -------------------------------------------------------------
                 # PESTAÑA 1: ANÁLISIS FUNDAMENTAL Y COMPULSA DE MERCADO
@@ -340,7 +339,6 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
                     st.markdown("### 🏢 Descripción y Perfil del Negocio")
                     st.info(info_raiz.get("longBusinessSummary", "Resumen de negocio no disponible."))
                     
-                    # Reloj y Caja de Sorpresas
                     col_reloj, col_caja = st.columns([1, 2])
                     
                     with col_reloj:
@@ -373,8 +371,6 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
                         try:
                             tk_ticker = yf.Ticker(t_obj)
                             q_fin = tk_ticker.quarterly_financials
-                            
-                            # Extraemos Ingresos y Beneficio Neto dinámicamente
                             r_rev = q_fin.index[q_fin.index.str.lower().str.replace(" ", "").str.contains("totalrevenue")][0]
                             r_net = q_fin.index[q_fin.index.str.lower().str.replace(" ", "").str.contains("netincome")][0]
                             
@@ -389,7 +385,7 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
                             fig_caja.update_layout(barmode='group', template="plotly_dark", paper_bgcolor='#111520', plot_bgcolor='#0c0f16', height=200, margin=dict(l=10,r=10,t=10,b=20))
                             st.plotly_chart(fig_caja, use_container_width=True)
                         except:
-                            st.warning("Estructura de balances trimestrales asincrónica. No se pudo graficar la caja de sorpresas.")
+                            st.warning("Estructura de balances trimestrales asincrónica o no disponible.")
                     
                     st.markdown("---")
                     st.markdown("#### Matriz Comparativa")
@@ -439,109 +435,140 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
                     st.markdown(f"""<div class='agent-box'><strong>🟢 Factores de Impulso Estructural (Puntos Positivos)</strong><br>• <b>Infraestructura Logística y Distribución:</b> Acuerdos estratégicos de mediano plazo que eliminan cuellos de botella en la evacuación de producción o servicios, garantizando llegada directa a mercados internacionales de alta demanda.<br>• <b>Mitigación con Coberturas de Moneda Dura:</b> Contratos de tipo off-take indexados que blindan el flujo operativo neto ante la volatilidad local o correcciones temporales de precios internacionales.<br><br><strong>🔴 Factores de Riesgo y Contingencias (Puntos Negativos)</strong><br>• <b>Fricciones y Regulaciones Cambiarias:</b> Restricciones normativas locales del mercado emergente que ralentizan el movimiento ágil de capitales o pagos a proveedores de tecnología crítica del exterior.<br>• <b>Dependencia Estructural:</b> Supeditación parcial de la operatoria troncal a sistemas operados por terceras empresas, elevando el riesgo idiosincrático por paradas técnicas ajenas.</div>""", unsafe_allow_html=True)
 
                 # -------------------------------------------------------------
-                # PESTAÑA 2: ANÁLISIS TÉCNICO (RESOLUCIÓN ATRIBUTEERROR)
+                # PESTAÑA 2: ANÁLISIS TÉCNICO CON INDICADOR DMI CALCADO DE TV
                 # -------------------------------------------------------------
                 with tab_tech:
-                    st.markdown(f"### 📈 Radiografía Técnica y Fuerzas del Mercado: {t_obj}")
+                    st.markdown(f"### 📈 Radiografía Técnica Corporativa (DMI & EMA 30): {t_obj}")
                     st.markdown("""
-                    **Explicación de variables:**
-                    * **Media Móvil Simple de 30 Ruedas (SMA 30):** Representa el curso tendencial limpio de la cotización durante el último mes y medio de operaciones. Si la curva de precios corre por encima de ella, convalida una inercia netamente alcista de control institucional.
-                    * **Índice de Fuerza Relativa (RSI):** Métrica estandarizada oscilante que mide la velocidad y magnitud del flujo de compras vs ventas. Niveles sobre 70 marcan sobrecompra extrema (riesgo de distribución), mientras que lecturas bajo 30 exponen sobreventa (zona de capitulación).
+                    **Explicación de variables operativas:**
+                    * **Fuerza Compradora (+DI - Línea Verde):** Mide la presión de demanda institucional en el mercado. Cuando lidera, el control es de los compradores.
+                    * **Fuerza Vendedora (-DI - Línea Roja):** Expone la agresividad de la oferta líquida. Si está por encima del +DI, los vendedores dominan el precio.
+                    * **Fuerza de la Tendencia (ADX - Línea Azul):** Determina si el movimiento tiene fuerza real o es lateral. Valores sobre 25 indican una tendencia sólida y acelerada.
                     """)
                     
-                    hist_tech = yf.download(t_obj, period="1y", progress=False)
+                    hist_raw = yf.download(t_obj, period="1y", progress=False)
                     
-                    # FILTRADO FALSO-POSITIVO ATRIBUTEERROR COLUMNAS MULTIINDEX
-                    if "Close" in hist_tech.columns:
-                        df_tech = hist_tech["Close"].to_frame(name="Close") if isinstance(hist_tech["Close"], pd.Series) else hist_tech["Close"]
+                    if "Close" in hist_raw.columns:
+                        df_t = pd.DataFrame({
+                            "Open": hist_raw["Open"][t_obj] if isinstance(hist_raw["Open"], pd.DataFrame) else hist_raw["Open"],
+                            "High": hist_raw["High"][t_obj] if isinstance(hist_raw["High"], pd.DataFrame) else hist_raw["High"],
+                            "Low": hist_raw["Low"][t_obj] if isinstance(hist_raw["Low"], pd.DataFrame) else hist_raw["Low"],
+                            "Close": hist_raw["Close"][t_obj] if isinstance(hist_raw["Close"], pd.DataFrame) else hist_raw["Close"]
+                        })
                     else:
-                        df_tech = hist_tech.to_frame(name="Close") if isinstance(hist_tech, pd.Series) else hist_tech
-                    
-                    if isinstance(df_tech, pd.DataFrame) and t_obj in df_tech.columns:
-                        df_tech = df_tech[[t_obj]].rename(columns={t_obj: "Close"})
-                    elif isinstance(df_tech, pd.DataFrame) and len(df_tech.columns) > 1:
-                        df_tech = df_tech.iloc[:, [0]].rename(columns={df_tech.columns[0]: "Close"})
-                    
-                    df_tech = df_tech.ffill().bfill()
-                    df_tech['SMA30'] = df_tech['Close'].rolling(window=30).mean()
-                    
-                    # Cálculo RSI
-                    diff = df_tech['Close'].diff()
-                    gains = diff.where(diff > 0, 0.0)
-                    losses = -diff.where(diff < 0, 0.0)
-                    ma_gains = gains.rolling(window=14, min_periods=1).mean()
-                    ma_losses = losses.rolling(window=14, min_periods=1).mean()
-                    rs_val = ma_gains / ma_losses
-                    df_tech['RSI'] = 100 - (100 / (1 + rs_val))
-                    df_tech = df_tech.dropna()
-                    
-                    if not df_tech.empty:
-                        fig_t = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.7, 0.3], vertical_spacing=0.04)
-                        fig_t.add_trace(go.Scatter(x=df_tech.index, y=df_tech['Close'], name="Precio Cierre (USD)", line=dict(color='#3498db', width=2.5)), row=1, col=1)
-                        fig_t.add_trace(go.Scatter(x=df_tech.index, y=df_tech['SMA30'], name="Media Móvil 30", line=dict(color='#f1c40f', width=2, dash='dash')), row=1, col=1)
-                        fig_t.add_trace(go.Scatter(x=df_tech.index, y=df_tech['RSI'], name="Termómetro RSI", line=dict(color='#9b59b6', width=2)), row=2, col=1)
+                        df_t = hist_raw
                         
-                        fig_t.add_hline(y=70, line=dict(color='#e74c3c', dash='dot'), row=2, col=1)
-                        fig_t.add_hline(y=30, line=dict(color='#2ecc71', dash='dot'), row=2, col=1)
+                    df_t = df_t.ffill().bfill()
+                    df_t['EMA30'] = df_t['Close'].ewm(span=30, adjust=False).mean()
+                    
+                    # Cálculo nativo del DMI (Directional Movement Index) de 14 periodos
+                    up_move = df_t['High'].diff()
+                    down_move = -df_t['Low'].diff()
+                    
+                    plus_dm = np.where((up_move > down_move) & (up_move > 0), up_move, 0.0)
+                    minus_dm = np.where((down_move > up_move) & (down_move > 0), down_move, 0.0)
+                    
+                    tr1 = df_t['High'] - df_t['Low']
+                    tr2 = abs(df_t['High'] - df_t['Close'].shift(1))
+                    tr3 = abs(df_t['Low'] - df_t['Close'].shift(1))
+                    tr = pd.DataFrame({'tr1': tr1, 'tr2': tr2, 'tr3': tr3}).max(axis=1)
+                    
+                    tr_smooth = tr.rolling(window=14).sum()
+                    pdm_smooth = pd.Series(plus_dm, index=df_t.index).rolling(window=14).sum()
+                    mdm_smooth = pd.Series(minus_dm, index=df_t.index).rolling(window=14).sum()
+                    
+                    df_t['+DI'] = 100 * (pdm_smooth / tr_smooth)
+                    df_t['-DI'] = 100 * (mdm_smooth / tr_smooth)
+                    dx = 100 * (abs(df_t['+DI'] - df_t['-DI']) / (df_t['+DI'] + df_t['-DI']))
+                    df_t['ADX'] = dx.rolling(window=14).mean()
+                    df_t = df_t.dropna()
+                    
+                    if not df_t.empty:
+                        fig_dmi = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.65, 0.35], vertical_spacing=0.04)
+                        fig_dmi.add_trace(go.Scatter(x=df_t.index, y=df_t['Close'], name="Precio Cierre", line=dict(color='#ffffff', width=2)), row=1, col=1)
+                        fig_dmi.add_trace(go.Scatter(x=df_t.index, y=df_t['EMA30'], name="EMA 30", line=dict(color='#f1c40f', width=1.5, dash='dash')), row=1, col=1)
                         
-                        fig_t.update_layout(template="plotly_dark", paper_bgcolor='#111520', plot_bgcolor='#0c0f16', height=450, margin=dict(l=20,r=20,t=10,b=10))
-                        st.plotly_chart(fig_t, use_container_width=True)
+                        fig_dmi.add_trace(go.Scatter(x=df_t.index, y=df_t['+DI'], name="+DI (Compradores)", line=dict(color='#2ecc71', width=1.5)), row=2, col=1)
+                        fig_dmi.add_trace(go.Scatter(x=df_t.index, y=df_t['-DI'], name="-DI (Vendedores)", line=dict(color='#e74c3c', width=1.5)), row=2, col=1)
+                        fig_dmi.add_trace(go.Scatter(x=df_t.index, y=df_t['ADX'], name="ADX (Fuerza Tendencia)", line=dict(color='#3498db', width=2)), row=2, col=1)
                         
-                        p_last = float(df_tech['Close'].iloc[-1])
-                        sma_last = float(df_tech['SMA30'].iloc[-1])
-                        rsi_last = float(df_tech['RSI'].iloc[-1])
-                        st_tendencia = "ALCISTA" if p_last > sma_last else "BAJISTA"
-                        st_rsi = "Sobrecomprado (Alerta de corrección)" if rsi_last > 70 else "Sobrevendido (Oportunidad táctica)" if rsi_last < 30 else "Fuerzas Equilibradas (Zona Neutral)"
+                        fig_dmi.update_layout(template="plotly_dark", paper_bgcolor='#111520', plot_bgcolor='#0c0f16', height=460, margin=dict(l=20,r=20,t=10,b=10))
+                        st.plotly_chart(fig_dmi, use_container_width=True)
                         
-                        st.markdown(f"""<div class='interpretation-box' style='border-left: 4px solid #3498db;'><strong>DIAGNÓSTICO TÉCNICO ALGORÍTMICO:</strong> El precio actual se sitúa en <b>${p_last:.2f} USD</b>, convalidando una estructura tendencial de corto plazo <b>{st_tendencia}</b> al cruzar su promedio de 30 ruedas (${sma_last:.2f} USD). Las fuerzas compradoras/vendedoras (RSI) registran un nivel de <b>{rsi_last:.1f}</b>, denotando un escenario de <b>{st_rsi}</b>.</div>""", unsafe_allow_html=True)
+                        p_now = float(df_t['Close'].iloc[-1])
+                        p_di_plus = float(df_t['+DI'].iloc[-1])
+                        p_di_minus = float(df_t['-DI'].iloc[-1])
+                        p_adx = float(df_t['ADX'].iloc[-1])
+                        
+                        fuerza_dominante = "COMPRADORES (Fuerza de Demanda)" if p_di_plus > p_di_minus else "VENDEDORES (Fuerza de Oferta)"
+                        cons_adx = "con alta fuerza e impulso tendencial continuado" if p_adx > 25 else "en fase de adormecimiento o lateralización técnica"
+                        
+                        st.markdown(f"""<div class='interpretation-box' style='border-left: 4px solid #3498db;'><strong>DIAGNÓSTICO DEL ALGORITMO DMI:</strong> Al cierre spot actual de <b>${p_now:.2f} USD</b>, el mercado revela que el control de las mesas está en manos de los <b>{fuerza_dominante}</b> (+DI: {p_di_plus:.1f} vs -DI: {p_di_minus:.1f}). La lectura del ADX en <b>{p_adx:.1f} puntos</b> consolida un escenario {cons_adx}.</div>""", unsafe_allow_html=True)
                     else:
-                        st.error("Insuficiente profundidad histórica para modelado técnico.")
+                        st.error("Falta de profundidad histórica para el cálculo de rangos logarítmicos.")
 
                 # -------------------------------------------------------------
-                # PESTAÑA 3: SIMULACIÓN MONTECARLO PROBABILÍSTICA
+                # PESTAÑA 3: SIMULACIÓN MONTECARLO DUAL (1 MES VS 1 AÑO SIDE-BY-SIDE)
                 # -------------------------------------------------------------
                 with tab_montecarlo:
-                    st.markdown(f"### 🎲 Simulación Estocástica Montecarlo (30 Días Proyectados)")
-                    st.markdown("""
-                    **Definición operativa:** El modelo ejecuta un proceso de Caminata Aleatoria mediante Movimiento Browniano Geométrico. 
-                    Calcula el rendimiento medio diario y la volatilidad del activo sobre el último año para simular 100 rutas estadísticas posibles, 
-                    identificando los niveles extremos de soporte y resistencia matemática a futuro.
-                    """)
+                    st.markdown(f"### 🎲 Modelización Estocástica Dual de Precios")
                     
-                    if not df_tech.empty and len(df_tech) > 40:
-                        returns_mc = df_tech['Close'].pct_change().dropna()
-                        drift = returns_mc.mean()
-                        stdev = returns_mc.std()
+                    hist_mc = yf.download(t_obj, period="1y", progress=False)
+                    df_mc_close = hist_mc["Close"][t_obj] if "Close" in hist_mc.columns and isinstance(hist_mc["Close"], pd.DataFrame) else (hist_raw["Close"] if "Close" in hist_raw.columns else hist_raw)
+                    
+                    retornos_mc = df_mc_close.pct_change().dropna()
+                    drift = retornos_mc.mean()
+                    stdev = retornos_mc.std()
+                    p_base = float(df_mc_close.iloc[-1])
+                    
+                    c_mc1, c_mc2 = st.columns(2)
+                    
+                    # SIMULACIÓN 1 MES (30 DÍAS)
+                    with c_mc1:
+                        st.markdown("#### Horizon Táctico: 30 Días")
+                        days_1m = 30
+                        sims = 100
+                        matriz_1m = np.zeros((days_1m, sims))
+                        matriz_1m[0] = p_base
+                        for t in range(1, days_1m):
+                            matriz_1m[t] = matriz_1m[t-1] * np.exp((drift - 0.5 * stdev**2) + stdev * np.random.standard_normal(sims))
                         
-                        days_fwd = 30
-                        sims_count = 100
-                        p_base = float(df_tech['Close'].iloc[-1])
+                        fig_1m = go.Figure()
+                        for i in range(40):
+                            fig_1m.add_trace(go.Scatter(y=matriz_1m[:, i], mode='lines', line=dict(color='rgba(52, 152, 219, 0.08)', width=1), showlegend=False))
+                        fig_1m.add_trace(go.Scatter(y=np.mean(matriz_1m, axis=1), mode='lines', name="Evolución Central", line=dict(color='#2ecc71', width=2.5)))
+                        fig_1m.update_layout(template="plotly_dark", paper_bgcolor='#111520', plot_bgcolor='#0c0f16', height=300, margin=dict(l=10,r=10,t=10,b=10))
+                        st.plotly_chart(fig_1m, use_container_width=True)
                         
-                        mc_matrix = np.zeros((days_fwd, sims_count))
-                        mc_matrix[0] = p_base
-                        for t_day in range(1, days_fwd):
-                            shock = np.random.standard_normal(sims_count)
-                            mc_matrix[t_day] = mc_matrix[t_day-1] * np.exp((drift - 0.5 * stdev**2) + stdev * shock)
+                        p_exp_1m = float(np.mean(matriz_1m[-1, :]))
+                        p_down_1m = float(np.percentile(matriz_1m[-1, :], 5))
+                        p_up_1m = float(np.percentile(matriz_1m[-1, :], 95))
                         
-                        fig_mc = go.Figure()
-                        for run_i in range(min(45, sims_count)):
-                            fig_mc.add_trace(go.Scatter(y=mc_matrix[:, run_i], mode='lines', line=dict(color='rgba(52, 152, 219, 0.08)', width=1), showlegend=False))
+                        st.markdown(f"""<div class='agent-box' style='border-left: 4px solid #2ecc71;'><b>INTERPRETACIÓN 30 DÍAS:</b><br>Bajo un escenario <i>vanilla</i> (continuidad de inercia y volatilidad promedio del activo), el <b>Precio Justo Esperado</b> a un mes se sitúa en <b>${p_exp_1m:.2f} USD</b> ({(p_exp_1m/p_base-1)*100:+.2f}%). Ante picos de euforia de mercado (Percentil 95), la resistencia se proyecta en <b>${p_up_1m:.2f} USD</b>, mientras que el piso matemático de contención en fases bajistas (Percentil 5) está en <b>${p_down_1m:.2f} USD</b>.</div>""", unsafe_allow_html=True)
+                    
+                    # SIMULACIÓN 1 AÑO (252 DÍAS)
+                    with c_mc2:
+                        st.markdown("#### Horizon Estratégico: 1 Año (252 Ruedas)")
+                        days_1y = 252
+                        matriz_1y = np.zeros((days_1y, sims))
+                        matriz_1y[0] = p_base
+                        for t in range(1, days_1y):
+                            matriz_1y[t] = matriz_1y[t-1] * np.exp((drift - 0.5 * stdev**2) + stdev * np.random.standard_normal(sims))
                         
-                        avg_path = np.mean(mc_matrix, axis=1)
-                        p_expected = float(avg_path[-1])
-                        p_down = float(np.percentile(mc_matrix[-1, :], 5))
-                        p_up = float(np.percentile(mc_matrix[-1, :], 95))
+                        fig_1y = go.Figure()
+                        for i in range(40):
+                            fig_1y.add_trace(go.Scatter(y=matriz_1y[:, i], mode='lines', line=dict(color='rgba(155, 89, 182, 0.08)', width=1), showlegend=False))
+                        fig_1y.add_trace(go.Scatter(y=np.mean(matriz_1y, axis=1), mode='lines', name="Evolución Central", line=dict(color='#9b59b6', width=2.5)))
+                        fig_1y.update_layout(template="plotly_dark", paper_bgcolor='#111520', plot_bgcolor='#0c0f16', height=300, margin=dict(l=10,r=10,t=10,b=10))
+                        st.plotly_chart(fig_1y, use_container_width=True)
                         
-                        fig_mc.add_trace(go.Scatter(y=avg_path, mode='lines', name="Evolución Promedio Esperada", line=dict(color='#2ecc71', width=3)))
-                        fig_mc.add_hline(y=p_base, line=dict(color='#e74c3c', dash='dash'), name="Precio de Apertura")
-                        fig_mc.update_layout(template="plotly_dark", paper_bgcolor='#111520', plot_bgcolor='#0c0f16', height=380, xaxis_title="Ruedas a Futuro", yaxis_title="Precio Simulado USD")
-                        st.plotly_chart(fig_mc, use_container_width=True)
+                        p_exp_1y = float(np.mean(matriz_1y[-1, :]))
+                        p_down_1y = float(np.percentile(matriz_1y[-1, :], 5))
+                        p_up_1y = float(np.percentile(matriz_1y[-1, :], 95))
                         
-                        st.markdown(f"""<div class='agent-box' style='border-left: 4px solid #9b59b6;'><strong>RESULTADOS CUANTITATIVOS ESCENARIOS MONTECARLO (Horizonte 30 días):</strong><br>• <b>Precio Spot Base:</b> ${p_base:.2f} USD<br>• <b>Previsión Central Promedio:</b> ${p_expected:.2f} USD (Retorno Teórico Proyectado de {((p_expected/p_base)-1)*100:+.2f}%)<br>• <b>Límite Inferior Ácido (Percentil 5 - Soporte):</b> ${p_down:.2f} USD<br>• <b>Límite Superior Optimista (Percentil 95 - Resistencia):</b> ${p_up:.2f} USD</div>""", unsafe_allow_html=True)
-                    else:
-                        st.error("Datos insuficientes para la parametrización de volatilidad.")
+                        st.markdown(f"""<div class='agent-box' style='border-left: 4px solid #9b59b6;'><b>INTERPRETACIÓN 1 AÑO:</b><br>Alineando las proyecciones a un año, el <b>Fair Value Teórico</b> se localiza en <b>${p_exp_1y:.2f} USD</b> ({(p_exp_1y/p_base-1)*100:+.2f}% de retorno compuesto). El cono de dispersión ensancha los límites por el factor tiempo: el techo óptimo institucional se estira hasta los <b>${p_up_1y:.2f} USD</b>, mientras que el soporte estructural de resguardo financiero se ubica en <b>${p_down_1y:.2f} USD</b>.</div>""", unsafe_allow_html=True)
             else:
-                st.error("Llamada denegada o balances no disponibles. Verifique los tickers ingresados.")
+                st.error("Balances corporativos temporales no sincronizados.")
 
 # ==============================================================================
 # SECCIÓN 4: PORTAFOLIO MULTIACTIVO E IDEAS FACTORIALES
@@ -777,7 +804,7 @@ elif menu == "💼 PORTAFOLIO Y MODELOS FACTORIALES":
                 <strong>Momentum Institucional</strong>. La selección de activos dentro de la cartera se rige por un proceso sistemático que prioriza la persistencia 
                 de la tendencia en horizontes estandarizados de mediano y largo plazo (rendimientos acumulados de 6 y 12 meses), ajustados por la volatilidad idiosincrática del activo. 
                 Este enfoque mitiga el impacto de las fluctuaciones técnicas del corto plazo y optimiza la captura de Alfa genuino frente al índice de referencia 
-                <strong>{bench_sel}</strong>, garantizando que el incremento de ponderación en activos líderes se sustente en la solidez del flujo institucional y la consistencia estructural de sus balances corporativos.
+                <strong>{bench_sel}</strong>, garantizando que el incremento de ponderación en activos líderes se sustente en la solidez del flujo institucional and la consistencia estructural de sus balances corporativos.
             </div>
             """, unsafe_allow_html=True)
         except Exception as e:
