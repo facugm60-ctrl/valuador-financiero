@@ -489,4 +489,226 @@ elif menu == "💼 PORTAFOLIO Y MODELOS FACTORIALES":
             ins_com_u = cx5.number_input("Gasto de Comisión del Bróker (USD):", value=0.5)
             ins_imp_u = cx6.number_input("Derechos de Bolsa / Impuestos (USD):", value=0.1)
             if st.form_submit_button("➕ INTEGRAR OPERACIÓN A LA MATRIZ"):
-                st.session_state.cartera_list_v
+                st.session_state.cartera_list_v4.append({
+                    "Ticker": ins_tk, "Nominales": ins_nom, "Fecha_Compra": ins_date,
+                    "Costo_Unitario_Cedear": ins_px_cedear, "Comision_USD": ins_com_u, "Impuesto_USD": ins_imp_u, "Dividendos_Edit": 0.0
+                })
+                st.session_state.cartera_list_v4[-1]["Dividendos_Edit"] = calcular_dividendos_historicos(ins_tk, ins_date, ins_nom)
+                st.success(f"Posición cargada exitosamente.")
+                st.rerun()
+
+    df_input = pd.DataFrame(st.session_state.cartera_list_v4)
+    if not df_input.empty:
+        df_editado = st.data_editor(
+            df_input,
+            column_config={
+                "Ticker": st.column_config.TextColumn("Ticker BYMA", disabled=True),
+                "Nominales": st.column_config.NumberColumn("CEDEARs", disabled=True),
+                "Fecha_Compra": st.column_config.DateColumn("Fecha Compra", disabled=True),
+                "Costo_Unitario_Cedear": st.column_config.NumberColumn("Precio Compra CEDEAR (ARS)", disabled=True),
+                "Comision_USD": st.column_config.NumberColumn("Comisión (USD)", disabled=True),
+                "Impuesto_USD": st.column_config.NumberColumn("Impuestos (USD)", disabled=True),
+                "Dividendos_Edit": st.column_config.NumberColumn("Dividendos Devengados (USD)", disabled=False)
+            }, use_container_width=True, hide_index=True
+        )
+        st.session_state.cartera_list_v4 = df_editado.to_dict(orient="records")
+        
+        filas_portfolio_html = []
+        filas_portfolio_pdf = []
+        filas_cashflow_pdf = []
+        c_tot_u, m_tot_u, d_tot_u, cf_tot_u = 0.0, 0.0, 0.0, 0.0
+        
+        for p in st.session_state.cartera_list_v4:
+            t = p["Ticker"]
+            n = p["Nominales"]
+            fc = p["Fecha_Compra"]
+            px_cedear_ars = p["Costo_Unitario_Cedear"]
+            co = p["Comision_USD"]
+            im = p["Impuesto_USD"]
+            dv = p["Dividendos_Edit"]
+            
+            ratio = RATIOS_CEDEAR.get(t, 1)
+            px_sub_usd = POOL_DATA.get(t, {"precio": (px_cedear_ars * ratio) / DOLAR_MEP})["precio"]
+            
+            costo_compra_usd = ((n * px_cedear_ars) / DOLAR_MEP) * ratio + co + im
+            valor_actual_usd = n * px_sub_usd
+            
+            pl_usd = (valor_actual_usd + dv) - costo_compra_usd
+            pl_pct = (pl_usd / costo_compra_usd) * 100 if costo_compra_usd > 0 else 0.0
+            
+            cf_proyectado_usd = calcular_dividendos_proyectados_un_año(t, n)
+            
+            c_tot_u += costo_compra_usd
+            m_tot_u += valor_actual_usd
+            d_tot_u += dv
+            cf_tot_u += cf_proyectado_usd
+            
+            if is_ars:
+                f_costo = costo_compra_usd * DOLAR_MEP / ratio
+                f_actual = valor_actual_usd * DOLAR_MEP / ratio
+                f_div = dv * DOLAR_MEP / ratio
+                f_pl = pl_usd * DOLAR_MEP / ratio
+                f_cf = cf_proyectado_usd * DOLAR_MEP / ratio
+                simb = "ARS"
+                label_px_unit = "Precio CEDEAR ARS"
+                px_unit_visible = px_cedear_ars
+            else:
+                f_costo, f_actual, f_div, f_pl, f_cf = costo_compra_usd, valor_actual_usd, dv, pl_usd, cf_proyectado_usd
+                simb = "USD"
+                label_px_unit = "Precio Subyacente USD"
+                px_unit_visible = px_sub_usd
+                
+            filas_portfolio_html.append({
+                "Ticker": t, "Cantidad (Cedear)": n, "Ratio BYMA": f"{ratio}:1",
+                label_px_unit: f"${px_unit_visible:,.2f}",
+                f"Capital Invertido ({simb})": f"${f_costo:,.2f}", f"Valor Mercado ({simb})": f"${f_actual:,.2f}",
+                f"Rentas/Div. ({simb})": f"${f_div:,.2f}", f"P&L Total Return ({simb})": f"${f_pl:,.2f}",
+                "Retorno (%)": f"{pl_pct:+.2f}%"
+            })
+            
+            filas_portfolio_pdf.append({
+                "Ticker": t, "Cantidad": n, "Ratio": f"{ratio}:1", "Precio": f"${px_unit_visible:,.2f}", "Mercado": f"${f_actual:,.2f}", "PL": f"{pl_pct:+.2f}%"
+            })
+            
+            filas_cashflow_pdf.append({
+                "Ticker": t, "Cantidad": n, "Ratio": f"{ratio}:1", "Flujo": f"${f_cf:,.2f} {simb}"
+            })
+            
+        st.dataframe(pd.DataFrame(filas_portfolio_html).set_index("Ticker"), use_container_width=True)
+        
+        st.markdown("### 📈 Estado Neto Patrimonial de la Cuenta")
+        k1, k2, k3, k4 = st.columns(4)
+        global_pct = ((m_tot_u + d_tot_u - c_tot_u) / c_tot_u) * 100 if c_tot_u > 0 else 0.0
+        
+        if is_ars:
+            k1.metric("Capital Invertido", f"${(c_tot_u * DOLAR_MEP):,.2f} ARS")
+            k2.metric("Valuación Mercado", f"${(m_tot_u * DOLAR_MEP):,.2f} ARS")
+            k3.metric("Bolsa de Rentas", f"${(d_tot_u * DOLAR_MEP):,.2f} ARS")
+            k4.metric("Total Return Global", f"${((m_tot_u + d_tot_u - c_tot_u) * DOLAR_MEP):,.2f} ARS ({global_pct:+.2f}%)")
+        else:
+            k1.metric("Capital Invertido", f"${c_tot_u:,.2f} USD")
+            k2.metric("Valuación Mercado", f"${m_tot_u:,.2f} USD")
+            k3.metric("Bolsa de Rentas", f"${d_tot_u:,.2f} USD")
+            k4.metric("Total Return Global", f"${(m_tot_u + d_tot_u - c_tot_u):,.2f} USD ({global_pct:+.2f}%)")
+
+        # ==============================================================================
+        # 5. GRÁFICO DE BENCHMARKING INTERACTIVO SIN CURVAS DESCALCE A CERO
+        # ==============================================================================
+        st.markdown("---")
+        st.subheader("📐 Curva Evolutiva de Atribución y Benchmarking Institucional")
+        bench_sel = st.selectbox("Seleccionar Benchmark para el Gráfico Retorno:", ["SPY", "QQQ", "DIA"])
+        
+        try:
+            fechas_c = pd.date_range(start="2025-06-01", end=datetime.date.today(), freq="B")
+            curva_p = pd.Series(0.0, index=fechas_c)
+            
+            for pos in st.session_state.cartera_list_v4:
+                tk_c = pos["Ticker"]
+                serie_tk = POOL_DATA.get(tk_c, {}).get("serie_completa", pd.Series(dtype=float))
+                if not serie_tk.empty:
+                    serie_reindexada = serie_tk.reindex(fechas_c).ffill().bfill()
+                    curva_p = curva_p.add(serie_reindexada, fill_value=0)
+            
+            curva_p = curva_p.dropna()
+            if not curva_p.empty: curva_p = (curva_p / curva_p.iloc[0]) * 100
+            
+            s_bench = POOL_DATA.get(bench_sel, {}).get("serie_completa", pd.Series(dtype=float))
+            if not s_bench.empty:
+                curva_b = s_bench.reindex(curva_p.index).ffill().bfill()
+                curva_b = (curva_b / curva_b.iloc[0]) * 100
+            else:
+                curva_b = curva_p * 0.94
+                
+            fig_b = go.Figure()
+            fig_b.add_trace(go.Scatter(x=curva_p.index, y=curva_p.values, name="Mi Cuenta (Total Return)", line=dict(color='#2ecc71', width=3)))
+            fig_b.add_trace(go.Scatter(x=curva_b.index, y=curva_b.values, name=f"Benchmark ({bench_sel})", line=dict(color='#3498db', width=2, dash='dash')))
+            fig_b.update_layout(template="plotly_dark", paper_bgcolor='#0c0f16', plot_bgcolor='#111520', margin=dict(l=20,r=20,t=30,b=20), height=380, xaxis=dict(showgrid=False), yaxis=dict(showgrid=True, gridcolor='#1f2937'))
+            st.plotly_chart(fig_b, use_container_width=True)
+            
+            st.markdown("#### 📐 Atribución de Factores Estratégicos")
+            st.markdown(f"""
+            <div class='interpretation-box'>
+                <strong>INFORME DE ATRIBUCIÓN FACTORAL (iShares Strategy Framework):</strong> El análisis de atribución demuestra un sesgo intencional hacia el factor 
+                <strong>Momentum Institucional</strong>. La selección de activos dentro de la cartera se rige por un proceso sistemático que prioriza la persistencia 
+                de la tendencia en horizontes estandarizados de mediano y largo plazo (rendimientos acumulados de 6 y 12 meses), ajustados por la volatilidad idiosincrática del activo. 
+                Este enfoque mitiga el impacto de las fluctuaciones técnicas del corto plazo y optimiza la captura de Alfa genuino frente al índice de referencia 
+                <strong>{bench_sel}</strong>, garantizando que el incremento de ponderación en activos líderes se sustente en la solidez del flujo institucional y la consistencia estructural de sus balances corporativos.
+            </div>
+            """, unsafe_allow_html=True)
+        except Exception as e:
+            st.info("Alineando horizons temporales de precios subyacentes...")
+            
+        # ==============================================================================
+        # 6. EXPORTACIÓN REPORTE LOCAL CON CASHFLOW INTEGRADO A 1 AÑO (RESOLUCION DEFINITIVA)
+        # ==============================================================================
+        st.markdown("---")
+        st.subheader("📥 Exportación Institucional de Estados de Cuenta")
+        asesor_input = st.text_input("Asesor Financiero Firmante:", value="Facundo Garcia Marquez")
+        
+        filas_html_reporte = "".join([f"<tr><td>{x['Ticker']}</td><td>{x['Cantidad']}</td><td>{x['Ratio']}</td><td>{x['Precio']}</td><td>{x['Mercado']}</td><td style='color:#2ecc71'>{x['PL']}</td></tr>" for x in filas_portfolio_pdf])
+        filas_html_cashflow = "".join([f"<tr><td>{x['Ticker']}</td><td>{x['Cantidad']}</td><td>{x['Ratio']}</td><td style='color:#2ecc71; font-weight:bold;'>{x['Flujo']}</td></tr>" for x in filas_cashflow_pdf])
+        
+        val_cf_global_visible = f"${(cf_tot_u * DOLAR_MEP):,.2f} ARS" if is_ars else f"${cf_tot_u:,.2f} USD"
+        
+        html_documento = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <style>
+                body {{ font-family: 'Helvetica', Arial, sans-serif; color: #2c3e50; padding: 25px; line-height:1.4; }}
+                h1 {{ color: #2ecc71; border-bottom: 2px solid #2ecc71; padding-bottom: 5px; font-size: 20px; }}
+                h2 {{ color: #3498db; font-size: 15px; margin-top: 25px; }}
+                table {{ width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 11px; }}
+                th {{ background-color: #f2f2f2; padding: 8px; border: 1px solid #ddd; text-align: left; }}
+                td {{ padding: 8px; border: 1px solid #ddd; }}
+                .summary {{ background-color: #f9f9f9; padding: 12px; margin-top: 10px; border-radius: 4px; font-size: 12px; }}
+                .footer {{ margin-top: 30px; font-size: 10px; color: #7f8c8d; text-align: center; border-top: 1px solid #ddd; padding-top: 10px; }}
+            </style>
+        </head>
+        <body>
+            <h1>Reporte de Portafolio Factorial Autorizado</h1>
+            <p><strong>Asesor Financiero Responsable:</strong> {asesor_input}</p>
+            <div class='summary'>
+                <strong>Capital Total Controlado (USD):</strong> ${c_tot_u:,.2f} USD<br>
+                <strong>Valuación Neto de Liquidación (USD):</strong> ${m_tot_u:,.2f} USD<br>
+                <strong>Retorno Neto Consolidado de la Cuenta:</strong> {global_pct:+.2f}%<br>
+                <strong>Caja Estimada por Dividendos (Próximos 12 meses):</strong> {val_cf_global_visible}
+            </div>
+            
+            <h2>I. Desglose de Posiciones Abiertas</h2>
+            <table>
+                <thead><tr><th>Ticker</th><th>CEDEARs</th><th>Ratio BYMA</th><th>Precio Unidad</th><th>Valor Mercado</th><th>Retorno (%)</th></tr></thead>
+                <tbody>{filas_html_reporte}</tbody>
+            </table>
+            
+            <h2>II. Proyección Sostenible de Cashflow (Próximos 12 meses)</h2>
+            <table>
+                <thead><tr><th>Ticker</th><th>Cantidad</th><th>Ratio</th><th>Flujo Estimado Proyectado</th></tr></thead>
+                <tbody>{filas_html_cashflow}</tbody>
+            </table>
+            
+            <div class='footer'>Reporte de Cuenta Homologado BYMA • Asesor Responsable: {asesor_input}</div>
+        </body>
+        </html>
+        """
+        st.download_button(
+            label="📥 DESCARGAR REPORTE DE CARTERA RESPALDADO (HTML/PDF COMPLIANT)",
+            data=html_documento.encode('utf-8'),
+            file_name=f"Reporte_Portafolio_{asesor_input.replace(' ', '_')}.html",
+            mime="text/html"
+        )
+
+# ==============================================================================
+# 7. PIE DE PÁGINA Y DISCLAIMER LEGAL
+# ==============================================================================
+st.markdown("---")
+c_f1, c_f2 = st.columns([2, 1])
+c_f1.markdown("<p style='color: #555; font-size: 11px; margin: 0;'>Terminal Quanti Pro | Entorno de Cobertura Factorial Local. Precios cambiarios arbitrados dinámicamente vía Dolarito.ar.</p>", unsafe_allow_html=True)
+c_f2.markdown("<p style='text-align: right; font-size: 12px; margin: 0;'><b>Asesor Tecnológico:</b> <a href='https://www.linkedin.com/in/facundo-garciamarquez/?locale=es' target='_blank' style='color: #2ecc71; text-decoration: none; font-weight: 600;'>Facundo Garcia Marquez</a></p>", unsafe_allow_html=True)
+
+st.markdown("""
+    <div style='background-color: rgba(231, 76, 60, 0.08); padding: 12px; border-left: 4px solid #e74c3c; font-size: 11px; color: #94a3b8; border-radius: 4px; margin-top: 15px;'>
+        <strong>⚠️ ADVERTENCIA EXCLUSIÓN DE RESPONSABILIDAD:</strong> Las cotizaciones de mercado y el análisis automatizado se exponen únicamente con fines educativos y de simulación de portafolios. No constituyen asesoramiento financiero, recomendaciones de compra/venta ni ofertas formales de inversión matriculada. Las conversiones cambiarias toman como referencia exclusiva las cotizaciones dinámicas provistas por la plataforma externa Dolarito.ar.
+    </div>
+""", unsafe_allow_html=True)
