@@ -1,3 +1,8 @@
+# -*- coding: utf-8 -*-
+
+import warnings
+warnings.filterwarnings("ignore")
+
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -122,7 +127,8 @@ def obtener_dolar_mep_real():
                             val = float(clean_token)
                             if 1300 < val < 1600:
                                 return round(val, 2)
-                        except: pass
+                        except:
+                            pass
         return 1433.25
     except:
         return 1433.25
@@ -149,7 +155,7 @@ EXPLICACIONES_TECNICAS = {
 }
 
 # ==============================================================================
-# 3. MOTOR UNIFICADO E HISTÓRICO DE SERIES DE TIEMPO (CORREGIDO)
+# 3. MOTOR UNIFICADO E HISTÓRICO DE SERIES DE TIEMPO (BORRA CEROS Y DESCALCES)
 # ==============================================================================
 @st.cache_data(ttl=600)
 def descargar_datos_historicos_unificados(universo):
@@ -360,7 +366,9 @@ elif menu == "🔍 ANÁLISIS":
                         </tr>
                     """
                 html_table += "</tbody></table>"
-                st.write(html_table, unsafe_allow_html=True)
+                
+                # FIJADO DEFINITIVO: Cambiado st.write por st.markdown
+                st.markdown(html_table, unsafe_allow_html=True)
                 
                 st.markdown("### 📊 Perspectiva de Asignación Estratégica")
                 st.markdown(f"""
@@ -442,7 +450,7 @@ elif menu == "💼 PORTAFOLIO Y MODELOS FACTORIALES":
             "desc": "Capturar compañías en fase de expansión temprana o nichos de mercado con Beta elevado.",
             "activos": {
                 "MELI": "Líder indiscutido de comercio electrónico y fintech en LATAM, capitalizando el despegue digital regional.",
-                "PAMP": "Jugador integrado estratégico en gas no convencional y generación eléctrica con alta opcionalidad de crecimiento.",
+                "PAMP": "Jugador integrado estratégico en gas no unconventional y generación eléctrica con alta opcionalidad de crecimiento.",
                 "TSLA": "Líder en transición de automoción automatizada y almacenamiento de energía con ventajas de escala en producción.",
                 "NFLX": "Escala global dominante en distribución de streaming con generación consolidada de flujo libre de caja positivo.",
                 "VALE": "Gigante minero de materias primas metálicas posicionado ventajosamente en la base de costos de exportación."
@@ -636,7 +644,7 @@ elif menu == "💼 PORTAFOLIO Y MODELOS FACTORIALES":
             </div>
             """, unsafe_allow_html=True)
         except Exception as e:
-            st.info("Alineando horizons temporales de precios subyacentes...")
+            st.info("Alineando horizontes temporales de precios subyacentes...")
             
         # ==============================================================================
         # 6. EXPORTACIÓN REPORTE LOCAL CON CASHFLOW INTEGRADO A 1 AÑO (RESOLUCION DEFINITIVA)
