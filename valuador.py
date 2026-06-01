@@ -13,6 +13,13 @@ from bs4 import BeautifulSoup
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
+# Intentamos importar el traductor para pasar el resumen al español
+try:
+    from deep_translator import GoogleTranslator
+    HAS_TRANSLATOR = True
+except ImportError:
+    HAS_TRANSLATOR = False
+
 # ==============================================================================
 # 1. CONFIGURACIÓN DE PÁGINA Y PARAMETRIZACIÓN DE ESTILOS FINTECH
 # ==============================================================================
@@ -146,16 +153,16 @@ RATIOS_CEDEAR = {
 UNIVERSO_POOL = ["VIST", "YPF", "AAPL", "GGAL", "AMD", "NVDA", "MSFT", "AMZN", "GOOGL", "META", "TSLA", "KO", "WMT", "XOM", "SPY", "QQQ", "JNJ", "PEP", "PG", "MO", "CVX", "MCD", "BRKB", "MELI", "BABA", "PYPL", "NFLX", "DESP", "VALE"]
 
 EXPLICACIONES_TECNICAS = {
-    "PE": "<b>Forward Price-to-Earnings (P/E): Múltiplo de Valuación</b><br>Te dice cuántos años tardarías en recuperar la inversión si la empresa sigue ganando lo mismo siempre. Mientras más bajo sea el número, más barato estás comprando el negocio.",
-    "EV": "<b>EV/EBITDA: Métrica de Absorción Corporativa</b><br>Es el costo teórico de adquirir la firma completa (con sus deudas incluidas) respecto a la caja operativa limpia que genera al año. Si es bajo, el negocio se paga solo rápido.",
-    "DEUDA": "<b>Net Debt / EBITDA: Cobertura de Riesgo Crediticio</b><br>Compara las deudas financieras netas con lo que se genera en un año. Es como ver si debés 1 sueldo o 5 sueldos enteros. Valores sobre las 3.0x indican zona de peligro.",
-    "LIQUIDEZ": "<b>Liquidez Corriente: Capacidad Operativa Corto Plazo</b><br>Compara lo que la empresa tiene disponible en efectivo inmediato contra las deudas que vencen este mes. Valores mayores a 1.0x indican espalda financiera.",
-    "MARGEN": "<b>Margen Neto: Pricing Power Corporativo</b><br>Es la porción de ganancia neta remanente que le queda a la empresa de cada $100 facturados, tras liquidar costos, sueldos e impuestos corporativos.",
-    "ROE": "<b>Return on Equity (ROE): Eficiencia del Capital</b><br>Muestra qué tan despiertos son los administradores para hacer rendir cada peso que los dueños invirtieron de su bolsillo. Mientras más alto, más jugo le sacan al capital."
+    "PE": "<b>P/E (Precio sobre Ganancias):</b><br>Te dice cuántos años tardarías en recuperar la inversión si la empresa sigue ganando lo mismo siempre. Un número bajo significa que estás comprando barato.",
+    "EV": "<b>EV/EBITDA:</b><br>Mide cuánto cuesta comprar la empresa entera (con deudas incluidas) en relación al efectivo limpio que genera. Si es bajo, la empresa se paga sola rápidamente.",
+    "DEUDA": "<b>Deuda / EBITDA:</b><br>Compara lo que debe la empresa con lo que genera en un año. Como ver si debés 1 o 5 sueldos enteros. Valores muy altos son luz roja.",
+    "LIQUIDEZ": "<b>Liquidez Corriente:</b><br>Compara el efectivo rápido que tiene la empresa contra las deudas que tiene que pagar ya mismo. Mayor a 1 significa que está tranquila.",
+    "MARGEN": "<b>Margen Neto:</b><br>De cada $100 que vende la empresa, ¿cuántos billetes le quedan limpios en el bolsillo después de pagar todos los gastos e impuestos?",
+    "ROE": "<b>ROE (Retorno sobre Patrimonio):</b><br>Muestra qué tan buenos son los dueños para hacer rendir la plata que invirtieron. Cuanto más alto, más jugo le sacan al capital."
 }
 
 # ==============================================================================
-# 3. MOTOR UNIFICADO E HISTÓRICO DE SERIES DE TIEMPO (BORRA CEROS Y DESCALCES)
+# 3. MOTOR UNIFICADO E HISTÓRICO DE SERIES DE TIEMPO
 # ==============================================================================
 @st.cache_data(ttl=600)
 def descargar_datos_historicos_unificados(universo):
@@ -230,19 +237,36 @@ def calcular_dividendos_proyectados_un_año(ticker, nominales):
     except:
         return 0.0
 
+def safe_float(val, default_val=0.0):
+    try:
+        if val is None or pd.isna(val):
+            return default_val
+        return float(val)
+    except:
+        return default_val
+
 def obtener_fundamental_completo(symbol):
     try:
         t = yf.Ticker(symbol)
         inf = t.info
         if not inf or len(inf) < 5: return None
         px = POOL_DATA.get(symbol, {}).get("precio", inf.get("currentPrice", 50.0))
-        td, caj, eb = inf.get("totalDebt", 0), inf.get("totalCash", 0), inf.get("ebitda", 1)
+        
+        td = safe_float(inf.get("totalDebt"), 0.0)
+        caj = safe_float(inf.get("totalCash"), 0.0)
+        eb = safe_float(inf.get("ebitda"), 1.0)
+        pe = safe_float(inf.get("forwardPE"), 14.5)
+        ev = safe_float(inf.get("enterpriseToEbitda"), 6.8)
+        liq = safe_float(inf.get("currentRatio"), 1.3)
+        marg = safe_float(inf.get("profitMargins"), 0.12)
+        roe = safe_float(inf.get("returnOnEquity"), 0.15)
+        
+        ratio_deuda = (td - caj) / eb if eb != 0 else 0.0
+        
         return {
             "Ticker": symbol, "Nombre": inf.get("longName", symbol), "Precio": px,
-            "PE": inf.get("forwardPE", 14.5), "EV": inf.get("enterpriseToEbitda", 6.8),
-            "DEUDA": (td-caj)/eb if eb else 0.0, "LIQUIDEZ": inf.get("currentRatio", 1.3),
-            "MARGEN": inf.get("profitMargins", 0.12), "ROE": inf.get("returnOnEquity", 0.15),
-            "RAW_INFO": inf
+            "PE": pe, "EV": ev, "DEUDA": ratio_deuda, "LIQUIDEZ": liq,
+            "MARGEN": marg, "ROE": roe, "RAW_INFO": inf
         }
     except:
         return None
@@ -336,13 +360,25 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
                 # PESTAÑA 1: ANÁLISIS FUNDAMENTAL Y COMPULSA DE MERCADO
                 # -------------------------------------------------------------
                 with tab_fund:
-                    st.markdown("### 🏢 Descripción y Perfil del Negocio")
-                    st.info(info_raiz.get("longBusinessSummary", "Resumen de negocio no disponible."))
+                    st.markdown("### 🏢 ¿A qué se dedica esta empresa?")
+                    
+                    # Extracción y traducción del resumen de la empresa
+                    resumen_ingles = info_raiz.get("longBusinessSummary", "Resumen no disponible en la base de datos.")
+                    
+                    if HAS_TRANSLATOR and resumen_ingles != "Resumen no disponible en la base de datos.":
+                        try:
+                            resumen_espanol = GoogleTranslator(source='en', target='es').translate(resumen_ingles)
+                        except:
+                            resumen_espanol = resumen_ingles + "\n\n*(Nota: Falló el servicio de traducción en la nube. Mostrando versión original en inglés)*"
+                    else:
+                        resumen_espanol = resumen_ingles + "\n\n*(Nota técnica: Para ver este texto en español, es necesario instalar la librería abriendo la terminal y ejecutando: pip install deep-translator)*"
+                        
+                    st.info(resumen_espanol)
                     
                     col_reloj, col_caja = st.columns([1, 2])
                     
                     with col_reloj:
-                        st.markdown("#### Recomendación de Mercado")
+                        st.markdown("#### ¿Qué opina Wall Street?")
                         recom_str = str(info_raiz.get("recommendationKey", "hold")).lower().replace("_", " ")
                         target_val = 3
                         if "buy" in recom_str: target_val = 4
@@ -367,7 +403,8 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
                         st.plotly_chart(fig_gauge, use_container_width=True)
                         
                     with col_caja:
-                        st.markdown("#### 🎁 Caja de Sorpresas: Últimos 4 Trimestres (Historial de Balances)")
+                        st.markdown("#### 🎁 Caja de Sorpresas: Últimos 4 Trimestres")
+                        st.markdown("*¿Cuánto vendió realmente vs cuánta plata limpia le quedó en el bolsillo?*")
                         try:
                             tk_ticker = yf.Ticker(t_obj)
                             q_fin = tk_ticker.quarterly_financials
@@ -380,15 +417,15 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
                             net_vals = (df_quarters.loc[r_net].values / 1e9)[::-1]
                             
                             fig_caja = go.Figure()
-                            fig_caja.add_trace(go.Bar(x=quarters_labels, y=revenue_vals, name="Ingresos (Billion USD)", marker_color='#3498db'))
-                            fig_caja.add_trace(go.Bar(x=quarters_labels, y=net_vals, name="Beneficios Netos (Billion USD)", marker_color='#2ecc71'))
+                            fig_caja.add_trace(go.Bar(x=quarters_labels, y=revenue_vals, name="Ingresos (Miles de Millones USD)", marker_color='#3498db'))
+                            fig_caja.add_trace(go.Bar(x=quarters_labels, y=net_vals, name="Plata Limpia (Miles de Millones USD)", marker_color='#2ecc71'))
                             fig_caja.update_layout(barmode='group', template="plotly_dark", paper_bgcolor='#111520', plot_bgcolor='#0c0f16', height=200, margin=dict(l=10,r=10,t=10,b=20))
                             st.plotly_chart(fig_caja, use_container_width=True)
                         except:
-                            st.warning("Estructura de balances trimestrales asincrónica o no disponible.")
+                            st.warning("La empresa no presentó todavía la estructura de balances necesaria de forma pública.")
                     
                     st.markdown("---")
-                    st.markdown("#### Matriz Comparativa")
+                    st.markdown("#### Matriz de Comparación (Frente a sus competidores)")
                     ganador_pe = min(dataset, key=lambda x: x["PE"])["Ticker"]
                     ganador_ev = min(dataset, key=lambda x: x["EV"])["Ticker"]
                     ganador_deuda = min(dataset, key=lambda x: x["DEUDA"])["Ticker"]
@@ -398,12 +435,12 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
                     
                     html_table = "<table class='custom-table'><thead><tr>"
                     html_table += "<th>Ticker</th><th>Razón Social</th>"
-                    html_table += f"<th>Forward P/E <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['PE']}</span></div></th>"
-                    html_table += f"<th>EV/EBITDA <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['EV']}</span></div></th>"
-                    html_table += f"<th>Net Debt/EBITDA <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['DEUDA']}</span></div></th>"
-                    html_table += f"<th>Liquidez Corriente <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['LIQUIDEZ']}</span></div></th>"
-                    html_table += f"<th>Margen Neto <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['MARGEN']}</span></div></th>"
-                    html_table += f"<th>ROE <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['ROE']}</span></div></th>"
+                    html_table += f"<th>Precio/Ganancia (PE) <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['PE']}</span></div></th>"
+                    html_table += f"<th>Costo Empresa (EV) <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['EV']}</span></div></th>"
+                    html_table += f"<th>Nivel de Deuda <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['DEUDA']}</span></div></th>"
+                    html_table += f"<th>Respaldo Efectivo <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['LIQUIDEZ']}</span></div></th>"
+                    html_table += f"<th>Margen de Ganancia <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['MARGEN']}</span></div></th>"
+                    html_table += f"<th>Retorno a Dueños <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['ROE']}</span></div></th>"
                     html_table += "</tr></thead><tbody>"
                     
                     for row in dataset:
@@ -428,22 +465,22 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
                     html_table += "</tbody></table>"
                     st.markdown(html_table, unsafe_allow_html=True)
                     
-                    st.markdown("### 📊 Perspectiva de Asignación Estratégica")
-                    st.markdown(f"""<div class='interpretation-box'><b>INFORME CONSULTIVO DE ASIGNACIÓN:</b> El análisis fundamental sectorial determina que la firma <strong>{ganador_roe}</strong> registra el Retorno sobre el Capital Propio (ROE) más competitivo, validando la mayor eficiencia operativa. Por su parte, <strong>{ganador_pe}</strong> expone el mayor nivel de descuento por flujo de ganancias proyectado (mínimo Forward P/E). Se sugiere configurar carteras con sesgo positivo hacia el activo bajo estudio <strong>{t_obj}</strong> en la medida que convalide niveles de solvencia robustos.</div>""", unsafe_allow_html=True)
+                    st.markdown("### 📊 Conclusión de Inversión (Sencilla)")
+                    st.markdown(f"""<div class='interpretation-box'><b>¿Qué nos dicen los números?</b> Comparando con sus rivales, <strong>{ganador_roe}</strong> es la que mejor hace rendir la plata que tiene invertida. Por otro lado, si miramos qué tan "barata" está la acción hoy en relación a lo que gana, <strong>{ganador_pe}</strong> parece ser la mejor oferta en vitrina. Es un buen momento para sumar <strong>{t_obj}</strong> a la cartera si estás cómodo con su nivel de deudas actual.</div>""", unsafe_allow_html=True)
                     
-                    st.markdown("### 🐾 Datos Relevantes")
-                    st.markdown(f"""<div class='agent-box'><strong>🟢 Factores de Impulso Estructural (Puntos Positivos)</strong><br>• <b>Infraestructura Logística y Distribución:</b> Acuerdos estratégicos de mediano plazo que eliminan cuellos de botella en la evacuación de producción o servicios, garantizando llegada directa a mercados internacionales de alta demanda.<br>• <b>Mitigación con Coberturas de Moneda Dura:</b> Contratos de tipo off-take indexados que blindan el flujo operativo neto ante la volatilidad local o correcciones temporales de precios internacionales.<br><br><strong>🔴 Factores de Riesgo y Contingencias (Puntos Negativos)</strong><br>• <b>Fricciones y Regulaciones Cambiarias:</b> Restricciones normativas locales del mercado emergente que ralentizan el movimiento ágil de capitales o pagos a proveedores de tecnología crítica del exterior.<br>• <b>Dependencia Estructural:</b> Supeditación parcial de la operatoria troncal a sistemas operados por terceras empresas, elevando el riesgo idiosincrático por paradas técnicas ajenas.</div>""", unsafe_allow_html=True)
+                    st.markdown("### 🐾 Datos Relevantes para no olvidar")
+                    st.markdown(f"""<div class='agent-box'><strong>🟢 Puntos a favor (Por qué subiría):</strong><br>• <b>Infraestructura y Venta:</b> Lograron acuerdos clave para que sus productos lleguen más rápido a los clientes internacionales que pagan mejor.<br>• <b>Protección del dinero:</b> Firmaron contratos en moneda fuerte, así que no les afecta tanto si el peso o la moneda local pierde valor.<br><br><strong>🔴 Puntos en contra (Por qué podría caer):</strong><br>• <b>Trabas de gobierno:</b> Al trabajar en mercados complicados, a veces les cuesta sacar la plata de las ganancias o pagar importaciones.<br>• <b>Depende de otros:</b> Para mover su mercadería tienen que usar redes o máquinas de otras empresas. Si el otro se frena, ellos también.</div>""", unsafe_allow_html=True)
 
                 # -------------------------------------------------------------
                 # PESTAÑA 2: ANÁLISIS TÉCNICO CON INDICADOR DMI CALCADO DE TV
                 # -------------------------------------------------------------
                 with tab_tech:
-                    st.markdown(f"### 📈 Radiografía Técnica Corporativa (DMI & EMA 30): {t_obj}")
+                    st.markdown(f"### 📈 El pulso del mercado (Gráfico DMI): {t_obj}")
                     st.markdown("""
-                    **Explicación de variables operativas:**
-                    * **Fuerza Compradora (+DI - Línea Verde):** Mide la presión de demanda institucional en el mercado. Cuando lidera, el control es de los compradores.
-                    * **Fuerza Vendedora (-DI - Línea Roja):** Expone la agresividad de la oferta líquida. Si está por encima del +DI, los vendedores dominan el precio.
-                    * **Fuerza de la Tendencia (ADX - Línea Azul):** Determina si el movimiento tiene fuerza real o es lateral. Valores sobre 25 indican una tendencia sólida y acelerada.
+                    **¿Cómo leer este gráfico fácilmente?**
+                    * **Línea Verde (+DI - Fuerza Compradora):** Mide la motivación de la gente que quiere comprar. Si está por encima de la roja, los compradores mandan y el precio tiende a subir.
+                    * **Línea Roja (-DI - Fuerza Vendedora):** Mide la motivación de la gente que quiere vender. Si está por encima de la verde, hay miedo o toma de ganancias, y el precio baja.
+                    * **Línea Azul (ADX - Fuerza de la Tendencia):** Te dice si el movimiento actual "va en serio" o es puro ruido. Si pasa los 25 puntos, agarrate fuerte porque la tendencia es sólida.
                     """)
                     
                     hist_raw = yf.download(t_obj, period="1y", progress=False)
@@ -486,11 +523,11 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
                     if not df_t.empty:
                         fig_dmi = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.65, 0.35], vertical_spacing=0.04)
                         fig_dmi.add_trace(go.Scatter(x=df_t.index, y=df_t['Close'], name="Precio Cierre", line=dict(color='#ffffff', width=2)), row=1, col=1)
-                        fig_dmi.add_trace(go.Scatter(x=df_t.index, y=df_t['EMA30'], name="EMA 30", line=dict(color='#f1c40f', width=1.5, dash='dash')), row=1, col=1)
+                        fig_dmi.add_trace(go.Scatter(x=df_t.index, y=df_t['EMA30'], name="Promedio 30 días", line=dict(color='#f1c40f', width=1.5, dash='dash')), row=1, col=1)
                         
-                        fig_dmi.add_trace(go.Scatter(x=df_t.index, y=df_t['+DI'], name="+DI (Compradores)", line=dict(color='#2ecc71', width=1.5)), row=2, col=1)
-                        fig_dmi.add_trace(go.Scatter(x=df_t.index, y=df_t['-DI'], name="-DI (Vendedores)", line=dict(color='#e74c3c', width=1.5)), row=2, col=1)
-                        fig_dmi.add_trace(go.Scatter(x=df_t.index, y=df_t['ADX'], name="ADX (Fuerza Tendencia)", line=dict(color='#3498db', width=2)), row=2, col=1)
+                        fig_dmi.add_trace(go.Scatter(x=df_t.index, y=df_t['+DI'], name="+DI (Verde = Compras)", line=dict(color='#2ecc71', width=1.5)), row=2, col=1)
+                        fig_dmi.add_trace(go.Scatter(x=df_t.index, y=df_t['-DI'], name="-DI (Rojo = Ventas)", line=dict(color='#e74c3c', width=1.5)), row=2, col=1)
+                        fig_dmi.add_trace(go.Scatter(x=df_t.index, y=df_t['ADX'], name="ADX (Azul = Fuerza)", line=dict(color='#3498db', width=2)), row=2, col=1)
                         
                         fig_dmi.update_layout(template="plotly_dark", paper_bgcolor='#111520', plot_bgcolor='#0c0f16', height=460, margin=dict(l=20,r=20,t=10,b=10))
                         st.plotly_chart(fig_dmi, use_container_width=True)
@@ -500,18 +537,23 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
                         p_di_minus = float(df_t['-DI'].iloc[-1])
                         p_adx = float(df_t['ADX'].iloc[-1])
                         
-                        fuerza_dominante = "COMPRADORES (Fuerza de Demanda)" if p_di_plus > p_di_minus else "VENDEDORES (Fuerza de Oferta)"
-                        cons_adx = "con alta fuerza e impulso tendencial continuado" if p_adx > 25 else "en fase de adormecimiento o lateralización técnica"
+                        fuerza_dominante = "los COMPRADORES" if p_di_plus > p_di_minus else "los VENDEDORES"
+                        cons_adx = "con muchísimo impulso (es una tendencia fuerte y clara)." if p_adx > 25 else "pero el mercado está dudoso y lateral (sin un rumbo claro todavía)."
                         
-                        st.markdown(f"""<div class='interpretation-box' style='border-left: 4px solid #3498db;'><strong>DIAGNÓSTICO DEL ALGORITMO DMI:</strong> Al cierre spot actual de <b>${p_now:.2f} USD</b>, el mercado revela que el control de las mesas está en manos de los <b>{fuerza_dominante}</b> (+DI: {p_di_plus:.1f} vs -DI: {p_di_minus:.1f}). La lectura del ADX en <b>{p_adx:.1f} puntos</b> consolida un escenario {cons_adx}.</div>""", unsafe_allow_html=True)
+                        st.markdown(f"""<div class='interpretation-box' style='border-left: 4px solid #3498db;'><strong>¿QUIÉN TIENE EL VOLANTE HOY?</strong> Al precio actual de <b>${p_now:.2f} USD</b>, la fuerza compradora se encuentra en {p_di_plus:.1f} puntos, frente a una fuerza vendedora de {p_di_minus:.1f} puntos. Esto nos indica que actualmente <b>{fuerza_dominante}</b> tienen el control total del precio, {cons_adx}</div>""", unsafe_allow_html=True)
                     else:
-                        st.error("Falta de profundidad histórica para el cálculo de rangos logarítmicos.")
+                        st.error("No hay suficientes datos en la bolsa para armar este gráfico hoy.")
 
                 # -------------------------------------------------------------
                 # PESTAÑA 3: SIMULACIÓN MONTECARLO DUAL (1 MES VS 1 AÑO SIDE-BY-SIDE)
                 # -------------------------------------------------------------
                 with tab_montecarlo:
-                    st.markdown(f"### 🎲 Modelización Estocástica Dual de Precios")
+                    st.markdown(f"### 🎲 La Máquina del Tiempo (Simulador de Escenarios)")
+                    st.markdown("""
+                    **¿Qué es esto y para qué sirve?**
+                    Imaginá que tiramos los dados 100 veces para ver qué podría pasar con el precio de esta acción, basándonos pura y exclusivamente en cómo se movió y qué tan "nerviosa" estuvo durante el último año. 
+                    Esto dibuja 100 "caminos" posibles y nos ayuda a entender tres cosas clave: cuál es el precio normal que podríamos esperar, a cuánto subiría si estuviéramos de muchísima suerte, y hasta dónde caería si hubiera pánico en el mercado.
+                    """)
                     
                     hist_mc = yf.download(t_obj, period="1y", progress=False)
                     df_mc_close = hist_mc["Close"][t_obj] if "Close" in hist_mc.columns and isinstance(hist_mc["Close"], pd.DataFrame) else (hist_raw["Close"] if "Close" in hist_raw.columns else hist_raw)
@@ -525,7 +567,7 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
                     
                     # SIMULACIÓN 1 MES (30 DÍAS)
                     with c_mc1:
-                        st.markdown("#### Horizon Táctico: 30 Días")
+                        st.markdown("#### Corto Plazo: ¿Qué pasará en 30 días?")
                         days_1m = 30
                         sims = 100
                         matriz_1m = np.zeros((days_1m, sims))
@@ -536,7 +578,7 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
                         fig_1m = go.Figure()
                         for i in range(40):
                             fig_1m.add_trace(go.Scatter(y=matriz_1m[:, i], mode='lines', line=dict(color='rgba(52, 152, 219, 0.08)', width=1), showlegend=False))
-                        fig_1m.add_trace(go.Scatter(y=np.mean(matriz_1m, axis=1), mode='lines', name="Evolución Central", line=dict(color='#2ecc71', width=2.5)))
+                        fig_1m.add_trace(go.Scatter(y=np.mean(matriz_1m, axis=1), mode='lines', name="Evolución Normal (Promedio)", line=dict(color='#2ecc71', width=2.5)))
                         fig_1m.update_layout(template="plotly_dark", paper_bgcolor='#111520', plot_bgcolor='#0c0f16', height=300, margin=dict(l=10,r=10,t=10,b=10))
                         st.plotly_chart(fig_1m, use_container_width=True)
                         
@@ -544,11 +586,11 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
                         p_down_1m = float(np.percentile(matriz_1m[-1, :], 5))
                         p_up_1m = float(np.percentile(matriz_1m[-1, :], 95))
                         
-                        st.markdown(f"""<div class='agent-box' style='border-left: 4px solid #2ecc71;'><b>INTERPRETACIÓN 30 DÍAS:</b><br>Bajo un escenario <i>vanilla</i> (continuidad de inercia y volatilidad promedio del activo), el <b>Precio Justo Esperado</b> a un mes se sitúa en <b>${p_exp_1m:.2f} USD</b> ({(p_exp_1m/p_base-1)*100:+.2f}%). Ante picos de euforia de mercado (Percentil 95), la resistencia se proyecta en <b>${p_up_1m:.2f} USD</b>, mientras que el piso matemático de contención en fases bajistas (Percentil 5) está en <b>${p_down_1m:.2f} USD</b>.</div>""", unsafe_allow_html=True)
+                        st.markdown(f"""<div class='agent-box' style='border-left: 4px solid #2ecc71;'><b>Traducción Sencilla (30 Días):</b><br>Teniendo en cuenta el escenario "vanilla" (es decir, asumiendo que la acción se siga comportando como viene haciéndolo normalmente), el <b>Precio Justo Esperado</b> de acá a un mes es de <b>${p_exp_1m:.2f} USD</b>.<br><br>Pero la bolsa es impredecible. Teniendo en cuenta los escenarios extremos: si hay una racha espectacular de compras, el modelo muestra que el precio podría tocar los <b>${p_up_1m:.2f} USD</b> (techo optimista). En cambio, si el mercado entra en pánico y todos venden, el colchón matemático donde el precio debería frenar la caída está en los <b>${p_down_1m:.2f} USD</b> (piso pesimista).</div>""", unsafe_allow_html=True)
                     
                     # SIMULACIÓN 1 AÑO (252 DÍAS)
                     with c_mc2:
-                        st.markdown("#### Horizon Estratégico: 1 Año (252 Ruedas)")
+                        st.markdown("#### Largo Plazo: ¿Qué pasará en 1 año (252 días hábiles)?")
                         days_1y = 252
                         matriz_1y = np.zeros((days_1y, sims))
                         matriz_1y[0] = p_base
@@ -558,7 +600,7 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
                         fig_1y = go.Figure()
                         for i in range(40):
                             fig_1y.add_trace(go.Scatter(y=matriz_1y[:, i], mode='lines', line=dict(color='rgba(155, 89, 182, 0.08)', width=1), showlegend=False))
-                        fig_1y.add_trace(go.Scatter(y=np.mean(matriz_1y, axis=1), mode='lines', name="Evolución Central", line=dict(color='#9b59b6', width=2.5)))
+                        fig_1y.add_trace(go.Scatter(y=np.mean(matriz_1y, axis=1), mode='lines', name="Evolución Normal (Promedio)", line=dict(color='#9b59b6', width=2.5)))
                         fig_1y.update_layout(template="plotly_dark", paper_bgcolor='#111520', plot_bgcolor='#0c0f16', height=300, margin=dict(l=10,r=10,t=10,b=10))
                         st.plotly_chart(fig_1y, use_container_width=True)
                         
@@ -566,7 +608,7 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
                         p_down_1y = float(np.percentile(matriz_1y[-1, :], 5))
                         p_up_1y = float(np.percentile(matriz_1y[-1, :], 95))
                         
-                        st.markdown(f"""<div class='agent-box' style='border-left: 4px solid #9b59b6;'><b>INTERPRETACIÓN 1 AÑO:</b><br>Alineando las proyecciones a un año, el <b>Fair Value Teórico</b> se localiza en <b>${p_exp_1y:.2f} USD</b> ({(p_exp_1y/p_base-1)*100:+.2f}% de retorno compuesto). El cono de dispersión ensancha los límites por el factor tiempo: el techo óptimo institucional se estira hasta los <b>${p_up_1y:.2f} USD</b>, mientras que el soporte estructural de resguardo financiero se ubica en <b>${p_down_1y:.2f} USD</b>.</div>""", unsafe_allow_html=True)
+                        st.markdown(f"""<div class='agent-box' style='border-left: 4px solid #9b59b6;'><b>Traducción Sencilla (1 Año):</b><br>Al estirar el análisis a todo un año, el <b>Precio Justo Esperado</b> se ubica en los <b>${p_exp_1y:.2f} USD</b>.<br><br>Como pasa mucho tiempo, las cosas pueden exagerarse. Si agarramos un ciclo alcista tremendo durante todo el año, la resistencia optimista trepa hasta los <b>${p_up_1y:.2f} USD</b> por pura fuerza del mercado. Por el contrario, en caso de una crisis fuerte que dure varios meses, el modelo calcula que el último soporte antes del desastre total aguantaría en torno a los <b>${p_down_1y:.2f} USD</b>.</div>""", unsafe_allow_html=True)
             else:
                 st.error("Balances corporativos temporales no sincronizados.")
 
@@ -804,7 +846,7 @@ elif menu == "💼 PORTAFOLIO Y MODELOS FACTORIALES":
                 <strong>Momentum Institucional</strong>. La selección de activos dentro de la cartera se rige por un proceso sistemático que prioriza la persistencia 
                 de la tendencia en horizontes estandarizados de mediano y largo plazo (rendimientos acumulados de 6 y 12 meses), ajustados por la volatilidad idiosincrática del activo. 
                 Este enfoque mitiga el impacto de las fluctuaciones técnicas del corto plazo y optimiza la captura de Alfa genuino frente al índice de referencia 
-                <strong>{bench_sel}</strong>, garantizando que el incremento de ponderación en activos líderes se sustente en la solidez del flujo institucional and la consistencia estructural de sus balances corporativos.
+                <strong>{bench_sel}</strong>, garantizando que el incremento de ponderación en activos líderes se sustente en la solidez del flujo institucional y la consistencia estructural de sus balances corporativos.
             </div>
             """, unsafe_allow_html=True)
         except Exception as e:
