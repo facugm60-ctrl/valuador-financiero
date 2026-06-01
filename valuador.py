@@ -245,21 +245,23 @@ def safe_float(val, default_val=0.0):
     except:
         return default_val
 
+# Función blindada para que NUNCA devuelva None y no rompa la app
 def obtener_fundamental_completo(symbol):
     try:
         t = yf.Ticker(symbol)
         inf = t.info
-        if not inf or len(inf) < 5: return None
+        if not inf: inf = {} # Si Yahoo manda vacío, creamos un dict vacío
+        
         px = POOL_DATA.get(symbol, {}).get("precio", inf.get("currentPrice", 50.0))
         
         td = safe_float(inf.get("totalDebt"), 0.0)
         caj = safe_float(inf.get("totalCash"), 0.0)
         eb = safe_float(inf.get("ebitda"), 1.0)
-        pe = safe_float(inf.get("forwardPE"), 14.5)
-        ev = safe_float(inf.get("enterpriseToEbitda"), 6.8)
-        liq = safe_float(inf.get("currentRatio"), 1.3)
-        marg = safe_float(inf.get("profitMargins"), 0.12)
-        roe = safe_float(inf.get("returnOnEquity"), 0.15)
+        pe = safe_float(inf.get("forwardPE"), 0.0)
+        ev = safe_float(inf.get("enterpriseToEbitda"), 0.0)
+        liq = safe_float(inf.get("currentRatio"), 0.0)
+        marg = safe_float(inf.get("profitMargins"), 0.0)
+        roe = safe_float(inf.get("returnOnEquity"), 0.0)
         
         ratio_deuda = (td - caj) / eb if eb != 0 else 0.0
         
@@ -268,8 +270,14 @@ def obtener_fundamental_completo(symbol):
             "PE": pe, "EV": ev, "DEUDA": ratio_deuda, "LIQUIDEZ": liq,
             "MARGEN": marg, "ROE": roe, "RAW_INFO": inf
         }
-    except:
-        return None
+    except Exception as e:
+        # Fallback extremo para que la matriz siga funcionando con ceros
+        px = POOL_DATA.get(symbol, {}).get("precio", 50.0)
+        return {
+            "Ticker": symbol, "Nombre": symbol, "Precio": px,
+            "PE": 0.0, "EV": 0.0, "DEUDA": 0.0, "LIQUIDEZ": 0.0,
+            "MARGEN": 0.0, "ROE": 0.0, "RAW_INFO": {}
+        }
 
 def filtrar_peers_por_sector(ticker_raiz, lista_ingresada):
     try:
@@ -345,15 +353,15 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
             lista_tickers = [t_obj] + peers_filtrados
             
             dataset = []
-            info_raiz = None
+            info_raiz = {}
             for tk in lista_tickers:
                 res_f = obtener_fundamental_completo(tk)
                 if res_f:
                     dataset.append(res_f)
                     if tk == t_obj:
-                        info_raiz = res_f["RAW_INFO"]
+                        info_raiz = res_f.get("RAW_INFO", {})
             
-            if dataset and info_raiz:
+            if dataset: # Si dataset tiene datos, avanzamos sin importar si info_raiz está vacío
                 tab_fund, tab_tech, tab_montecarlo = st.tabs(["📊 Análisis Fundamental", "📈 Análisis Técnico (DMI)", "🎲 Simulación Montecarlo Dual"])
                 
                 # -------------------------------------------------------------
@@ -362,16 +370,15 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
                 with tab_fund:
                     st.markdown("### 🏢 ¿A qué se dedica esta empresa?")
                     
-                    # Extracción y traducción del resumen de la empresa
                     resumen_ingles = info_raiz.get("longBusinessSummary", "Resumen no disponible en la base de datos.")
                     
                     if HAS_TRANSLATOR and resumen_ingles != "Resumen no disponible en la base de datos.":
                         try:
                             resumen_espanol = GoogleTranslator(source='en', target='es').translate(resumen_ingles)
                         except:
-                            resumen_espanol = resumen_ingles + "\n\n*(Nota: Falló el servicio de traducción en la nube. Mostrando versión original en inglés)*"
+                            resumen_espanol = resumen_ingles + "\n\n*(Nota: Falló el servicio de traducción. Mostrando versión original)*"
                     else:
-                        resumen_espanol = resumen_ingles + "\n\n*(Nota técnica: Para ver este texto en español, es necesario instalar la librería abriendo la terminal y ejecutando: pip install deep-translator)*"
+                        resumen_espanol = resumen_ingles + "\n\n*(Aviso: Si no se instaló 'deep-translator' en requirements.txt, verás esto en inglés)*"
                         
                     st.info(resumen_espanol)
                     
@@ -408,19 +415,22 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
                         try:
                             tk_ticker = yf.Ticker(t_obj)
                             q_fin = tk_ticker.quarterly_financials
-                            r_rev = q_fin.index[q_fin.index.str.lower().str.replace(" ", "").str.contains("totalrevenue")][0]
-                            r_net = q_fin.index[q_fin.index.str.lower().str.replace(" ", "").str.contains("netincome")][0]
-                            
-                            df_quarters = q_fin.loc[[r_rev, r_net]].dropna(axis=1).iloc[:, :4]
-                            quarters_labels = [d.strftime('%d-%m-%Y') for d in df_quarters.columns][::-1]
-                            revenue_vals = (df_quarters.loc[r_rev].values / 1e9)[::-1]
-                            net_vals = (df_quarters.loc[r_net].values / 1e9)[::-1]
-                            
-                            fig_caja = go.Figure()
-                            fig_caja.add_trace(go.Bar(x=quarters_labels, y=revenue_vals, name="Ingresos (Miles de Millones USD)", marker_color='#3498db'))
-                            fig_caja.add_trace(go.Bar(x=quarters_labels, y=net_vals, name="Plata Limpia (Miles de Millones USD)", marker_color='#2ecc71'))
-                            fig_caja.update_layout(barmode='group', template="plotly_dark", paper_bgcolor='#111520', plot_bgcolor='#0c0f16', height=200, margin=dict(l=10,r=10,t=10,b=20))
-                            st.plotly_chart(fig_caja, use_container_width=True)
+                            if not q_fin.empty:
+                                r_rev = q_fin.index[q_fin.index.str.lower().str.replace(" ", "").str.contains("totalrevenue")][0]
+                                r_net = q_fin.index[q_fin.index.str.lower().str.replace(" ", "").str.contains("netincome")][0]
+                                
+                                df_quarters = q_fin.loc[[r_rev, r_net]].dropna(axis=1).iloc[:, :4]
+                                quarters_labels = [d.strftime('%d-%m-%Y') for d in df_quarters.columns][::-1]
+                                revenue_vals = (df_quarters.loc[r_rev].values / 1e9)[::-1]
+                                net_vals = (df_quarters.loc[r_net].values / 1e9)[::-1]
+                                
+                                fig_caja = go.Figure()
+                                fig_caja.add_trace(go.Bar(x=quarters_labels, y=revenue_vals, name="Ingresos (Miles de Millones USD)", marker_color='#3498db'))
+                                fig_caja.add_trace(go.Bar(x=quarters_labels, y=net_vals, name="Plata Limpia (Miles de Millones USD)", marker_color='#2ecc71'))
+                                fig_caja.update_layout(barmode='group', template="plotly_dark", paper_bgcolor='#111520', plot_bgcolor='#0c0f16', height=200, margin=dict(l=10,r=10,t=10,b=20))
+                                st.plotly_chart(fig_caja, use_container_width=True)
+                            else:
+                                st.warning("Yahoo Finance no liberó los datos trimestrales todavía.")
                         except:
                             st.warning("La empresa no presentó todavía la estructura de balances necesaria de forma pública.")
                     
@@ -498,7 +508,6 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
                     df_t = df_t.ffill().bfill()
                     df_t['EMA30'] = df_t['Close'].ewm(span=30, adjust=False).mean()
                     
-                    # Cálculo nativo del DMI (Directional Movement Index) de 14 periodos
                     up_move = df_t['High'].diff()
                     down_move = -df_t['Low'].diff()
                     
@@ -590,7 +599,7 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
                     
                     # SIMULACIÓN 1 AÑO (252 DÍAS)
                     with c_mc2:
-                        st.markdown("#### Largo Plazo: ¿Qué pasará en 1 año (252 días hábiles)?")
+                        st.markdown("#### Largo Plazo: ¿Qué pasará en 1 año?")
                         days_1y = 252
                         matriz_1y = np.zeros((days_1y, sims))
                         matriz_1y[0] = p_base
@@ -610,7 +619,7 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
                         
                         st.markdown(f"""<div class='agent-box' style='border-left: 4px solid #9b59b6;'><b>Traducción Sencilla (1 Año):</b><br>Al estirar el análisis a todo un año, el <b>Precio Justo Esperado</b> se ubica en los <b>${p_exp_1y:.2f} USD</b>.<br><br>Como pasa mucho tiempo, las cosas pueden exagerarse. Si agarramos un ciclo alcista tremendo durante todo el año, la resistencia optimista trepa hasta los <b>${p_up_1y:.2f} USD</b> por pura fuerza del mercado. Por el contrario, en caso de una crisis fuerte que dure varios meses, el modelo calcula que el último soporte antes del desastre total aguantaría en torno a los <b>${p_down_1y:.2f} USD</b>.</div>""", unsafe_allow_html=True)
             else:
-                st.error("Balances corporativos temporales no sincronizados.")
+                st.error("Error crítico en la comunicación con Yahoo Finance. Intente de nuevo en unos minutos.")
 
 # ==============================================================================
 # SECCIÓN 4: PORTAFOLIO MULTIACTIVO E IDEAS FACTORIALES
