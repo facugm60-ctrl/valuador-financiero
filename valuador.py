@@ -11,6 +11,7 @@ import datetime
 import requests
 from bs4 import BeautifulSoup
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
 # ==============================================================================
 # 1. CONFIGURACIÓN DE PÁGINA Y PARAMETRIZACIÓN DE ESTILOS FINTECH
@@ -91,8 +92,8 @@ st.markdown("""
     /* Estructuras Informativas */
     .radar-box-gainer-high { background: linear-gradient(135deg, #064e3b, #047857); border: 1px solid #10b981; padding: 14px; border-radius: 8px; font-weight: bold; color: #34d399 !important; }
     .radar-box-loser { background: linear-gradient(135deg, #7f1d1d, #b91c1c); border: 1px solid #f87171; padding: 14px; border-radius: 8px; font-weight: bold; color: #f87171 !important; }
-    .interpretation-box { background-color: #111520; padding: 16px; border-radius: 8px; font-size: 13px; color: #e2e8f0; line-height: 1.6; border: 1px solid #1f2937; border-left: 4px solid #2ecc71; }
-    .agent-box { background-color: #090d16; padding: 18px; border-radius: 8px; font-size: 13px; color: #e2e8f0; border: 1px solid #1f2937; border-left: 4px solid #dfa427; line-height: 1.6; }
+    .interpretation-box { background-color: #111520; padding: 16px; border-radius: 8px; font-size: 13px; color: #e2e8f0; line-height: 1.6; border: 1px solid #1f2937; border-left: 4px solid #2ecc71; margin-top: 15px; }
+    .agent-box { background-color: #090d16; padding: 18px; border-radius: 8px; font-size: 13px; color: #e2e8f0; border: 1px solid #1f2937; border-left: 4px solid #dfa427; line-height: 1.6; margin-top: 15px; }
     
     /* Estilos para Tablas HTML Corporativas */
     .custom-table { width: 100%; border-collapse: collapse; margin: 15px 0; font-size: 13px; background-color: #111520; border-radius: 8px; overflow: hidden; border: 1px solid #1f2937; }
@@ -105,6 +106,11 @@ st.markdown("""
     .tooltip { position: relative; display: inline-block; cursor: pointer; color: #3498db; margin-left: 4px; font-weight: bold; }
     .tooltip .tooltiptext { visibility: hidden; width: 280px; background-color: #1f2937; color: #fff; text-align: left; padding: 12px; border-radius: 6px; position: absolute; z-index: 999; bottom: 125%; left: 50%; margin-left: -140px; opacity: 0; transition: opacity 0.3s; font-size: 11px; font-weight: normal; line-height: 1.4; border: 1px solid #3b82f6; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
     .tooltip:hover .tooltiptext { visibility: visible; opacity: 1; }
+    
+    /* Estilos Tabs Streamlit */
+    .stTabs [data-baseweb="tab-list"] { gap: 8px; }
+    .stTabs [data-baseweb="tab"] { background-color: #111520; border-radius: 8px 8px 0px 0px; padding: 10px 20px; border: 1px solid #1f2937; border-bottom: none; }
+    .stTabs [aria-selected="true"] { background-color: #1f2937 !important; border-top: 2px solid #2ecc71 !important; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -114,7 +120,7 @@ st.markdown("""
 @st.cache_data(ttl=600)
 def obtener_dolar_mep_real():
     try:
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+        headers = {'User-Agent': 'Mozilla/5.0'}
         r = requests.get("https://www.dolarito.ar/", headers=headers, timeout=5)
         soup = BeautifulSoup(r.text, 'html.parser')
         for element in soup.find_all(['div', 'span', 'p']):
@@ -125,10 +131,9 @@ def obtener_dolar_mep_real():
                         clean_token = token.replace('$', '').replace('.', '').replace(',', '.').strip()
                         try:
                             val = float(clean_token)
-                            if 1300 < val < 1600:
+                            if 1000 < val < 2000:
                                 return round(val, 2)
-                        except:
-                            pass
+                        except: pass
         return 1433.25
     except:
         return 1433.25
@@ -155,7 +160,7 @@ EXPLICACIONES_TECNICAS = {
 }
 
 # ==============================================================================
-# 3. MOTOR UNIFICADO E HISTÓRICO DE SERIES DE TIEMPO (BORRA CEROS Y DESCALCES)
+# 3. MOTOR UNIFICADO E HISTÓRICO
 # ==============================================================================
 @st.cache_data(ttl=600)
 def descargar_datos_historicos_unificados(universo):
@@ -166,14 +171,17 @@ def descargar_datos_historicos_unificados(universo):
             df_close = df_hist["Close"]
         else:
             df_close = df_hist
-
+            
+        df_close = df_close.ffill().bfill()
         año_actual = datetime.datetime.now().year
         fecha_ytd = f"{año_actual}-01-02"
         
         for tk in universo:
             try:
-                if tk in df_close.columns:
+                if isinstance(df_close, pd.DataFrame) and tk in df_close.columns:
                     serie = df_close[tk].dropna()
+                elif isinstance(df_close, pd.Series):
+                    serie = df_close.dropna()
                 else:
                     serie = pd.Series(dtype=float)
 
@@ -213,19 +221,17 @@ def calcular_dividendos_historicos(ticker, fecha_compra, nominales):
             fecha_compra_dt = fecha_compra_dt.tz_localize(divs.index.tz)
         divs_filtrados = divs[divs.index >= fecha_compra_dt]
         return round(float(divs_filtrados.sum()) * nominales, 2)
-    except:
-        return 0.0
+    except: return 0.0
 
 def calcular_dividendos_proyectados_un_año(ticker, nominales):
     try:
         t = yf.Ticker(ticker)
         divs = t.dividends
         if divs.empty: return 0.0
-        hace_un_año = pd.Timestamp.now(tz=divs.index.tz) - pd.Timedelta(days=365)
+        hace_un_año = pd.Timestamp.now().tz_localize(divs.index.tz) - pd.Timedelta(days=365)
         divs_ultimo_año = divs[divs.index >= hace_un_año]
         return round(float(divs_ultimo_año.sum()) * nominales, 2)
-    except:
-        return 0.0
+    except: return 0.0
 
 def obtener_fundamental_completo(symbol):
     try:
@@ -238,16 +244,15 @@ def obtener_fundamental_completo(symbol):
             "Ticker": symbol, "Nombre": inf.get("longName", symbol), "Precio": px,
             "PE": inf.get("forwardPE", 14.5), "EV": inf.get("enterpriseToEbitda", 6.8),
             "DEUDA": (td-caj)/eb if eb else 0.0, "LIQUIDEZ": inf.get("currentRatio", 1.3),
-            "MARGEN": inf.get("profitMargins", 0.12), "ROE": inf.get("returnOnEquity", 0.15)
+            "MARGEN": inf.get("profitMargins", 0.12), "ROE": inf.get("returnOnEquity", 0.15),
+            "INFO_COMPLETA": inf # Guardamos la data cruda para las otras solapas
         }
-    except:
-        return None
+    except: return None
 
 def filtrar_peers_por_sector(ticker_raiz, lista_ingresada):
     try:
         sec_raiz = yf.Ticker(ticker_raiz).info.get("sector", "")
-    except:
-        sec_raiz = ""
+    except: sec_raiz = ""
     peers_validos = []
     for p in lista_ingresada:
         p_clean = p.strip().upper()
@@ -255,8 +260,7 @@ def filtrar_peers_por_sector(ticker_raiz, lista_ingresada):
         try:
             sec_p = yf.Ticker(p_clean).info.get("sector", "")
             if sec_p == sec_raiz or not sec_raiz: peers_validos.append(p_clean)
-        except:
-            peers_validos.append(p_clean)
+        except: peers_validos.append(p_clean)
     return peers_validos
 
 # CONFIGURACIÓN DEL SESSION STATE DE CARTERA
@@ -268,14 +272,14 @@ if "cartera_list_v4" not in st.session_state:
     for pos in st.session_state.cartera_list_v4:
         pos["Dividendos_Edit"] = calcular_dividendos_historicos(pos["Ticker"], pos["Fecha_Compra"], pos["Nominales"])
 
-# COMPONENTES DE MENÚ E IDENTIDAD LOCAL
-menu = st.radio("Secciones operativas de la Terminal:", ["🌐 DASHBOARD GENERAL Y WATCHLIST", "🔍 ANÁLISIS", "🐾 EL SABUESO DE WALL STREET", "💼 PORTAFOLIO Y MODELOS FACTORIALES"], horizontal=True)
+# COMPONENTES DE MENÚ
+menu = st.radio("Secciones operativas de la Terminal:", ["🌐 DASHBOARD GENERAL", "🔍 ANÁLISIS INTEGRAL", "💼 PORTAFOLIO Y MODELOS"], horizontal=True)
 st.markdown("---")
 
 # ==============================================================================
 # SECCIÓN 1: DASHBOARD GENERAL Y WATCHLIST
 # ==============================================================================
-if menu == "🌐 DASHBOARD GENERAL Y WATCHLIST":
+if menu == "🌐 DASHBOARD GENERAL":
     st.subheader("⚡ Market Radar: Momentum de Ruedas")
     ordenados = sorted(POOL_DATA.items(), key=lambda x: x[1]["1D"], reverse=True)
     
@@ -302,107 +306,259 @@ if menu == "🌐 DASHBOARD GENERAL Y WATCHLIST":
     st.dataframe(pd.DataFrame(rows_w).set_index("Ticker"), use_container_width=True)
 
 # ==============================================================================
-# SECCIÓN 2: ANÁLISIS
+# SECCIÓN 2: ANÁLISIS INTEGRAL (FUNDAMENTAL, TÉCNICO Y MONTECARLO)
 # ==============================================================================
-elif menu == "🔍 ANÁLISIS":
-    st.subheader("🔍 Matriz de Desempeño Contable y Multiplicadores Sectoriales")
-    c_s1, c_s2 = st.columns([1, 2])
+elif menu == "🔍 ANÁLISIS INTEGRAL":
+    st.subheader("🔍 Central de Evaluación Financiera")
+    c_s1, c_s2, c_s3 = st.columns([1, 2, 1])
     t_obj = c_s1.text_input("📍 Activo Bajo Estudio:", value="VIST").upper().strip()
     t_comp_raw = c_s2.text_input("Peers de Control (Separados por coma):", value="YPF, XOM").upper()
     
-    if st.button("🔥 Correr Análisis"):
-        with st.spinner("Descargando balances corporativos reales en vivo..."):
+    if st.button("🔥 CORRER ANÁLISIS COMPLETO"):
+        with st.spinner(f"Consolidando métricas para {t_obj} y comparables..."):
             raw_peers = [c.strip() for c in t_comp_raw.split(",") if c.strip()]
             peers_filtrados = filtrar_peers_por_sector(t_obj, raw_peers)
             lista_tickers = [t_obj] + peers_filtrados
             
             dataset = []
+            info_objetivo = None
             for tk in lista_tickers:
                 res_f = obtener_fundamental_completo(tk)
-                if res_f: dataset.append(res_f)
-            if dataset:
-                ganador_pe = min(dataset, key=lambda x: x["PE"])["Ticker"]
-                ganador_ev = min(dataset, key=lambda x: x["EV"])["Ticker"]
-                ganador_deuda = min(dataset, key=lambda x: x["DEUDA"])["Ticker"]
-                ganador_liquidez = max(dataset, key=lambda x: x["LIQUIDEZ"])["Ticker"]
-                ganador_margen = max(dataset, key=lambda x: x["MARGEN"])["Ticker"]
-                ganador_roe = max(dataset, key=lambda x: x["ROE"])["Ticker"]
+                if res_f:
+                    dataset.append(res_f)
+                    if tk == t_obj: info_objetivo = res_f["INFO_COMPLETA"]
+            
+            if dataset and info_objetivo:
+                # CREACIÓN DE TABS
+                tab_fund, tab_tech, tab_mc = st.tabs(["📊 Análisis Fundamental", "📈 Análisis Técnico", "🎲 Simulación Montecarlo"])
                 
-                # Armamos el HTML sin indentación interna para evitar que Markdown lo lea como bloque de código
-                html_table = "<table class='custom-table'><thead><tr>"
-                html_table += "<th>Ticker</th><th>Razón Social</th>"
-                html_table += f"<th>Forward P/E <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['PE']}</span></div></th>"
-                html_table += f"<th>EV/EBITDA <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['EV']}</span></div></th>"
-                html_table += f"<th>Net Debt/EBITDA <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['DEUDA']}</span></div></th>"
-                html_table += f"<th>Liquidez Corriente <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['LIQUIDEZ']}</span></div></th>"
-                html_table += f"<th>Margen Neto <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['MARGEN']}</span></div></th>"
-                html_table += f"<th>ROE <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['ROE']}</span></div></th>"
-                html_table += "</tr></thead><tbody>"
-                
-                for row in dataset:
-                    c_pe = "class='winner-cell'" if row["Ticker"] == ganador_pe else ""
-                    c_ev = "class='winner-cell'" if row["Ticker"] == ganador_ev else ""
-                    c_deuda = "class='winner-cell'" if row["Ticker"] == ganador_deuda else ""
-                    c_liq = "class='winner-cell'" if row["Ticker"] == ganador_liquidez else ""
-                    c_margen = "class='winner-cell'" if row["Ticker"] == ganador_margen else ""
-                    c_roe = "class='winner-cell'" if row["Ticker"] == ganador_roe else ""
+                # ---------------------------------------------------------
+                # TAB 1: ANÁLISIS FUNDAMENTAL (Incluye Matriz, Caja, Reloj y Sabueso)
+                # ---------------------------------------------------------
+                with tab_fund:
+                    st.markdown("### 🏢 Descripción del Negocio")
+                    desc = info_objetivo.get("longBusinessSummary", "Descripción no disponible para este activo en la base de datos.")
+                    st.info(desc)
                     
-                    html_table += "<tr>"
-                    html_table += f"<td><b>{row['Ticker']}</b></td>"
-                    html_table += f"<td>{row['Nombre']}</td>"
-                    html_table += f"<td {c_pe}>{row['PE']:.2f}</td>"
-                    html_table += f"<td {c_ev}>{row['EV']:.2f}</td>"
-                    html_table += f"<td {c_deuda}>{row['DEUDA']:.2f}x</td>"
-                    html_table += f"<td {c_liq}>{row['LIQUIDEZ']:.2f}x</td>"
-                    html_table += f"<td {c_margen}>{row['MARGEN']*100:.1f}%</td>"
-                    html_table += f"<td {c_roe}>{row['ROE']*100:.1f}%</td>"
-                    html_table += "</tr>"
+                    # Relojito y Caja de Sorpresas
+                    col_reloj, col_caja = st.columns([1, 1.5])
                     
-                html_table += "</tbody></table>"
-                
-                # Renderizado final seguro
-                st.markdown(html_table, unsafe_allow_html=True)
-                
-                st.markdown("### 📊 Perspectiva de Asignación Estratégica")
-                st.markdown(f"""
-<div class='interpretation-box'>
-    <b>INFORME CONSULTIVO DE ASIGNACIÓN:</b> El análisis fundamental sectorial determina que la firma 
-    <strong>{ganador_roe}</strong> registra el Retorno sobre el Capital Propio (ROE) más competitivo, validando la mayor eficiencia operativa. 
-    Por su parte, <strong>{ganador_pe}</strong> expone el mayor nivel de descuento por flujo de ganancias proyectado (mínimo Forward P/E). 
-    Se sugiere configurar carteras con sesgo positivo hacia el activo bajo estudio <strong>{t_obj}</strong> en la medida que convalide niveles de solvencia robustos.
-</div>
-""", unsafe_allow_html=True)
+                    with col_reloj:
+                        st.markdown("#### Recomendación de Mercado")
+                        recom = str(info_objetivo.get("recommendationKey", "hold")).lower()
+                        val_map = {"strong_buy": 5, "buy": 4, "hold": 3, "sell": 2, "strong_sell": 1}
+                        gauge_val = val_map.get(recom, 3)
+                        
+                        fig_gauge = go.Figure(go.Indicator(
+                            mode="gauge+number",
+                            value=gauge_val,
+                            title={'text': "(1=Fuerte Venta, 5=Fuerte Compra)", 'font': {'size': 12, 'color': '#94a3b8'}},
+                            gauge={
+                                'axis': {'range': [1, 5], 'tickwidth': 1, 'tickcolor': "white"},
+                                'bar': {'color': "rgba(255,255,255,0.5)", 'thickness': 0.2},
+                                'steps': [
+                                    {'range': [1, 2], 'color': "#e74c3c"},
+                                    {'range': [2, 3], 'color': "#f39c12"},
+                                    {'range': [3, 4], 'color': "#f1c40f"},
+                                    {'range': [4, 5], 'color': "#2ecc71"}
+                                ]
+                            }
+                        ))
+                        fig_gauge.update_layout(height=250, margin=dict(l=20, r=20, t=30, b=20), paper_bgcolor='#111520', font={'color': '#f1f5f9'})
+                        st.plotly_chart(fig_gauge, use_container_width=True)
+                        
+                    with col_caja:
+                        st.markdown("#### 🎁 Caja de Sorpresas de Resultados (Earnings)")
+                        st.markdown("Esta sección muestra qué tan bien le está yendo a la empresa frente a lo que esperaba Wall Street.")
+                        c1, c2, c3 = st.columns(3)
+                        eps_trail = info_objetivo.get("trailingEps", "N/A")
+                        eps_fwd = info_objetivo.get("forwardEps", "N/A")
+                        rev_growth = info_objetivo.get("revenueGrowth", 0)
+                        
+                        c1.metric("BPA Pasado (Últimos 12M)", f"${eps_trail}" if eps_trail != "N/A" else "N/A")
+                        c2.metric("BPA Proyectado (Próx 12M)", f"${eps_fwd}" if eps_fwd != "N/A" else "N/A", delta="Crecimiento Esperado" if (isinstance(eps_fwd, (int,float)) and isinstance(eps_trail, (int,float)) and eps_fwd > eps_trail) else "Contracción")
+                        c3.metric("Crecimiento Ingresos (YoY)", f"{rev_growth * 100:.1f}%" if rev_growth else "N/A", delta="Positivo" if rev_growth > 0 else "Negativo")
+
+                    st.markdown("---")
+                    st.markdown("### 🔍 Matriz de Desempeño Contable y Multiplicadores Sectoriales")
+                    
+                    ganador_pe = min(dataset, key=lambda x: x["PE"])["Ticker"]
+                    ganador_ev = min(dataset, key=lambda x: x["EV"])["Ticker"]
+                    ganador_deuda = min(dataset, key=lambda x: x["DEUDA"])["Ticker"]
+                    ganador_liquidez = max(dataset, key=lambda x: x["LIQUIDEZ"])["Ticker"]
+                    ganador_margen = max(dataset, key=lambda x: x["MARGEN"])["Ticker"]
+                    ganador_roe = max(dataset, key=lambda x: x["ROE"])["Ticker"]
+                    
+                    html_table = "<table class='custom-table'><thead><tr>"
+                    html_table += "<th>Ticker</th><th>Razón Social</th>"
+                    html_table += f"<th>Forward P/E <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['PE']}</span></div></th>"
+                    html_table += f"<th>EV/EBITDA <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['EV']}</span></div></th>"
+                    html_table += f"<th>Net Debt/EBITDA <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['DEUDA']}</span></div></th>"
+                    html_table += f"<th>Liquidez Corriente <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['LIQUIDEZ']}</span></div></th>"
+                    html_table += f"<th>Margen Neto <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['MARGEN']}</span></div></th>"
+                    html_table += f"<th>ROE <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['ROE']}</span></div></th>"
+                    html_table += "</tr></thead><tbody>"
+                    
+                    for row in dataset:
+                        c_pe = "class='winner-cell'" if row["Ticker"] == ganador_pe else ""
+                        c_ev = "class='winner-cell'" if row["Ticker"] == ganador_ev else ""
+                        c_deuda = "class='winner-cell'" if row["Ticker"] == ganador_deuda else ""
+                        c_liq = "class='winner-cell'" if row["Ticker"] == ganador_liquidez else ""
+                        c_margen = "class='winner-cell'" if row["Ticker"] == ganador_margen else ""
+                        c_roe = "class='winner-cell'" if row["Ticker"] == ganador_roe else ""
+                        
+                        html_table += "<tr>"
+                        html_table += f"<td><b>{row['Ticker']}</b></td>"
+                        html_table += f"<td>{row['Nombre']}</td>"
+                        html_table += f"<td {c_pe}>{row['PE']:.2f}</td>"
+                        html_table += f"<td {c_ev}>{row['EV']:.2f}</td>"
+                        html_table += f"<td {c_deuda}>{row['DEUDA']:.2f}x</td>"
+                        html_table += f"<td {c_liq}>{row['LIQUIDEZ']:.2f}x</td>"
+                        html_table += f"<td {c_margen}>{row['MARGEN']*100:.1f}%</td>"
+                        html_table += f"<td {c_roe}>{row['ROE']*100:.1f}%</td>"
+                        html_table += "</tr>"
+                        
+                    html_table += "</tbody></table>"
+                    st.markdown(html_table, unsafe_allow_html=True)
+                    
+                    st.markdown(f"""<div class='interpretation-box'><b>INFORME CONSULTIVO DE ASIGNACIÓN:</b> El análisis fundamental sectorial determina que la firma <strong>{ganador_roe}</strong> registra el Retorno sobre el Capital Propio (ROE) más competitivo, validando la mayor eficiencia operativa. Por su parte, <strong>{ganador_pe}</strong> expone el mayor nivel de descuento por flujo de ganancias proyectado (mínimo Forward P/E). Se sugiere configurar carteras con sesgo positivo hacia el activo bajo estudio <strong>{t_obj}</strong> en la medida que convalide niveles de solvencia robustos.</div>""", unsafe_allow_html=True)
+                    
+                    st.markdown("### 🐾 Datos Relevantes (El Sabueso de Wall Street)")
+                    st.markdown(f"""<div class='agent-box'><strong>🟢 Factores de Impulso Estructural (Puntos Positivos) para {t_obj}</strong><br>• <b>Dinámica Comercial Acelerada:</b> Los flujos recientes muestran una resiliencia superior en la colocación de sus productos/servicios núcleo.<br>• <b>Eficiencia Operativa:</b> Se observan reducciones sostenidas en costos de desarrollo y gastos administrativos, mejorando el margen de retención libre (Free Cash Flow).<br><br><strong>🔴 Factores de Riesgo y Contingencias (Puntos Negativos)</strong><br>• <b>Fricción Macro y Tasas:</b> La dependencia de financiamiento o exposición a mercados emergentes/volátiles le exige mantener mayor cobertura líquida.<br>• <b>Presión Competitiva:</b> Su sector requiere constante actualización tecnológica para no ceder cuota de mercado.<br><br><strong>📝 Resumen Ejecutivo</strong><br>Si bien el contexto impone tasas de descuento exigentes, la compañía demuestra fundamentos de construcción de valor genuino a largo plazo.</div>""", unsafe_allow_html=True)
+
+                # ---------------------------------------------------------
+                # TAB 2: ANÁLISIS TÉCNICO (SMA 30 y RSI)
+                # ---------------------------------------------------------
+                with tab_tech:
+                    st.markdown(f"### 📈 Radiografía Técnica y Fuerzas del Mercado: {t_obj}")
+                    st.markdown("""
+                    **¿Qué estamos viendo de manera sencilla?**
+                    * **Media Móvil 30 (SMA 30):** Es el precio promedio del último mes y medio (30 ruedas). Funciona como un imán o piso. Si el precio actual está *por encima*, la tendencia es alcista (fuerza compradora). Si está *por debajo*, es bajista (fuerza vendedora).
+                    * **RSI (Fuerzas de Compra y Venta):** Es un termómetro que va de 0 a 100. Si marca más de 70, el activo está "Sobrecomprado" (subió muy rápido, podría caer pronto). Si marca menos de 30, está "Sobrevendido" (cayó demasiado, podría rebotar al alza).
+                    """)
+                    
+                    # Cálculo Técnico
+                    hist_tech = yf.download(t_obj, period="1y", progress=False)
+                    if "Close" in hist_tech.columns:
+                        df_tech = hist_tech["Close"].to_frame(name="Close")
+                    else:
+                        df_tech = hist_tech.to_frame(name="Close")
+                    
+                    df_tech = df_tech.ffill().bfill()
+                    
+                    # Calcular Media Móvil 30
+                    df_tech['SMA30'] = df_tech['Close'].rolling(window=30).mean()
+                    
+                    # Calcular RSI (14 periodos)
+                    delta = df_tech['Close'].diff()
+                    gain = delta.where(delta > 0, 0.0)
+                    loss = -delta.where(delta < 0, 0.0)
+                    avg_gain = gain.rolling(window=14, min_periods=1).mean()
+                    avg_loss = loss.rolling(window=14, min_periods=1).mean()
+                    rs = avg_gain / avg_loss
+                    df_tech['RSI'] = 100 - (100 / (1 + rs))
+                    
+                    df_tech = df_tech.dropna()
+                    
+                    if not df_tech.empty:
+                        fig_tech = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.7, 0.3], vertical_spacing=0.05)
+                        
+                        # Gráfico Precio y SMA30
+                        fig_tech.add_trace(go.Scatter(x=df_tech.index, y=df_tech['Close'], name='Precio Cierre', line=dict(color='#3498db', width=2)), row=1, col=1)
+                        fig_tech.add_trace(go.Scatter(x=df_tech.index, y=df_tech['SMA30'], name='Media Móvil 30', line=dict(color='#f1c40f', width=2, dash='dash')), row=1, col=1)
+                        
+                        # Gráfico RSI
+                        fig_tech.add_trace(go.Scatter(x=df_tech.index, y=df_tech['RSI'], name='RSI (Fuerza)', line=dict(color='#9b59b6', width=2)), row=2, col=1)
+                        fig_tech.add_hline(y=70, line=dict(color='#e74c3c', dash='dot'), row=2, col=1) # Sobrecompra
+                        fig_tech.add_hline(y=30, line=dict(color='#2ecc71', dash='dot'), row=2, col=1) # Sobreventa
+                        
+                        fig_tech.update_layout(height=500, template="plotly_dark", paper_bgcolor='#111520', plot_bgcolor='#0c0f16', margin=dict(l=20,r=20,t=30,b=20))
+                        st.plotly_chart(fig_tech, use_container_width=True)
+                        
+                        # Interpretación Automática
+                        ultimo_precio = float(df_tech['Close'].iloc[-1])
+                        ultima_sma = float(df_tech['SMA30'].iloc[-1])
+                        ultimo_rsi = float(df_tech['RSI'].iloc[-1])
+                        
+                        tendencia = "ALCISTA (Toro)" if ultimo_precio > ultima_sma else "BAJISTA (Oso)"
+                        estado_rsi = "Sobrecomprado (Riesgo de corrección)" if ultimo_rsi > 70 else "Sobrevendido (Posible rebote)" if ultimo_rsi < 30 else "Zona Neutral (Fuerzas equilibradas)"
+                        
+                        st.markdown(f"""
+                        <div class='interpretation-box' style='border-left: 4px solid #3498db;'>
+                            <b>INTERPRETACIÓN TÉCNICA DEL ALGORITMO:</b><br>
+                            El precio actual de {t_obj} se encuentra en <b>${ultimo_precio:.2f}</b>, operando en tendencia de corto plazo <b>{tendencia}</b> respecto a su media móvil de 30 días (${ultima_sma:.2f}). 
+                            El termómetro de fuerza (RSI) marca <b>{ultimo_rsi:.1f}</b> puntos, lo que indica que el activo está en <b>{estado_rsi}</b>.
+                        </div>
+                        """, unsafe_allow_html=True)
+                    else:
+                        st.warning("No hay suficientes datos técnicos para generar el gráfico.")
+
+                # ---------------------------------------------------------
+                # TAB 3: SIMULACIÓN MONTECARLO
+                # ---------------------------------------------------------
+                with tab_mc:
+                    st.markdown(f"### 🎲 Simulación Estocástica Montecarlo para {t_obj}")
+                    st.markdown("""
+                    **¿Qué es esto?** Es un modelo probabilístico. Toma la volatilidad y el rendimiento histórico del último año del activo, y tira "los dados" 100 veces para trazar 100 caminos diferentes de lo que podría pasar con el precio en los próximos 30 días. Ayuda a visualizar el peor y mejor escenario matemático.
+                    """)
+                    
+                    if not df_tech.empty and len(df_tech) > 50:
+                        # Cálculo de parámetros
+                        retornos = df_tech['Close'].pct_change().dropna()
+                        mu = retornos.mean()
+                        sigma = retornos.std()
+                        
+                        dias_simulacion = 30
+                        escenarios = 100
+                        ultimo_precio_mc = float(df_tech['Close'].iloc[-1])
+                        
+                        # Matriz Montecarlo
+                        rutas = np.zeros((dias_simulacion, escenarios))
+                        rutas[0] = ultimo_precio_mc
+                        
+                        for t in range(1, dias_simulacion):
+                            Z = np.random.standard_normal(escenarios)
+                            # Movimiento Browniano Geométrico
+                            rutas[t] = rutas[t-1] * np.exp((mu - 0.5 * sigma**2) + sigma * Z)
+                            
+                        # Preparar gráfico
+                        fig_mc = go.Figure()
+                        # Dibujamos las primeras 50 rutas para no saturar el navegador
+                        for i in range(min(50, escenarios)):
+                            fig_mc.add_trace(go.Scatter(y=rutas[:, i], mode='lines', line=dict(color='rgba(52, 152, 219, 0.1)', width=1), showlegend=False))
+                            
+                        # Calcular percentiles al día 30
+                        precios_finales = rutas[-1, :]
+                        precio_esperado = np.mean(precios_finales)
+                        peor_escenario = np.percentile(precios_finales, 5)
+                        mejor_escenario = np.percentile(precios_finales, 95)
+                        
+                        # Línea Promedio y Actual
+                        fig_mc.add_trace(go.Scatter(y=np.mean(rutas, axis=1), mode='lines', name='Ruta Promedio Esperada', line=dict(color='#2ecc71', width=3)))
+                        fig_mc.add_hline(y=ultimo_precio_mc, line=dict(color='#e74c3c', dash='dash'), name='Precio Base (Hoy)')
+                        
+                        fig_mc.update_layout(title="Proyección a 30 días", height=400, template="plotly_dark", paper_bgcolor='#111520', plot_bgcolor='#0c0f16', xaxis_title="Días a Futuro", yaxis_title="Precio Simulado USD")
+                        st.plotly_chart(fig_mc, use_container_width=True)
+                        
+                        st.markdown(f"""
+                        <div class='agent-box' style='border-left: 4px solid #9b59b6;'>
+                            <b>CONCLUSIÓN DEL MODELO PROBABILÍSTICO (Rango de 30 días):</b><br>
+                            • <b>Precio Actual Base:</b> ${ultimo_precio_mc:.2f}<br>
+                            • <b>Escenario Promedio Esperado:</b> ${precio_esperado:.2f} ({(precio_esperado/ultimo_precio_mc - 1)*100:+.2f}%)<br>
+                            • <b>Escenario Ácido (Caída extrema - P5):</b> ${peor_escenario:.2f}<br>
+                            • <b>Escenario Optimista (Suba fuerte - P95):</b> ${mejor_escenario:.2f}<br><br>
+                            <i>Nota: Este modelo asume que el comportamiento histórico de volatilidad se mantendrá constante, no predice eventos corporativos imprevistos o "Cisnes Negros".</i>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    else:
+                        st.error("Insuficiente data histórica para correr el modelo Montecarlo.")
             else:
                 st.error("Llamada denegada o balances no disponibles. Verifique los tickers ingresados.")
 
-# ==========================================
-# SECCIÓN 3: EL SABUESO DE WALL STREET
-# ==========================================
-elif menu == "🐾 EL SABUESO DE WALL STREET":
-    st.subheader("🐾 El Sabueso de Wall Street: Reporte Operativo de Campo")
-    tk_sabueso = st.text_input("Ticker para relevamiento autónomo:", value="VIST").upper().strip()
-    
-    if st.button("🛰️ EJECUTAR RELEVAMIENTO DE CAMPO"):
-        with st.spinner("Rastreando minutas operativas y novedades logísticas..."):
-            st.markdown(f"### 📋 Reporte de Relevamiento de Mercado: {tk_sabueso}")
-            st.markdown(f"""
-            <div class='agent-box'>
-                <strong>🟢 Factores de Impulso Estructural (Puntos Positivos)</strong><br>
-                • <b>Ampliación de la Capacidad de Evacuación (Midstream):</b> Se consolidaron los acuerdos comerciales para la expansión de la infraestructura de transporte desde la cuenca neuquina hacia las terminales de exportación. Esto elimina cuellos de botella logísticos históricos, permitiendo incrementar el volumen de despacho y garantizando la salida directa de crudo hacia mercados internacionales.<br>
-                • <b>Mitigación de Volatilidad mediante Coberturas Long-Term:</b> La compañía aseguró contratos de compraventa de tipo <i>off-take</i> fijos denominados en moneda dura. Esta estructura técnica indexa precios base que blindan el flujo de caja operativo frente a correcciones bajistas internacionales.<br>
-                • <b>Eficiencia Operativa en Costos de Desarrollo:</b> Los reportes reflejan una reducción consistente en el <i>lifting cost</i> por barril equivalente de petróleo gracias a la optimización en la velocidad de fractura y diseño de pozos.<br><br>
-                <strong>🔴 Factores de Riesgo y Contingencias (Puntos Negativos)</strong><br>
-                • <b>Fricción Cambiaria y Restricciones a la Operatoria Local:</b> Al operar en entornos emergentes, los potenciales controles de capitales representan un riesgo de ficción operativa para la remisión ágil de utilidades o el pago a proveedores de tecnología del exterior.<br>
-                • <b>Dependencia de Infraestructura de Terceros:</b> La logística de evacuación en tramos troncales compartidos supedita parcialmente el transporte a plantas de tratamiento ajenas, pudiendo generar paradas técnicas transitorias.<br><br>
-                <strong>📝 Resumen Ejecutivo</strong><br>
-                Las inversiones en infraestructura y los contratos de volumen asegurados mitigan de forma sustancial el riesgo logístico. Aunque el contexto local impone tasas de descuento más elevadas, los fundamentos demuestran la construcción de valor sustentada en un incremento genuino de la capacidad productiva de la compañía.
-            </div>
-            """, unsafe_allow_html=True)
-
 # ==============================================================================
-# SECCIÓN 4: PORTAFOLIO MULTIACTIVO E IDEAS FACTORIALES
+# SECCIÓN 3: PORTAFOLIO MULTIACTIVO E IDEAS FACTORIALES
 # ==============================================================================
-elif menu == "💼 PORTAFOLIO Y MODELOS FACTORIALES":
+elif menu == "💼 PORTAFOLIO Y MODELOS":
     st.subheader("🤖 Modelos Factoriales de iShares (Estrategias de Asignación Táctica)")
     
     CARTERAS_FACTORIALES = {
@@ -443,7 +599,7 @@ elif menu == "💼 PORTAFOLIO Y MODELOS FACTORIALES":
             "desc": "Capturar compañías en fase de expansión temprana o nichos de mercado con Beta elevado.",
             "activos": {
                 "MELI": "Líder indiscutido de comercio electrónico y fintech en LATAM, capitalizando el despegue digital regional.",
-                "PAMP": "Jugador integrado estratégico en gas no unconventional y generación eléctrica con alta opcionalidad de crecimiento.",
+                "PAMP": "Jugador integrado estratégico en gas no convencional y generación eléctrica con alta opcionalidad de crecimiento.",
                 "TSLA": "Líder en transición de automoción automatizada y almacenamiento de energía con ventajas de escala en producción.",
                 "NFLX": "Escala global dominante en distribución de streaming con generación consolidada de flujo libre de caja positivo.",
                 "VALE": "Gigante minero de materias primas metálicas posicionado ventajosamente en la base de costos de exportación."
@@ -593,7 +749,7 @@ elif menu == "💼 PORTAFOLIO Y MODELOS FACTORIALES":
             k4.metric("Total Return Global", f"${(m_tot_u + d_tot_u - c_tot_u):,.2f} USD ({global_pct:+.2f}%)")
 
         # ==============================================================================
-        # 5. GRÁFICO DE BENCHMARKING INTERACTIVO SIN CURVAS DESCALCE A CERO
+        # GRÁFICO DE BENCHMARKING INTERACTIVO
         # ==============================================================================
         st.markdown("---")
         st.subheader("📐 Curva Evolutiva de Atribución y Benchmarking Institucional")
@@ -640,7 +796,7 @@ elif menu == "💼 PORTAFOLIO Y MODELOS FACTORIALES":
             st.info("Alineando horizontes temporales de precios subyacentes...")
             
         # ==============================================================================
-        # 6. EXPORTACIÓN REPORTE LOCAL CON CASHFLOW INTEGRADO A 1 AÑO (RESOLUCION DEFINITIVA)
+        # EXPORTACIÓN REPORTE LOCAL CON CASHFLOW INTEGRADO A 1 AÑO
         # ==============================================================================
         st.markdown("---")
         st.subheader("📥 Exportación Institucional de Estados de Cuenta")
@@ -701,7 +857,7 @@ elif menu == "💼 PORTAFOLIO Y MODELOS FACTORIALES":
         )
 
 # ==============================================================================
-# 7. PIE DE PÁGINA Y DISCLAIMER LEGAL
+# PIE DE PÁGINA Y DISCLAIMER LEGAL
 # ==============================================================================
 st.markdown("---")
 c_f1, c_f2 = st.columns([2, 1])
