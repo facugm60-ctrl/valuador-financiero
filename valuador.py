@@ -614,7 +614,7 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
                     
                     # SIMULACIÓN 1 AÑO (252 DÍAS)
                     with c_mc2:
-                        st.markdown("#### Largo Plazo: ¿Qué pasará en 1 año (252 días hábiles)?")
+                        st.markdown("#### Largo Plazo: ¿Qué pasará en 1 año?")
                         days_1y = 252
                         matriz_1y = np.zeros((days_1y, sims))
                         matriz_1y[0] = p_base
