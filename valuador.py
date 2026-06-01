@@ -320,7 +320,6 @@ elif menu == "🔍 ANÁLISIS":
             for tk in lista_tickers:
                 res_f = obtener_fundamental_completo(tk)
                 if res_f: dataset.append(res_f)
-            
             if dataset:
                 ganador_pe = min(dataset, key=lambda x: x["PE"])["Ticker"]
                 ganador_ev = min(dataset, key=lambda x: x["EV"])["Ticker"]
@@ -329,22 +328,17 @@ elif menu == "🔍 ANÁLISIS":
                 ganador_margen = max(dataset, key=lambda x: x["MARGEN"])["Ticker"]
                 ganador_roe = max(dataset, key=lambda x: x["ROE"])["Ticker"]
                 
-                html_table = f"""
-                <table class='custom-table'>
-                    <thead>
-                        <tr>
-                            <th>Ticker</th>
-                            <th>Razón Social</th>
-                            <th>Forward P/E <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['PE']}</span></div></th>
-                            <th>EV/EBITDA <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['EV']}</span></div></th>
-                            <th>Net Debt/EBITDA <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['DEUDA']}</span></div></th>
-                            <th>Liquidez Corriente <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['LIQUIDEZ']}</span></div></th>
-                            <th>Margen Neto <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['MARGEN']}</span></div></th>
-                            <th>ROE <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['ROE']}</span></div></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                """
+                # Armamos el HTML sin indentación interna para evitar que Markdown lo lea como bloque de código
+                html_table = "<table class='custom-table'><thead><tr>"
+                html_table += "<th>Ticker</th><th>Razón Social</th>"
+                html_table += f"<th>Forward P/E <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['PE']}</span></div></th>"
+                html_table += f"<th>EV/EBITDA <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['EV']}</span></div></th>"
+                html_table += f"<th>Net Debt/EBITDA <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['DEUDA']}</span></div></th>"
+                html_table += f"<th>Liquidez Corriente <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['LIQUIDEZ']}</span></div></th>"
+                html_table += f"<th>Margen Neto <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['MARGEN']}</span></div></th>"
+                html_table += f"<th>ROE <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['ROE']}</span></div></th>"
+                html_table += "</tr></thead><tbody>"
+                
                 for row in dataset:
                     c_pe = "class='winner-cell'" if row["Ticker"] == ganador_pe else ""
                     c_ev = "class='winner-cell'" if row["Ticker"] == ganador_ev else ""
@@ -353,32 +347,31 @@ elif menu == "🔍 ANÁLISIS":
                     c_margen = "class='winner-cell'" if row["Ticker"] == ganador_margen else ""
                     c_roe = "class='winner-cell'" if row["Ticker"] == ganador_roe else ""
                     
-                    html_table += f"""
-                        <tr>
-                            <td><b>{row['Ticker']}</b></td>
-                            <td>{row['Nombre']}</td>
-                            <td {c_pe}>{row['PE']:.2f}</td>
-                            <td {c_ev}>{row['EV']:.2f}</td>
-                            <td {c_deuda}>{row['DEUDA']:.2f}x</td>
-                            <td {c_liq}>{row['LIQUIDEZ']:.2f}x</td>
-                            <td {c_margen}>{row['MARGEN']*100:.1f}%</td>
-                            <td {c_roe}>{row['ROE']*100:.1f}%</td>
-                        </tr>
-                    """
+                    html_table += "<tr>"
+                    html_table += f"<td><b>{row['Ticker']}</b></td>"
+                    html_table += f"<td>{row['Nombre']}</td>"
+                    html_table += f"<td {c_pe}>{row['PE']:.2f}</td>"
+                    html_table += f"<td {c_ev}>{row['EV']:.2f}</td>"
+                    html_table += f"<td {c_deuda}>{row['DEUDA']:.2f}x</td>"
+                    html_table += f"<td {c_liq}>{row['LIQUIDEZ']:.2f}x</td>"
+                    html_table += f"<td {c_margen}>{row['MARGEN']*100:.1f}%</td>"
+                    html_table += f"<td {c_roe}>{row['ROE']*100:.1f}%</td>"
+                    html_table += "</tr>"
+                    
                 html_table += "</tbody></table>"
                 
-                # FIJADO DEFINITIVO: Cambiado st.write por st.markdown
+                # Renderizado final seguro
                 st.markdown(html_table, unsafe_allow_html=True)
                 
                 st.markdown("### 📊 Perspectiva de Asignación Estratégica")
                 st.markdown(f"""
-                <div class='interpretation-box'>
-                    <b>INFORME CONSULTIVO DE ASIGNACIÓN:</b> El análisis fundamental sectorial determina que la firma 
-                    <strong>{ganador_roe}</strong> registra el Retorno sobre el Capital Propio (ROE) más competitivo, validando la mayor eficiencia operativa. 
-                    Por su parte, <strong>{ganador_pe}</strong> expone el mayor nivel de descuento por flujo de ganancias proyectado (mínimo Forward P/E). 
-                    Se sugiere configurar carteras con sesgo positivo hacia el activo bajo estudio <strong>{t_obj}</strong> en la medida que convalide niveles de solvencia robustos.
-                </div>
-                """, unsafe_allow_html=True)
+<div class='interpretation-box'>
+    <b>INFORME CONSULTIVO DE ASIGNACIÓN:</b> El análisis fundamental sectorial determina que la firma 
+    <strong>{ganador_roe}</strong> registra el Retorno sobre el Capital Propio (ROE) más competitivo, validando la mayor eficiencia operativa. 
+    Por su parte, <strong>{ganador_pe}</strong> expone el mayor nivel de descuento por flujo de ganancias proyectado (mínimo Forward P/E). 
+    Se sugiere configurar carteras con sesgo positivo hacia el activo bajo estudio <strong>{t_obj}</strong> en la medida que convalide niveles de solvencia robustos.
+</div>
+""", unsafe_allow_html=True)
             else:
                 st.error("Llamada denegada o balances no disponibles. Verifique los tickers ingresados.")
 
