@@ -39,14 +39,13 @@ FALLBACK_SUMMARIES = {
     "KO": "The Coca-Cola Company es la empresa de bebidas no alcohólicas más grande del planeta. Posee una cartera diversificada y una red de distribución inigualable. Es una acción puramente defensiva, valorada por su capacidad para protegerse de la inflación."
 }
 
-# Diccionario unificado para los tooltips de la tabla
 EXPLICACIONES_TECNICAS = {
-    "PE": "<b>P/E (Precio sobre Ganancias):</b><br>Cuántos años tardarías en recuperar tu inversión. Si es bajo, estás comprando 'barato'.",
-    "EV": "<b>EV/EBITDA:</b><br>Costo de adquirir la empresa entera versus el efectivo limpio que genera.",
-    "DEUDA": "<b>Deuda / EBITDA:</b><br>Compara su deuda con lo que genera en un año. Valores altos indican riesgo.",
-    "LIQUIDEZ": "<b>Liquidez Corriente:</b><br>Efectivo rápido para pagar deudas cortas. Mayor a 1 significa tranquilidad.",
-    "MARGEN": "<b>Margen Neto:</b><br>De cada $100 que vende, ¿cuántos dólares le quedan limpios de ganancia?",
-    "ROE": "<b>ROE (Retorno sobre Patrimonio):</b><br>Qué tan bien la empresa hace rendir el capital de los accionistas."
+    "PE": "<b>P/E (Precio sobre Ganancias):</b><br>Cuántos años tardarías en recuperar tu inversión basándote en las ganancias actuales. Un número bajo sugiere que la acción está barata.",
+    "EV": "<b>EV/EBITDA:</b><br>Costo de adquirir la empresa entera (con sus deudas) versus el efectivo limpio que genera.",
+    "DEUDA": "<b>Deuda / EBITDA:</b><br>Compara su deuda total con lo que genera en un año. Valores altos indican mayor riesgo financiero.",
+    "LIQUIDEZ": "<b>Liquidez Corriente:</b><br>Efectivo y activos rápidos disponibles para pagar deudas de corto plazo. Mayor a 1.0x es tranquilidad.",
+    "MARGEN": "<b>Margen Neto:</b><br>De cada $100 que vende, ¿cuántos dólares le quedan limpios de ganancia final?",
+    "ROE": "<b>ROE (Retorno sobre Patrimonio):</b><br>Qué tan bien la gerencia hace rendir el capital aportado por los accionistas."
 }
 
 # ==============================================================================
@@ -304,21 +303,21 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
                     g_pe = min(dataset, key=lambda x: x["PE"] if x["PE"] > 0 else float('inf'))["Ticker"]
                     g_roe = max(dataset, key=lambda x: x["ROE"])["Ticker"]
                     
-                    html_tb = "<table class='custom-table'><thead><tr>"
-                    html_tb += "<th>Ticker</th><th>Razón Social</th>"
-                    html_tb += f"<th>P/E <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['PE']}</span></div></th>"
-                    html_table += f"<th>EV/EBITDA <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['EV']}</span></div></th>"
-                    html_table += f"<th>Deuda <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['DEUDA']}</span></div></th>"
-                    html_table += f"<th>Respaldo <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['LIQUIDEZ']}</span></div></th>"
-                    html_table += f"<th>Margen <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['MARGEN']}</span></div></th>"
-                    html_table += f"<th>ROE <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['ROE']}</span></div></th></tr></thead><tbody>"
+                    html_matriz = "<table class='custom-table'><thead><tr>"
+                    html_matriz += "<th>Ticker</th><th>Razón Social</th>"
+                    html_matriz += f"<th>P/E <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['PE']}</span></div></th>"
+                    html_matriz += f"<th>EV/EBITDA <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['EV']}</span></div></th>"
+                    html_matriz += f"<th>Deuda <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['DEUDA']}</span></div></th>"
+                    html_matriz += f"<th>Respaldo <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['LIQUIDEZ']}</span></div></th>"
+                    html_matriz += f"<th>Margen <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['MARGEN']}</span></div></th>"
+                    html_matriz += f"<th>ROE <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['ROE']}</span></div></th></tr></thead><tbody>"
                     
                     for r in dataset:
                         cls_pe = "class='winner-cell'" if r["Ticker"] == g_pe else ""
                         cls_roe = "class='winner-cell'" if r["Ticker"] == g_roe else ""
-                        html_tb += f"<tr><td><b>{r['Ticker']}</b></td><td>{r['Nombre']}</td><td {cls_pe}>{r['PE']:.2f}</td><td>{r['EV']:.2f}</td><td>{r['DEUDA']:.2f}x</td><td>{r['LIQUIDEZ']:.2f}x</td><td>{r['MARGEN']*100:.1f}%</td><td {cls_roe}>{r['ROE']*100:.1f}%</td></tr>"
-                    html_tb += "</tbody></table>"
-                    st.markdown(html_tb, unsafe_allow_html=True)
+                        html_matriz += f"<tr><td><b>{r['Ticker']}</b></td><td>{r['Nombre']}</td><td {cls_pe}>{r['PE']:.2f}</td><td>{r['EV']:.2f}</td><td>{r['DEUDA']:.2f}x</td><td>{r['LIQUIDEZ']:.2f}x</td><td>{r['MARGEN']*100:.1f}%</td><td {cls_roe}>{r['ROE']*100:.1f}%</td></tr>"
+                    html_matriz += "</tbody></table>"
+                    st.markdown(html_matriz, unsafe_allow_html=True)
                     
                     st.markdown(f"<div class='interpretation-box'><b>Conclusión Sencilla:</b> Comparando con sus rivales, <strong>{g_roe}</strong> es la que mejor hace rendir la plata que tiene invertida. Por otro lado, si miramos qué tan barata está la acción hoy en relación a lo que gana, <strong>{g_pe}</strong> parece ser la mejor oferta en vitrina.</div>", unsafe_allow_html=True)
                     st.markdown(f"<div class='agent-box'><strong>🟢 Puntos a favor:</strong> Liderazgo asegurado y protección en moneda fuerte.<br><strong>🔴 Puntos en contra:</strong> Riesgos regulatorios por mercados emergentes.</div>", unsafe_allow_html=True)
@@ -369,7 +368,7 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
                     
                     h_mc = yf.download(t_obj, period="1y", progress=False, session=yf_session)
                     if isinstance(h_mc.columns, pd.MultiIndex):
-                        df_mc = h_mc['Close'][t_obj] if t_obj in h_mc.columns.levels[1] else h_mc['Close'].iloc[:,0]
+                        df_mc = h_mc['Close'][t_obj] if t_obj in h_mc['Close'].columns else h_mc['Close'].iloc[:,0]
                     else:
                         df_mc = h_mc['Close'] if 'Close' in h_mc.columns else h_mc
                         
@@ -405,6 +404,7 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
                             
                             pe_y, pdn_y, pup_y = np.mean(m_1y[-1, :]), np.percentile(m_1y[-1, :], 5), np.percentile(m_1y[-1, :], 95)
                             st.markdown(f"<div class='agent-box' style='border-left: 4px solid #9b59b6;'><b>Traducción Sencilla:</b> A un año, el <b>Precio Justo Esperado</b> escala a <b>${pe_y:.2f} USD</b>. En un mercado ultra alcista tocaría los <b>${pup_y:.2f} USD</b>, y frente a una crisis el soporte frenaría en <b>${pdn_y:.2f} USD</b>.</div>", unsafe_allow_html=True)
+                    else: st.error("No hay datos históricos suficientes para correr el modelo Montecarlo.")
             else:
                 st.error("No se pudo analizar este activo por falta de sincronización.")
 
