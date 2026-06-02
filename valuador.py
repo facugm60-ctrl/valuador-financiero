@@ -72,36 +72,7 @@ UNIVERSO_POOL = list(RATIOS_CEDEAR.keys())
 # ==============================================================================
 st.set_page_config(page_title="Terminal Quanti Pro", layout="wide", initial_sidebar_state="collapsed")
 
-st.markdown("""
-    <style>
-    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght=300;400;600;700;800&display=swap');
-    html, body, [class*="css"], [data-testid="stAppViewContainer"], [data-testid="stHeader"] { background-color: #0c0f16 !important; color: #f1f5f9 !important; font-family: 'Montserrat', sans-serif !important; }
-    .stMarkdown, p, span, label, li { color: #cbd5e1 !important; }
-    .block-container {padding-top: 1.5rem; padding-bottom: 2rem;}
-    h1 {font-weight: 800; color: #ffffff !important; font-size: 30px !important;}
-    h2 {font-weight: 700; color: #f8fafc !important; font-size: 21px !important; margin-top: 15px;}
-    h3 {font-weight: 600; color: #f1f5f9 !important; font-size: 16px !important;}
-    div[data-testid="stRadio"] > label { display: none !important; }
-    div[data-testid="stRadio"] > div { background: rgba(22, 27, 34, 0.7) !important; backdrop-filter: blur(12px) !important; padding: 8px !important; border-radius: 12px !important; border: 1px solid rgba(255, 255, 255, 0.08) !important; gap: 12px !important; box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5) !important; margin-bottom: 20px !important; }
-    div[data-testid="stRadio"] label[data-baseweb="radio"] { background-color: transparent !important; border: 1px solid transparent !important; padding: 8px 18px !important; border-radius: 8px !important; color: #94a3b8 !important; font-weight: 600 !important; }
-    div[data-testid="stRadio"] label[data-baseweb="radio"]:hover { color: #ffffff !important; background: rgba(255, 255, 255, 0.05) !important; }
-    div[data-testid="stMetric"] { background-color: #111520 !important; border: 1px solid #1f2937 !important; border-radius: 10px !important; padding: 15px 20px !important; }
-    .stButton>button { width: 100%; background: linear-gradient(135deg, #2ecc71, #27ae60) !important; color: white !important; font-weight: 700; border-radius: 8px; border: none; padding: 0.6rem; font-size: 13px !important; text-transform: uppercase; }
-    .stButton>button:hover { background: linear-gradient(135deg, #27ae60, #219653) !important; transform: translateY(-1px); }
-    div[data-testid="stTextInput"] input, div[data-testid="stSelectbox"] div, div[data-testid="stNumberInput"] input { background-color: #111520 !important; color: #ffffff !important; border: 1px solid #1f2937 !important; border-radius: 8px !important; }
-    .radar-box-gainer-high { background: linear-gradient(135deg, #064e3b, #047857); border: 1px solid #10b981; padding: 14px; border-radius: 8px; font-weight: bold; color: #34d399 !important; }
-    .radar-box-loser { background: linear-gradient(135deg, #7f1d1d, #b91c1c); border: 1px solid #f87171; padding: 14px; border-radius: 8px; font-weight: bold; color: #f87171 !important; }
-    .interpretation-box { background-color: #111520; padding: 16px; border-radius: 8px; font-size: 13px; color: #e2e8f0; border: 1px solid #1f2937; border-left: 4px solid #2ecc71; margin-top: 10px; }
-    .agent-box { background-color: #090d16; padding: 18px; border-radius: 8px; font-size: 13px; color: #e2e8f0; border: 1px solid #1f2937; border-left: 4px solid #dfa427; margin-top: 10px; }
-    .custom-table { width: 100%; border-collapse: collapse; margin: 15px 0; font-size: 13px; background-color: #111520; border-radius: 8px; overflow: hidden; border: 1px solid #1f2937; }
-    .custom-table th { background-color: #161b22; color: #ffffff; padding: 12px; text-align: left; font-weight: 600; border-bottom: 2px solid #1f2937; position:relative; }
-    .custom-table td { padding: 12px; border-bottom: 1px solid #1f2937; color: #e2e8f0; }
-    .winner-cell { background-color: rgba(46, 204, 113, 0.15) !important; color: #2ecc71 !important; font-weight: bold; }
-    .tooltip { position: relative; display: inline-block; cursor: pointer; color: #3498db; margin-left: 4px; font-weight: bold; }
-    .tooltip .tooltiptext { visibility: hidden; width: 280px; background-color: #1f2937; color: #fff; text-align: left; padding: 12px; border-radius: 6px; position: absolute; z-index: 999; bottom: 125%; left: 50%; margin-left: -140px; font-size: 11px; font-weight: normal; line-height: 1.4; border: 1px solid #3b82f6; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
-    .tooltip:hover .tooltiptext { visibility: visible; opacity: 1; }
-    </style>
-""", unsafe_allow_html=True)
+st.markdown("""<style>@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght=300;400;600;700;800&display=swap'); html, body, [class*="css"], [data-testid="stAppViewContainer"], [data-testid="stHeader"] { background-color: #0c0f16 !important; color: #f1f5f9 !important; font-family: 'Montserrat', sans-serif !important; } .stMarkdown, p, span, label, li { color: #cbd5e1 !important; } .block-container {padding-top: 1.5rem; padding-bottom: 2rem;} h1 {font-weight: 800; color: #ffffff !important; font-size: 30px !important;} h2 {font-weight: 700; color: #f8fafc !important; font-size: 21px !important; margin-top: 15px;} h3 {font-weight: 600; color: #f1f5f9 !important; font-size: 16px !important;} div[data-testid="stRadio"] > label { display: none !important; } div[data-testid="stRadio"] > div { background: rgba(22, 27, 34, 0.7) !important; backdrop-filter: blur(12px) !important; padding: 8px !important; border-radius: 12px !important; border: 1px solid rgba(255, 255, 255, 0.08) !important; gap: 12px !important; box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5) !important; margin-bottom: 20px !important; } div[data-testid="stRadio"] label[data-baseweb="radio"] { background-color: transparent !important; border: 1px solid transparent !important; padding: 8px 18px !important; border-radius: 8px !important; color: #94a3b8 !important; font-weight: 600 !important; } div[data-testid="stRadio"] label[data-baseweb="radio"]:hover { color: #ffffff !important; background: rgba(255, 255, 255, 0.05) !important; } div[data-testid="stMetric"] { background-color: #111520 !important; border: 1px solid #1f2937 !important; border-radius: 10px !important; padding: 15px 20px !important; } .stButton>button { width: 100%; background: linear-gradient(135deg, #2ecc71, #27ae60) !important; color: white !important; font-weight: 700; border-radius: 8px; border: none; padding: 0.6rem; font-size: 13px !important; text-transform: uppercase; } .stButton>button:hover { background: linear-gradient(135deg, #27ae60, #219653) !important; transform: translateY(-1px); } div[data-testid="stTextInput"] input, div[data-testid="stSelectbox"] div, div[data-testid="stNumberInput"] input { background-color: #111520 !important; color: #ffffff !important; border: 1px solid #1f2937 !important; border-radius: 8px !important; } .radar-box-gainer-high { background: linear-gradient(135deg, #064e3b, #047857); border: 1px solid #10b981; padding: 14px; border-radius: 8px; font-weight: bold; color: #34d399 !important; } .radar-box-loser { background: linear-gradient(135deg, #7f1d1d, #b91c1c); border: 1px solid #f87171; padding: 14px; border-radius: 8px; font-weight: bold; color: #f87171 !important; } .interpretation-box { background-color: #111520; padding: 16px; border-radius: 8px; font-size: 13px; color: #e2e8f0; border: 1px solid #1f2937; border-left: 4px solid #2ecc71; margin-top: 10px; } .agent-box { background-color: #090d16; padding: 18px; border-radius: 8px; font-size: 13px; color: #e2e8f0; border: 1px solid #1f2937; border-left: 4px solid #dfa427; margin-top: 10px; } .custom-table { width: 100%; border-collapse: collapse; margin: 15px 0; font-size: 13px; background-color: #111520; border-radius: 8px; overflow: hidden; border: 1px solid #1f2937; } .custom-table th { background-color: #161b22; color: #ffffff; padding: 12px; text-align: left; font-weight: 600; border-bottom: 2px solid #1f2937; position:relative; } .custom-table td { padding: 12px; border-bottom: 1px solid #1f2937; color: #e2e8f0; } .winner-cell { background-color: rgba(46, 204, 113, 0.15) !important; color: #2ecc71 !important; font-weight: bold; } .tooltip { position: relative; display: inline-block; cursor: pointer; color: #3498db; margin-left: 4px; font-weight: bold; } .tooltip .tooltiptext { visibility: hidden; width: 280px; background-color: #1f2937; color: #fff; text-align: left; padding: 12px; border-radius: 6px; position: absolute; z-index: 999; bottom: 125%; left: 50%; margin-left: -140px; font-size: 11px; font-weight: normal; line-height: 1.4; border: 1px solid #3b82f6; box-shadow: 0 4px 20px rgba(0,0,0,0.5); } .tooltip:hover .tooltiptext { visibility: visible; opacity: 1; }</style>""", unsafe_allow_html=True)
 
 # ==============================================================================
 # 2. CONEXIÓN EXTERNA DOLARITO
@@ -352,7 +323,7 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
                     st.markdown(html_matriz_final, unsafe_allow_html=True)
                     st.markdown(f"<div class='interpretation-box'><b>Conclusión Sencilla:</b> Frente a los de control seleccionados, <b>{g_roe}</b> es la de mayor eficiencia sobre patrimonio, mientras que <b>{g_pe}</b> cotiza con mayor descuento contable.</div>", unsafe_allow_html=True)
 
-                # --- SUB-PESTAÑA 2: TÉCNICO (DMI CON SEÑALES CONCRETAS) ---
+                # --- SUB-PESTAÑA 2: TÉCNICO (DMI) ---
                 with tab_tech:
                     st.markdown(f"### 📈 El pulso del mercado (Gráfico DMI): {t_obj}")
                     if not df_raw.empty and 'High' in df_raw.columns:
@@ -376,12 +347,10 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
                         fig_d.update_layout(template="plotly_dark", paper_bgcolor='#111520', plot_bgcolor='#0c0f16', height=450, margin=dict(l=20,r=20,t=10,b=10))
                         st.plotly_chart(fig_d, use_container_width=True)
                         
-                        # Interpretación concreta y soportes/resistencias
                         p = df_t['Close'].iloc[-1]
                         di_p = df_t['+DI'].iloc[-1]
                         di_m = df_t['-DI'].iloc[-1]
                         adx = df_t['ADX'].iloc[-1]
-                        
                         soporte = df_t['Low'].tail(30).min()
                         resistencia = df_t['High'].tail(30).max()
                         
@@ -401,9 +370,24 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
                         st.markdown(f"<div class='interpretation-box'><b>Veredicto del Gráfico:</b> {senal}<br><br>{contexto}<br><br><b>Niveles Clave a vigilar (Últimos 30 días):</b><br>• <b>Soporte (Piso):</b> ${soporte:.2f} (Si rompe este nivel hacia abajo, saltan las alarmas de venta).<br>• <b>Toma de Ganancias (Techo):</b> ${resistencia:.2f} (Si llega acá, es altamente probable que el mercado empiece a vender para asegurar ganancias).</div>", unsafe_allow_html=True)
                     else: st.error("No se pudieron procesar datos para el gráfico técnico.")
 
-                # --- SUB-PESTAÑA 3: MONTECARLO (10.000 SIMULACIONES) ---
+                # --- SUB-PESTAÑA 3: MONTECARLO ---
                 with tab_mc:
                     st.markdown("### 🎲 La Máquina del Tiempo (Simulador Estocástico)")
+                    
+                    st.markdown("""
+                    <div class='agent-box'>
+                    <strong>¿Qué tiene en cuenta este modelo matemático?</strong><br>
+                    Es un modelo estadístico puro que funciona mirando por el espejo retrovisor. Solo toma <b>la inercia</b> (el rendimiento promedio diario) y <b>el nerviosismo</b> (la volatilidad) que tuvo el activo durante el último año.<br><br>
+                    <strong>¿Qué NO tiene en cuenta?</strong><br>
+                    Es "ciego" al mundo real. No evalúa balances de la empresa, la inflación, el tipo de cambio, el precio del barril de petróleo, ni las decisiones políticas. <br><br>
+                    <strong>¿Cómo se calcula para sacar los números finales?</strong><br>
+                    La computadora simula <b>10.000 caminos posibles</b> (tira los dados 10.000 veces) para proyectar el precio. <br>
+                    • <i>Escenario Base:</i> Es el promedio exacto de esas 10.000 simulaciones.<br>
+                    • <i>Escenario Optimista:</i> Es la zona donde caen el 5% de los mejores resultados (tu techo de euforia aleatoria).<br>
+                    • <i>Escenario Pesimista:</i> Es la zona del 5% de los peores resultados posibles (tu piso de contención).
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
                     ret = serie_mc.pct_change().dropna()
                     mu, sigma, p_b = ret.mean(), ret.std(), serie_mc.iloc[-1]
                     c1, c2 = st.columns(2)
@@ -503,4 +487,4 @@ elif menu == "💼 PORTAFOLIO Y MODELOS":
 
 st.markdown("---")
 st.markdown("<p style='text-align: right; font-size: 12px; color: #cbd5e1;'>Desarrollado por <a href='https://www.linkedin.com/in/facundo-garciamarquez?utm_source=share_via&utm_content=profile&utm_medium=member_android' target='_blank' style='color: #2ecc71; text-decoration: none; font-weight: 600;'>Facundo Garcia Marquez</a> | Terminal Quanti Pro</p>", unsafe_allow_html=True)
-st.markdown("""<div style='background-color: rgba(231, 76, 60, 0.08); padding: 12px; border-left: 4px solid #e74c3c; font-size: 11px; color: #94a3b8;'><strong>⚠️ ADVERTENCIA EXCLUSIÓN DE RESPONSABILIDAD:</strong> Las cotizaciones de mercado y el análisis automatizado se exponen únicamente con fines educativos y de simulación de portafolios. No constituyen bajo ningún concepto asesoramiento financiero ni una recomendación explícita de compra o venta de activos o instrumentos de inversión corporativos.</div>""", unsafe_allow_html=True)
+st.markdown("""<div style='background-color: rgba(231, 76, 60, 0.08); padding: 12px; border-left: 4px solid #e74c3c; font-size: 11px; color: #94a3b8;'><strong>⚠️ ADVERTENCIA EXCLUSIÓN DE RESPONSABILIDAD:</strong> Las cotizaciones de mercado y el análisis automatizado se exponen únicamente con fines educativos y de simulación de portafolios. No constituyen bajo ningún concepto asesoramiento financiero ni una recomendación explícita de compra o venta de activos corporativos.</div>""", unsafe_allow_html=True)
