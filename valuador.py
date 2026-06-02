@@ -39,13 +39,14 @@ FALLBACK_SUMMARIES = {
     "KO": "The Coca-Cola Company es la empresa de bebidas no alcohólicas más grande del planeta. Posee una cartera diversificada y una red de distribución inigualable. Es una acción puramente defensiva, valorada por su capacidad para protegerse de la inflación."
 }
 
+# Diccionario unificado para los tooltips de la tabla
 EXPLICACIONES_TECNICAS = {
-    "PE": "<b>P/E (Precio sobre Ganancias):</b><br>Cuántos años tardarías en recuperar tu inversión basándote en las ganancias actuales. Un número bajo sugiere que la acción está barata.",
-    "EV": "<b>EV/EBITDA:</b><br>Costo de adquirir la empresa entera (con sus deudas) versus el efectivo limpio que genera.",
-    "DEUDA": "<b>Deuda / EBITDA:</b><br>Compara su deuda total con lo que genera en un año. Valores altos indican mayor riesgo financiero.",
-    "LIQUIDEZ": "<b>Liquidez Corriente:</b><br>Efectivo y activos rápidos disponibles para pagar deudas de corto plazo. Mayor a 1.0x es tranquilidad.",
-    "MARGEN": "<b>Margen Neto:</b><br>De cada $100 que vende, ¿cuántos dólares le quedan limpios de ganancia final?",
-    "ROE": "<b>ROE (Retorno sobre Patrimonio):</b><br>Qué tan bien la gerencia hace rendir el capital aportado por los accionistas."
+    "PE": "<b>P/E (Precio sobre Ganancias):</b><br>Cuántos años tardarías en recuperar tu inversión. Si es bajo, estás comprando 'barato'.",
+    "EV": "<b>EV/EBITDA:</b><br>Costo de adquirir la empresa entera versus el efectivo limpio que genera.",
+    "DEUDA": "<b>Deuda / EBITDA:</b><br>Compara su deuda con lo que genera en un año. Valores altos indican riesgo.",
+    "LIQUIDEZ": "<b>Liquidez Corriente:</b><br>Efectivo rápido para pagar deudas cortas. Mayor a 1 significa tranquilidad.",
+    "MARGEN": "<b>Margen Neto:</b><br>De cada $100 que vende, ¿cuántos dólares le quedan limpios de ganancia?",
+    "ROE": "<b>ROE (Retorno sobre Patrimonio):</b><br>Qué tan bien la empresa hace rendir el capital de los accionistas."
 }
 
 # ==============================================================================
@@ -185,27 +186,6 @@ def filtrar_peers_por_sector(ticker_raiz, lista_ingresada):
         except: peers_validos.append(p_clean)
     return peers_validos
 
-def calcular_dividendos_historicos(ticker, fecha_compra, nominales):
-    try:
-        t = yf.Ticker(ticker, session=yf_session)
-        divs = t.dividends
-        if divs.empty: return 0.0
-        fecha_compra_dt = pd.to_datetime(fecha_compra)
-        if fecha_compra_dt.tzinfo is None:
-            fecha_compra_dt = fecha_compra_dt.tz_localize(divs.index.tz)
-        divs_filtrados = divs[divs.index >= fecha_compra_dt]
-        return round(float(divs_filtrados.sum()) * nominales, 2)
-    except: return 0.0
-
-def calcular_dividendos_proyectados(ticker, nominales):
-    try:
-        t = yf.Ticker(ticker, session=yf_session)
-        divs = t.dividends
-        if divs.empty: return 0.0
-        hace_un_año = pd.Timestamp.now().tz_localize(divs.index.tz) - pd.Timedelta(days=365)
-        return round(float(divs[divs.index >= hace_un_año].sum()) * nominales, 2)
-    except: return 0.0
-
 # ==============================================================================
 # 4. INTERFAZ Y DASHBOARD
 # ==============================================================================
@@ -221,11 +201,27 @@ st.markdown("---")
 if menu == "🌐 DASHBOARD Y WATCHLIST":
     st.subheader("⚡ Market Radar: Momentum de Ruedas")
     ordenados = sorted(POOL_DATA.items(), key=lambda x: x[1]["1D"], reverse=True)
-    c1, c2, c3, c4 = st.columns(4)
-    with c1: st.markdown(f"<div class='radar-box-gainer-high'>🟢 Liderando la Rueda<br><br>• {ordenados[0][0]}: {ordenados[0][1]['1D']:+.2f}%</div>", unsafe_allow_html=True)
-    with c2: st.markdown(f"<div class='radar-box-loser'>🔴 Mayor Compresión<br><br>• {ordenados[-1][0]}: {ordenados[-1][1]['1D']:+.2f}%</div>", unsafe_allow_html=True)
-    with c3: st.markdown("<div class='radar-box-gainer-high'>🚀 Impulso Factorial Continuo<br><br>• VIST: Flujo en Expansión</div>", unsafe_allow_html=True)
-    with c4: st.markdown("<div class='radar-box-loser'>📉 Compresión de Margen<br><br>• KO: Estructura de Resguardo</div>", unsafe_allow_html=True)
+    c1, c2 = st.columns(2)
+    
+    with c1: 
+        st.markdown(f"""
+        <div class='radar-box-gainer-high'>
+            🟢 Top 3 Ganadores (1D)<br><br>
+            1. {ordenados[0][0]}: {ordenados[0][1]['1D']:+.2f}%<br>
+            2. {ordenados[1][0]}: {ordenados[1][1]['1D']:+.2f}%<br>
+            3. {ordenados[2][0]}: {ordenados[2][1]['1D']:+.2f}%
+        </div>
+        """, unsafe_allow_html=True)
+        
+    with c2: 
+        st.markdown(f"""
+        <div class='radar-box-loser'>
+            🔴 Top 3 Perdedores (1D)<br><br>
+            1. {ordenados[-1][0]}: {ordenados[-1][1]['1D']:+.2f}%<br>
+            2. {ordenados[-2][0]}: {ordenados[-2][1]['1D']:+.2f}%<br>
+            3. {ordenados[-3][0]}: {ordenados[-3][1]['1D']:+.2f}%
+        </div>
+        """, unsafe_allow_html=True)
     
     st.markdown("---")
     st.subheader("📌 Monitoreo General del Mercado (Watchlist)")
@@ -258,14 +254,14 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
                     if tk == t_obj: info_raiz = res_f["RAW"]
             
             if dataset:
-                tab_fund, tab_tech, tab_mc = st.tabs(["📊 Fundamental", "📈 Técnico (DMI)", "🎲 Montecarlo Dual"])
+                tab_fund, tab_tech, tab_mc = st.tabs(["📊 Fundamental", "📈 Técnico (DMI)", "🎲 Montecarlo"])
                 
                 # --- PESTAÑA 1: FUNDAMENTAL ---
                 with tab_fund:
                     st.markdown("### 🏢 ¿A qué se dedica esta empresa?")
                     desc_raw = info_raiz.get("longBusinessSummary", "")
                     if not desc_raw:
-                        desc_final = FALLBACK_SUMMARIES.get(t_obj, f"{t_obj} opera en el sector corporativo. (Yahoo Finance bloqueó la descripción extendida en la nube).")
+                        desc_final = FALLBACK_SUMMARIES.get(t_obj, f"{t_obj} opera en el sector corporativo. (Yahoo Finance bloqueó la descripción extendida temporalmente).")
                     else:
                         if HAS_TRANSLATOR:
                             try: desc_final = GoogleTranslator(source='en', target='es').translate(desc_raw)
@@ -324,24 +320,21 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
                     html_tb += "</tbody></table>"
                     st.markdown(html_tb, unsafe_allow_html=True)
                     
-                    st.markdown(f"<div class='interpretation-box'><b>Conclusión de Inversión Sencilla:</b> Comparando con sus rivales, <strong>{g_roe}</strong> es la que mejor hace rendir la plata que tiene invertida. Por otro lado, si miramos qué tan barata está la acción hoy en relación a lo que gana, <strong>{g_pe}</strong> parece ser la mejor oferta en vitrina.</div>", unsafe_allow_html=True)
-                    st.markdown(f"<div class='agent-box'><strong>🟢 Puntos a favor:</strong> Logística asegurada y protección en moneda fuerte.<br><strong>🔴 Puntos en contra:</strong> Riesgos regulatorios por operar en mercados emergentes.</div>", unsafe_allow_html=True)
+                    st.markdown(f"<div class='interpretation-box'><b>Conclusión Sencilla:</b> Comparando con sus rivales, <strong>{g_roe}</strong> es la que mejor hace rendir la plata que tiene invertida. Por otro lado, si miramos qué tan barata está la acción hoy en relación a lo que gana, <strong>{g_pe}</strong> parece ser la mejor oferta en vitrina.</div>", unsafe_allow_html=True)
+                    st.markdown(f"<div class='agent-box'><strong>🟢 Puntos a favor:</strong> Liderazgo asegurado y protección en moneda fuerte.<br><strong>🔴 Puntos en contra:</strong> Riesgos regulatorios por mercados emergentes.</div>", unsafe_allow_html=True)
 
                 # --- PESTAÑA 2: TÉCNICO (DMI) ---
                 with tab_tech:
                     st.markdown(f"### 📈 El pulso del mercado (Gráfico DMI): {t_obj}")
-                    st.markdown("**¿Cómo leer este gráfico fácilmente?**<br>* **Línea Verde (+DI - Fuerza Compradora):** Mide la motivación de compra. Si supera a la roja, compradores al mando.<br>* **Línea Roja (-DI - Fuerza Vendedora):** Mide la presión de venta. Si supera a la verde, pánico o toma de ganancias.<br>* **Línea Azul (ADX - Fuerza de Tendencia):** Te dice si el movimiento va en serio. Sobre 25 puntos, tendencia muy sólida.", unsafe_allow_html=True)
+                    st.markdown("**¿Cómo leer este gráfico fácilmente?**<br>* **Línea Verde (+DI - Fuerza Compradora):** Mide la motivación de compra. Si supera a la roja, compradores al mando.<br>* **Línea Roja (-DI - Fuerza Vendedora):** Mide la presión de venta. Si supera a la verde, pánico o toma de ganancias.<br>* **Línea Azul (ADX - Fuerza de Tendencia):** Te dice si el movimiento va en serio. Sobre 25, tendencia sólida.", unsafe_allow_html=True)
                     
                     h_raw = yf.download(t_obj, period="1y", progress=False, session=yf_session)
-                    
-                    # Manejo blindado de columnas de Yahoo Finance
                     if isinstance(h_raw.columns, pd.MultiIndex):
-                        if t_obj in h_raw.columns.levels[1]: df_t = h_raw.xs(t_obj, axis=1, level=1)
-                        else: df_t = h_raw.xs(h_raw.columns.levels[1][0], axis=1, level=1)
+                        df_t = h_raw.xs(t_obj, axis=1, level=1) if t_obj in h_raw.columns.levels[1] else h_raw.iloc[:, :6]
+                        df_t.columns = [c.lower() for c in df_t.columns]
                     else:
                         df_t = h_raw.copy()
-
-                    df_t.columns = [str(c).lower() for c in df_t.columns]
+                        df_t.columns = [c.lower() for c in df_t.columns]
 
                     if not df_t.empty and 'high' in df_t.columns:
                         df_t['EMA30'] = df_t['close'].ewm(span=30, adjust=False).mean()
@@ -355,8 +348,8 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
                         df_t = df_t.dropna()
                         
                         fig_d = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.65, 0.35], vertical_spacing=0.04)
-                        fig_d.add_trace(go.Scatter(x=df_t.index, y=df_t['close'], name="Precio Cierre", line=dict(color='#ffffff', width=2)), row=1, col=1)
-                        fig_d.add_trace(go.Scatter(x=df_t.index, y=df_t['ema30'], name="Promedio 30", line=dict(color='#f1c40f', dash='dash')), row=1, col=1)
+                        fig_d.add_trace(go.Scatter(x=df_t.index, y=df_t['close'], name="Precio", line=dict(color='#ffffff', width=2)), row=1, col=1)
+                        fig_d.add_trace(go.Scatter(x=df_t.index, y=df_t['EMA30'], name="Promedio 30", line=dict(color='#f1c40f', dash='dash')), row=1, col=1)
                         fig_d.add_trace(go.Scatter(x=df_t.index, y=df_t['+DI'], name="+DI (Verde)", line=dict(color='#2ecc71', width=1.5)), row=2, col=1)
                         fig_d.add_trace(go.Scatter(x=df_t.index, y=df_t['-DI'], name="-DI (Rojo)", line=dict(color='#e74c3c', width=1.5)), row=2, col=1)
                         fig_d.add_trace(go.Scatter(x=df_t.index, y=df_t['ADX'], name="ADX (Azul)", line=dict(color='#3498db', width=2)), row=2, col=1)
@@ -365,7 +358,7 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
                         
                         p, di_p, di_m, adx = df_t['close'].iloc[-1], df_t['+DI'].iloc[-1], df_t['-DI'].iloc[-1], df_t['ADX'].iloc[-1]
                         dom = "los COMPRADORES" if di_p > di_m else "los VENDEDORES"
-                        tend = "con muchísimo impulso y tendencia clara." if adx > 25 else "pero el mercado está dudoso y lateral (sin rumbo)."
+                        tend = "con muchísimo impulso." if adx > 25 else "pero el mercado está lateral y con dudas."
                         st.markdown(f"<div class='interpretation-box'><strong>¿QUIÉN TIENE EL VOLANTE HOY?</strong> Al precio actual de <b>${p:.2f}</b>, <b>{dom}</b> tienen el control, {tend}</div>", unsafe_allow_html=True)
                     else: st.error("No hay datos técnicos suficientes.")
 
@@ -374,7 +367,12 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
                     st.markdown("### 🎲 La Máquina del Tiempo (Simulador de Escenarios)")
                     st.markdown("**¿Qué es esto?** Tiramos los dados 100 veces basándonos en cómo se movió el último año para ver los caminos posibles del precio.")
                     
-                    df_mc = POOL_DATA.get(t_obj, {}).get("serie_completa", pd.Series(dtype=float))
+                    h_mc = yf.download(t_obj, period="1y", progress=False, session=yf_session)
+                    if isinstance(h_mc.columns, pd.MultiIndex):
+                        df_mc = h_mc['Close'][t_obj] if t_obj in h_mc.columns.levels[1] else h_mc['Close'].iloc[:,0]
+                    else:
+                        df_mc = h_mc['Close'] if 'Close' in h_mc.columns else h_mc
+                        
                     if not df_mc.empty and len(df_mc) > 50:
                         ret = df_mc.pct_change().dropna()
                         mu, sigma, p_b = ret.mean(), ret.std(), df_mc.iloc[-1]
@@ -392,7 +390,7 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
                             st.plotly_chart(f1m, use_container_width=True)
                             
                             pe, pdn, pup = np.mean(m_1m[-1, :]), np.percentile(m_1m[-1, :], 5), np.percentile(m_1m[-1, :], 95)
-                            st.markdown(f"<div class='agent-box' style='border-left: 4px solid #2ecc71;'><b>Traducción Sencilla:</b> Teniendo en cuenta el escenario vanilla (misma inercia), el <b>Precio Justo a 30 días</b> es <b>${pe:.2f} USD</b>. Si la bolsa se dispara, subiría a <b>${pup:.2f} USD</b>. Si entran en pánico, el piso es <b>${pdn:.2f} USD</b>.</div>", unsafe_allow_html=True)
+                            st.markdown(f"<div class='agent-box' style='border-left: 4px solid #2ecc71;'><b>Traducción Sencilla:</b> Teniendo en cuenta el escenario vanilla, el <b>Precio Justo a 30 días</b> es <b>${pe:.2f} USD</b>. Si la bolsa se dispara, subiría a <b>${pup:.2f} USD</b>. Si entran en pánico, el piso es <b>${pdn:.2f} USD</b>.</div>", unsafe_allow_html=True)
                         
                         with c2:
                             st.markdown("#### Largo Plazo: 1 Año (252 días)")
@@ -407,7 +405,8 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
                             
                             pe_y, pdn_y, pup_y = np.mean(m_1y[-1, :]), np.percentile(m_1y[-1, :], 5), np.percentile(m_1y[-1, :], 95)
                             st.markdown(f"<div class='agent-box' style='border-left: 4px solid #9b59b6;'><b>Traducción Sencilla:</b> A un año, el <b>Precio Justo Esperado</b> escala a <b>${pe_y:.2f} USD</b>. En un mercado ultra alcista tocaría los <b>${pup_y:.2f} USD</b>, y frente a una crisis el soporte frenaría en <b>${pdn_y:.2f} USD</b>.</div>", unsafe_allow_html=True)
-                    else: st.error("No hay datos históricos suficientes para correr el modelo Montecarlo.")
+            else:
+                st.error("No se pudo analizar este activo por falta de sincronización.")
 
 # ------------------------------------------------------------------------------
 # PORTAFOLIO Y MODELOS
@@ -511,6 +510,7 @@ elif menu == "💼 PORTAFOLIO Y MODELOS":
         asesor = st.text_input("Asesor Firmante:", value="Facundo Garcia Marquez")
         
         h_rep = "".join([f"<tr><td>{x['Ticker']}</td><td>{x['Cant']}</td><td>{x['Precio']}</td><td>{x['Mercado']}</td><td>{x['Retorno']}</td></tr>" for x in f_pdf])
+        
         doc = f"<html><head><meta charset='utf-8'><style>body{{font-family:Arial; color:#2c3e50;}} h1{{color:#2ecc71;}} table{{width:100%; border-collapse:collapse; font-size:12px;}} th,td{{padding:8px; border:1px solid #ddd; text-align:left;}}</style></head><body><h1>Reporte de Portafolio</h1><p><b>Asesor:</b> {asesor}</p><p><b>Retorno:</b> {gp:+.2f}%</p><table><thead><tr><th>Ticker</th><th>Cant</th><th>Precio</th><th>Mercado</th><th>Retorno</th></tr></thead><tbody>{h_rep}</tbody></table></body></html>"
         st.download_button("📥 DESCARGAR REPORTE", data=doc.encode('utf-8'), file_name=f"Reporte_{asesor.replace(' ','_')}.html", mime="text/html")
 
@@ -519,3 +519,4 @@ elif menu == "💼 PORTAFOLIO Y MODELOS":
 # ==============================================================================
 st.markdown("---")
 st.markdown("<p style='text-align: right; font-size: 12px; color: #2ecc71; font-weight: 600;'>Facundo Garcia Marquez | Terminal Quanti Pro</p>", unsafe_allow_html=True)
+st.markdown("<div style='background-color: rgba(231, 76, 60, 0.08); padding: 12px; border-left: 4px solid #e74c3c; font-size: 11px; color: #94a3b8;'><strong>⚠️ ADVERTENCIA:</strong> Fines educativos y de simulación.</div>", unsafe_allow_html=True)
