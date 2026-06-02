@@ -11,7 +11,7 @@ from bs4 import BeautifulSoup
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-# MIGRACIÓN DE MOTOR A YAHOOQUERY
+# MIGRACIÓN DE MOTOR A YAHOOQUERY (Anti-Bloqueos en la Nube)
 try:
     from yahooquery import Ticker
 except ImportError:
@@ -74,7 +74,7 @@ st.markdown("""
     .custom-table th { background-color: #161b22; color: #ffffff; padding: 12px; text-align: left; font-weight: 600; border-bottom: 2px solid #1f2937; position: relative; }
     .custom-table td { padding: 12px; border-bottom: 1px solid #1f2937; color: #e2e8f0; }
     .custom-table tr:hover { background-color: #1c2331; }
-    .winner-cell { background-color: rgba(46, 204, 113, 0.15) !important; color: #2ecc71 !important; font-weight: bold; }
+    .winner-cell { background-color: rgba(46, 204, 113, 0.15) !important; color: #2ecc71 !important; font-weight: bold; border: 1px solid rgba(46, 204, 113, 0.3) !important;}
     
     .tooltip { position: relative; display: inline-block; cursor: pointer; color: #3498db; margin-left: 4px; font-weight: bold; }
     .tooltip .tooltiptext { visibility: hidden; width: 280px; background-color: #1f2937; color: #fff; text-align: left; padding: 12px; border-radius: 6px; position: absolute; z-index: 999; bottom: 125%; left: 50%; margin-left: -140px; opacity: 0; transition: opacity 0.3s; font-size: 11px; font-weight: normal; line-height: 1.4; border: 1px solid #3b82f6; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
@@ -170,15 +170,17 @@ def obtener_fundamental_completo(symbol):
         p_data = t.price.get(symbol, {}) if isinstance(t.price, dict) else {}
         profile = t.summary_profile.get(symbol, {}) if isinstance(t.summary_profile, dict) else {}
         
-        px = POOL_DATA.get(symbol, {}).get("precio", safe_float(p_data.get("regularMarketPrice"), 50.0))
+        px = POOL_DATA.get(symbol, {}).get("precio", safe_float(f_data.get("currentPrice"), 50.0))
+        
+        td = safe_float(f_data.get("totalDebt"), 0.0)
+        caj = safe_float(f_data.get("totalCash"), 0.0)
+        eb = safe_float(f_data.get("ebitda"), 1.0)
+        
         pe = safe_float(sum_det.get("forwardPE", sum_det.get("trailingPE", 0.0)))
         ev = safe_float(k_stats.get("enterpriseToEbitda", 0.0))
-        td = safe_float(f_data.get("totalDebt", 0.0))
-        caj = safe_float(f_data.get("totalCash", 0.0))
-        eb = safe_float(f_data.get("ebitda", 1.0))
-        liq = safe_float(f_data.get("currentRatio", 0.0))
-        marg = safe_float(f_data.get("profitMargins", 0.0))
-        roe = safe_float(f_data.get("returnOnEquity", 0.0))
+        liq = safe_float(f_data.get("currentRatio"), 0.0)
+        marg = safe_float(f_data.get("profitMargins"), 0.0)
+        roe = safe_float(f_data.get("returnOnEquity"), 0.0)
         
         ratio_deuda = (td - caj) / eb if eb != 0 else 0.0
         
@@ -203,7 +205,7 @@ def filtrar_peers_por_sector(ticker_raiz, lista_ingresada):
     return peers_validos
 
 # ==============================================================================
-# CARTERA E INTERFAZ
+# 4. INTERFAZ PRINCIPAL Y DASHBOARD
 # ==============================================================================
 if "cartera_list_v4" not in st.session_state:
     st.session_state.cartera_list_v4 = [
@@ -261,13 +263,15 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
             if dataset:
                 tab_fund, tab_tech, tab_mc = st.tabs(["📊 Análisis Fundamental", "📈 Análisis Técnico (DMI)", "🎲 Simulación Montecarlo Dual"])
                 
-                # --- PESTAÑA 1: FUNDAMENTAL ---
+                # ==============================================================
+                # PESTAÑA 1: FUNDAMENTAL
+                # ==============================================================
                 with tab_fund:
                     st.markdown("### 🏢 ¿A qué se dedica esta empresa?")
                     desc_raw = info_obj.get("RAW_INFO", {}).get("longBusinessSummary", "")
                     
                     if not desc_raw:
-                        desc_final = FALLBACK_SUMMARIES.get(t_obj, f"{t_obj} es una empresa que opera en el sector {info_obj.get('RAW_INFO', {}).get('sector', 'financiero/industrial')}. Los datos descriptivos profundos no están disponibles públicamente en este momento.")
+                        desc_final = FALLBACK_SUMMARIES.get(t_obj, f"{t_obj} es una empresa que opera en el sector comercial/financiero. Los datos descriptivos profundos no están disponibles públicamente en este momento.")
                     else:
                         if HAS_TRANSLATOR:
                             try: desc_final = GoogleTranslator(source='en', target='es').translate(desc_raw)
@@ -281,18 +285,22 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
                         st.markdown("#### ¿Qué opina Wall Street?")
                         recom = str(info_obj.get("REC", "hold")).lower()
                         val = 5 if "strong buy" in recom else 4 if "buy" in recom else 2 if "sell" in recom else 3
-                        fig_g = go.Figure(go.Indicator(mode="gauge+number", value=val, title={'text': "Consenso", 'font': {'size': 14}}, gauge={'axis': {'range': [1, 5], 'tickvals': [1,2,3,4,5], 'ticktext': ['Venta F.','Venta','Mantener','Compra','Compra F.']}, 'bar': {'color': "#ffffff"}, 'steps': [{'range': [1, 2.5], 'color': "#7f1d1d"}, {'range': [2.5, 3.5], 'color': "#111520"}, {'range': [3.5, 5], 'color': "#064e3b"}]}))
-                        fig_g.update_layout(height=220, margin=dict(l=10,r=10,t=30,b=10), paper_bgcolor='#111520', font={'color': '#ffffff'})
-                        st.plotly_chart(fig_g, use_container_width=True)
+                        fig_gauge = go.Figure(go.Indicator(mode="gauge+number", value=val, title={'text': "Consenso", 'font': {'size': 14}}, gauge={'axis': {'range': [1, 5], 'tickvals': [1,2,3,4,5], 'ticktext': ['Venta F.','Venta','Mantener','Compra','Compra F.']}, 'bar': {'color': "#ffffff"}, 'steps': [{'range': [1, 2.5], 'color': "#7f1d1d"}, {'range': [2.5, 3.5], 'color': "#111520"}, {'range': [3.5, 5], 'color': "#064e3b"}]}))
+                        fig_gauge.update_layout(height=220, margin=dict(l=10,r=10,t=30,b=10), paper_bgcolor='#111520', font={'color': '#ffffff'})
+                        st.plotly_chart(fig_gauge, use_container_width=True)
                         
                     with col_caja:
                         st.markdown("#### 🎁 Caja de Sorpresas: Últimos 4 Trimestres")
+                        st.markdown("*¿Cuánto vendió realmente vs cuánta plata limpia le quedó en el bolsillo?*")
                         try:
-                            q_fin = Ticker(t_obj).income_statement(frequency="q").iloc[-4:]
-                            if not q_fin.empty and 'TotalRevenue' in q_fin.columns and 'NetIncome' in q_fin.columns:
-                                labels = [p.strftime('%d-%m-%Y') if hasattr(p, 'strftime') else str(p) for p in q_fin.get('asOfDate', ["T-4", "T-3", "T-2", "T-1"])]
-                                rev_vals = q_fin['TotalRevenue'].values / 1e9
-                                net_vals = q_fin['NetIncome'].values / 1e9
+                            t_instance = Ticker(t_obj)
+                            q_fin = t_instance.income_statement(frequency="q")
+                            if isinstance(q_fin, pd.DataFrame) and not q_fin.empty:
+                                df_q = q_fin.loc[t_obj].tail(4) if t_obj in q_fin.index.levels[0] else q_fin.tail(4)
+                                labels = df_q['asOfDate'].dt.strftime('%d-%m-%Y').tolist() if 'asOfDate' in df_q.columns else [f"T-{4-i}" for i in range(len(df_q))]
+                                rev_vals = df_q['TotalRevenue'].values / 1e9 if 'TotalRevenue' in df_q.columns else np.zeros(len(df_q))
+                                net_vals = df_q['NetIncome'].values / 1e9 if 'NetIncome' in df_q.columns else np.zeros(len(df_q))
+                                
                                 fig_c = go.Figure(data=[go.Bar(name='Ingresos (Billion USD)', x=labels, y=rev_vals, marker_color='#3498db'), go.Bar(name='Plata Limpia (Billion USD)', x=labels, y=net_vals, marker_color='#2ecc71')])
                                 fig_c.update_layout(barmode='group', template="plotly_dark", paper_bgcolor='#111520', plot_bgcolor='#0c0f16', height=200, margin=dict(l=10,r=10,t=10,b=20))
                                 st.plotly_chart(fig_c, use_container_width=True)
@@ -304,26 +312,43 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
                     g_pe = min(dataset, key=lambda x: x["PE"] if x["PE"] > 0 else float('inf'))["Ticker"]
                     g_roe = max(dataset, key=lambda x: x["ROE"])["Ticker"]
                     
-                    html_tb = "<table class='custom-table'><thead><tr><th>Ticker</th><th>Razón Social</th>"
-                    html_tb += f"<th>Precio/Ganancia (PE) <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['PE']}</span></div></th>"
-                    html_tb += f"<th>Costo Empresa (EV) <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['EV']}</span></div></th>"
-                    html_tb += f"<th>Nivel de Deuda <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['DEUDA']}</span></div></th>"
+                    # Construcción línea por línea para evitar NameErrors
+                    html_table = "<table class='custom-table'><thead><tr>"
+                    html_table += "<th>Ticker</th><th>Razón Social</th>"
+                    html_table += f"<th>Precio/Ganancia (PE) <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['PE']}</span></div></th>"
+                    html_table += f"<th>Costo Empresa (EV) <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['EV']}</span></div></th>"
+                    html_table += f"<th>Nivel de Deuda <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['DEUDA']}</span></div></th>"
                     html_table += f"<th>Respaldo Efectivo <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['LIQUIDEZ']}</span></div></th>"
                     html_table += f"<th>Margen de Ganancia <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['MARGEN']}</span></div></th>"
-                    html_table += f"<th>Retorno a Dueños <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['ROE']}</span></div></th></tr></thead><tbody>"
+                    html_table += f"<th>Retorno a Dueños <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['ROE']}</span></div></th>"
+                    html_table += "</tr></thead><tbody>"
                     
                     for r in dataset:
-                        html_tb += f"<tr><td><b>{r['Ticker']}</b></td><td>{r['Nombre']}</td><td {'class=winner-cell' if r['Ticker']==g_pe else ''}>{r['PE']:.2f}</td><td>{r['EV']:.2f}</td><td>{r['DEUDA']:.2f}x</td><td>{r['LIQUIDEZ']:.2f}x</td><td>{r['MARGEN']*100:.1f}%</td><td {'class=winner-cell' if r['Ticker']==g_roe else ''}>{r['ROE']*100:.1f}%</td></tr>"
-                    html_tb += "</tbody></table>"
-                    st.markdown(html_tb, unsafe_allow_html=True)
+                        cls_pe = "class='winner-cell'" if r["Ticker"] == g_pe else ""
+                        cls_roe = "class='winner-cell'" if r["Ticker"] == g_roe else ""
+                        html_table += "<tr>"
+                        html_table += f"<td><b>{r['Ticker']}</b></td>"
+                        html_table += f"<td>{r['Nombre']}</td>"
+                        html_table += f"<td {cls_pe}>{r['PE']:.2f}</td>"
+                        html_table += f"<td>{r['EV']:.2f}</td>"
+                        html_table += f"<td>{r['DEUDA']:.2f}x</td>"
+                        html_table += f"<td>{r['LIQUIDEZ']:.2f}x</td>"
+                        html_table += f"<td>{r['MARGEN']*100:.1f}%</td>"
+                        html_table += f"<td {cls_roe}>{r['ROE']*100:.1f}%</td>"
+                        html_table += "</tr>"
+                        
+                    html_table += "</tbody></table>"
+                    st.markdown(html_table, unsafe_allow_html=True)
                     
                     st.markdown("### 📊 Conclusión de Inversión (Sencilla)")
                     st.markdown(f"<div class='interpretation-box'><b>¿Qué nos dicen los números?</b> Comparando con sus rivales, <strong>{g_roe}</strong> es la que mejor hace rendir la plata que tiene invertida. Por otro lado, si miramos qué tan barata está la acción hoy en relación a lo que gana, <strong>{g_pe}</strong> parece ser la mejor oferta en vitrina. Es un buen momento para sumar <strong>{t_obj}</strong> a la cartera si estás cómodo con su nivel de deudas actual.</div>", unsafe_allow_html=True)
                     
                     st.markdown("### 🐾 Datos Relevantes para no olvidar (El Sabueso)")
-                    st.markdown(f"<div class='agent-box'><strong>🟢 Puntos a favor (Por qué subiría):</strong><br>• <b>Infraestructura y Venta:</b> Lograron acuerdos clave para que sus productos lleguen más rápido a los clientes que pagan mejor.<br>• <b>Protección del dinero:</b> Acuerdos en moneda fuerte, minimizando el impacto de devaluaciones locales.<br><br><strong>🔴 Puntos en contra (Por qué podría caer):</strong><br>• <b>Trabas de gobierno:</b> Al trabajar en mercados emergentes, sufren normativas trabadas para giros al exterior o regulaciones cambiarias.<br>• <b>Depende de otros:</b> Tienen dependencia de la logística troncal (midstream) operada por terceros.</div>", unsafe_allow_html=True)
+                    st.markdown(f"<div class='agent-box'><strong>🟢 Puntos a favor (Por qué subiría):</strong><br>• <b>Infraestructura y Venta:</b> Lograron acuerdos clave para que sus productos lleguen más rápido a los clientes que pagan mejor.<br>• <b>Protección del dinero:</b> Acuerdos en moneda fuerte, minimizando el impacto de devaluaciones locales.<br><br><strong>🔴 Puntos en contra (Por qué podría caer):</strong><br>• <b>Trabas de gobierno:</b> Al trabajar en mercados emergentes, sufren normativas trabadas para giros al exterior o regulaciones cambiarias.<br>• <b>Depende de otros:</b> Tienen dependencia de la logística troncal operada por terceros.</div>", unsafe_allow_html=True)
 
-                # --- PESTAÑA 2: TÉCNICO ---
+                # ==============================================================
+                # PESTAÑA 2: TÉCNICO (DMI)
+                # ==============================================================
                 with tab_tech:
                     st.markdown(f"### 📈 El pulso del mercado (Gráfico DMI): {t_obj}")
                     st.markdown("**¿Cómo leer este gráfico fácilmente?**<br>* **Línea Verde (+DI - Fuerza Compradora):** Mide la motivación de compra. Si supera a la roja, compradores al mando.<br>* **Línea Roja (-DI - Fuerza Vendedora):** Mide la presión de venta. Si supera a la verde, pánico o toma de ganancias.<br>* **Línea Azul (ADX - Fuerza de Tendencia):** Te dice si el movimiento va en serio. Sobre 25 puntos, tendencia muy sólida.", unsafe_allow_html=True)
@@ -355,11 +380,13 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
                         st.markdown(f"<div class='interpretation-box'><strong>¿QUIÉN TIENE EL VOLANTE HOY?</strong> Al precio actual de <b>${p:.2f} USD</b>, la fuerza compradora se encuentra en {di_p:.1f} puntos, frente a una fuerza vendedora de {di_m:.1f} puntos. Esto nos indica que actualmente <b>{dom}</b> tienen el control total del precio, {tend}</div>", unsafe_allow_html=True)
                     else: st.error("No hay suficientes datos en la bolsa para armar este gráfico hoy.")
 
-                # --- PESTAÑA 3: MONTECARLO ---
+                # ==============================================================
+                # PESTAÑA 3: MONTECARLO DUAL
+                # ==============================================================
                 with tab_mc:
                     st.markdown("### 🎲 La Máquina del Tiempo (Simulador de Escenarios)")
-                    st.markdown("**¿Qué es esto?** Tiramos los dados 100 veces para ver qué podría pasar con el precio, basándonos pura y exclusivamente en cómo se movió en el último año.")
-                    serie_mc = POOL_DATA.get(t_obj, {}).get("serie_completa", pd.Series())
+                    st.markdown("**¿Qué es esto?** Tiramos los dados 100 veces basándonos en cómo se movió el último año para ver los caminos posibles del precio.")
+                    serie_mc = POOL_DATA.get(t_obj, {}).get("serie_completa", pd.Series(dtype=float))
                     
                     if not serie_mc.empty and len(serie_mc) > 50:
                         ret = serie_mc.pct_change().dropna()
@@ -367,34 +394,36 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
                         c1, c2 = st.columns(2)
                         
                         with c1:
-                            st.markdown("#### Corto Plazo: ¿Qué pasará en 30 días?")
+                            st.markdown("#### Corto Plazo: 30 días")
                             m_1m = np.zeros((30, 100))
                             m_1m[0] = p_b
                             for t in range(1, 30): m_1m[t] = m_1m[t-1] * np.exp((mu - 0.5 * sigma**2) + sigma * np.random.standard_normal(100))
                             f1m = go.Figure()
                             for i in range(40): f1m.add_trace(go.Scatter(y=m_1m[:, i], mode='lines', line=dict(color='rgba(52, 152, 219, 0.08)'), showlegend=False))
-                            f1m.add_trace(go.Scatter(y=np.mean(m_1m, axis=1), mode='lines', name="Evolución Normal (Promedio)", line=dict(color='#2ecc71', width=2.5)))
+                            f1m.add_trace(go.Scatter(y=np.mean(m_1m, axis=1), mode='lines', name="Promedio", line=dict(color='#2ecc71', width=2.5)))
                             f1m.update_layout(template="plotly_dark", paper_bgcolor='#111520', plot_bgcolor='#0c0f16', height=300, margin=dict(l=10,r=10,t=10,b=10))
                             st.plotly_chart(f1m, use_container_width=True)
+                            
                             pe, pdn, pup = np.mean(m_1m[-1, :]), np.percentile(m_1m[-1, :], 5), np.percentile(m_1m[-1, :], 95)
-                            st.markdown(f"<div class='agent-box' style='border-left: 4px solid #2ecc71;'><b>Traducción Sencilla:</b> Teniendo en cuenta el escenario vanilla (que mantenga la misma inercia), el <b>Precio Justo a 30 días</b> es <b>${pe:.2f} USD</b>. Si la bolsa se dispara, podría escalar a <b>${pup:.2f} USD</b>. Si entran en pánico, el piso es <b>${pdn:.2f} USD</b>.</div>", unsafe_allow_html=True)
+                            st.markdown(f"<div class='agent-box' style='border-left: 4px solid #2ecc71;'><b>Traducción Sencilla:</b> Teniendo en cuenta el escenario vanilla (que mantenga la misma inercia), el <b>Precio Justo a 30 días</b> es <b>${pe:.2f} USD</b>. Si hay euforia compradora subiría a <b>${pup:.2f} USD</b>, pero si hay pánico el soporte base caería a <b>${pdn:.2f} USD</b>.</div>", unsafe_allow_html=True)
                         
                         with c2:
-                            st.markdown("#### Largo Plazo: ¿Qué pasará en 1 año (252 días)?")
+                            st.markdown("#### Largo Plazo: 1 Año (252 días)")
                             m_1y = np.zeros((252, 100))
                             m_1y[0] = p_b
                             for t in range(1, 252): m_1y[t] = m_1y[t-1] * np.exp((mu - 0.5 * sigma**2) + sigma * np.random.standard_normal(100))
                             f1y = go.Figure()
                             for i in range(40): f1y.add_trace(go.Scatter(y=m_1y[:, i], mode='lines', line=dict(color='rgba(155, 89, 182, 0.08)'), showlegend=False))
-                            f1y.add_trace(go.Scatter(y=np.mean(m_1y, axis=1), mode='lines', name="Evolución Normal (Promedio)", line=dict(color='#9b59b6', width=2.5)))
+                            f1y.add_trace(go.Scatter(y=np.mean(m_1y, axis=1), mode='lines', name="Promedio", line=dict(color='#9b59b6', width=2.5)))
                             f1y.update_layout(template="plotly_dark", paper_bgcolor='#111520', plot_bgcolor='#0c0f16', height=300, margin=dict(l=10,r=10,t=10,b=10))
                             st.plotly_chart(f1y, use_container_width=True)
+                            
                             pe_y, pdn_y, pup_y = np.mean(m_1y[-1, :]), np.percentile(m_1y[-1, :], 5), np.percentile(m_1y[-1, :], 95)
-                            st.markdown(f"<div class='agent-box' style='border-left: 4px solid #9b59b6;'><b>Traducción Sencilla:</b> A un año, el <b>Precio Justo Esperado</b> escala a <b>${pe_y:.2f} USD</b>. Si tenemos un súper año alcista de suerte, la matemática avala los <b>${pup_y:.2f} USD</b>. Por el contrario, un mercado en recesión arrastraría el activo hasta los <b>${pdn_y:.2f} USD</b>.</div>", unsafe_allow_html=True)
-            else: st.error("No se pudo construir la matriz de datos por demoras en Yahoo Finance.")
+                            st.markdown(f"<div class='agent-box' style='border-left: 4px solid #9b59b6;'><b>Traducción Sencilla:</b> A un año, el <b>Precio Justo Esperado</b> escala a <b>${pe_y:.2f} USD</b>. Por el factor tiempo, en un mercado ultra alcista tocaría los <b>${pup_y:.2f} USD</b>, o frente a una crisis recesiva el soporte frenaría en los <b>${pdn_y:.2f} USD</b>.</div>", unsafe_allow_html=True)
+                    else: st.error("No hay datos históricos suficientes para correr el modelo Montecarlo.")
 
 # ------------------------------------------------------------------------------
-# PORTAFOLIO Y MODELOS (Restaurado completo)
+# PORTAFOLIO Y MODELOS
 # ------------------------------------------------------------------------------
 elif menu == "💼 PORTAFOLIO Y MODELOS":
     st.subheader("🤖 Modelos Factoriales (Asignación Táctica)")
@@ -507,8 +536,44 @@ elif menu == "💼 PORTAFOLIO Y MODELOS":
             fig_b.update_layout(template="plotly_dark", paper_bgcolor='#111520', plot_bgcolor='#0c0f16', height=380, margin=dict(l=20,r=20,t=30,b=20))
             st.plotly_chart(fig_b, use_container_width=True)
 
+        st.markdown("---")
+        st.subheader("📥 Exportación Institucional de Estados de Cuenta")
+        asesor_input = st.text_input("Asesor Financiero Firmante:", value="Facundo Garcia Marquez")
+        
+        filas_html_reporte = "".join([f"<tr><td>{x['Ticker']}</td><td>{x['Cantidad']}</td><td>{x['Ratio']}</td><td>{x['Precio']}</td><td>{x['Mercado']}</td><td style='color:#2ecc71'>{x['PL']}</td></tr>" for x in filas_pdf])
+        val_cf_global_visible = f"${(cf_tot_u * DOLAR_MEP):,.2f} ARS" if is_ars else f"${cf_tot_u:,.2f} USD"
+        
+        html_documento = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <style>
+                body {{ font-family: 'Helvetica', Arial, sans-serif; color: #2c3e50; padding: 25px; line-height:1.4; }}
+                h1 {{ color: #2ecc71; border-bottom: 2px solid #2ecc71; padding-bottom: 5px; font-size: 20px; }}
+                table {{ width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 11px; }}
+                th {{ background-color: #f2f2f2; padding: 8px; border: 1px solid #ddd; text-align: left; }}
+                td {{ padding: 8px; border: 1px solid #ddd; }}
+                .summary {{ background-color: #f9f9f9; padding: 12px; margin-top: 10px; border-radius: 4px; font-size: 12px; }}
+            </style>
+        </head>
+        <body>
+            <h1>Reporte de Portafolio Factorial Autorizado</h1>
+            <p><strong>Asesor Financiero Responsable:</strong> {asesor_input}</p>
+            <div class='summary'>
+                <strong>Retorno Neto Consolidado de la Cuenta:</strong> {gp:+.2f}%<br>
+                <strong>Caja Estimada por Dividendos (12 meses):</strong> {val_cf_global_visible}
+            </div>
+            <table><thead><tr><th>Ticker</th><th>CEDEARs</th><th>Ratio BYMA</th><th>Precio Unidad</th><th>Valor Mercado</th><th>Retorno (%)</th></tr></thead>
+            <tbody>{filas_html_reporte}</tbody></table>
+        </body>
+        </html>
+        """
+        st.download_button(label="📥 DESCARGAR REPORTE DE CARTERA", data=html_documento.encode('utf-8'), file_name=f"Reporte_Portafolio_{asesor_input.replace(' ', '_')}.html", mime="text/html")
+
 # ==============================================================================
 # PIE DE PÁGINA
 # ==============================================================================
 st.markdown("---")
 st.markdown("<p style='text-align: right; font-size: 12px; color: #2ecc71; font-weight: 600;'>Facundo Garcia Marquez | Terminal Quanti Pro</p>", unsafe_allow_html=True)
+st.markdown("<div style='background-color: rgba(231, 76, 60, 0.08); padding: 12px; border-left: 4px solid #e74c3c; font-size: 11px; color: #94a3b8;'><strong>⚠️ ADVERTENCIA:</strong> Fines educativos y de simulación.</div>", unsafe_allow_html=True)
