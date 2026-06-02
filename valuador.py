@@ -27,22 +27,22 @@ except ImportError:
     HAS_TRANSLATOR = False
 
 # ==============================================================================
-# BASE DE DATOS DE RESPALDO (POR SI FALLA LA NUBE)
+# BASE DE DATOS DE RESPALDO
 # ==============================================================================
 FALLBACK_SUMMARIES = {
-    "VIST": "Vista Energy es una compañía independiente de petróleo y gas, enfocada principalmente en la exploración y producción de Vaca Muerta, Argentina. Es uno de los operadores líderes en la cuenca, destacándose por su alta eficiencia operativa, bajos costos de extracción y rápida expansión en la producción de crudo no convencional (shale oil).",
-    "YPF": "YPF Sociedad Anónima es la principal empresa energética de Argentina, dedicada a la exploración, producción, refinación y venta de petróleo, gas y derivados. Como líder histórico del país y actor central en Vaca Muerta, controla gran parte del mercado de combustibles y está expandiendo su infraestructura hacia el GNL.",
-    "XOM": "Exxon Mobil Corporation es uno de los gigantes energéticos más grandes del mundo. Su modelo de negocio integrado (exploración, producción y refinación) y su enorme escala le permiten generar flujos de caja masivos y sostener una política de dividendos robusta.",
-    "AAPL": "Apple Inc. diseña, fabrica y vende tecnología de consumo, además de contar con un ecosistema de servicios altamente rentable (App Store, iCloud). Su ventaja competitiva radica en la fidelidad de sus usuarios y un ecosistema cerrado que le permite altos márgenes.",
-    "MSFT": "Microsoft Corporation es un líder global en software y computación en la nube (Azure). Domina la infraestructura corporativa mundial, complementada con su suite Office 365, Windows y su fuerte liderazgo actual en inteligencia artificial aplicada a negocios.",
-    "NVDA": "NVIDIA Corporation es el líder indiscutido en el diseño de unidades de procesamiento gráfico (GPUs). Es la columna vertebral tecnológica de la revolución de la Inteligencia Artificial, proveyendo los chips esenciales para los centros de datos.",
-    "KO": "The Coca-Cola Company es la empresa de bebidas no alcohólicas más grande del planeta. Posee una cartera diversificada y una red de distribución inigualable. Es una acción puramente defensiva, valorada por su capacidad para protegerse de la inflación."
+    "VIST": "Vista Energy es una compañía independiente de petróleo y gas, enfocada principalmente en la exploración y producción de Vaca Muerta, Argentina. Es uno de los operadores líderes en la cuenca, destacándose por su alta eficiencia operativa y bajos costos de extracción.",
+    "YPF": "YPF Sociedad Anónima es la principal empresa energética de Argentina, dedicada a la exploración, producción, refinación y venta de petróleo, gas y derivados. Como líder histórico del país y actor central en Vaca Muerta, controla gran parte del mercado de combustibles.",
+    "XOM": "Exxon Mobil Corporation es uno de los gigantes energéticos más grandes del mundo. Su modelo de negocio integrado y su enorme escala le permiten generar flujos de caja masivos y sostener una política de dividendos robusta.",
+    "AAPL": "Apple Inc. diseña, fabrica y vende tecnología de consumo, además de contar con un ecosistema de servicios altamente rentable. Su ventaja competitiva radica en la fidelidad de sus usuarios y un ecosistema cerrado que le permite altos márgenes.",
+    "MSFT": "Microsoft Corporation es un líder global en software y computación en la nube (Azure). Domina la infraestructura corporativa mundial, complementada con su suite Office 365, Windows y su fuerte liderazgo actual en inteligencia artificial.",
+    "NVDA": "NVIDIA Corporation es el líder indiscutido en el diseño de unidades de procesamiento gráfico (GPUs). Es la columna vertebral tecnológica de la revolución de la Inteligencia Artificial.",
+    "KO": "The Coca-Cola Company es la empresa de bebidas no alcohólicas más grande del planeta. Posee una cartera diversificada y una red de distribución inigualable. Es una acción puramente defensiva contra la inflación."
 }
 
 EXPLICACIONES_TECNICAS = {
     "PE": "<b>P/E (Precio sobre Ganancias):</b><br>Cuántos años tardarías en recuperar tu inversión basándote en las ganancias actuales. Un número bajo sugiere que la acción está barata.",
-    "EV": "<b>EV/EBITDA:</b><br>Costo de adquirir la empresa entera (con sus deudas) versus el efectivo limpio que genera.",
-    "DEUDA": "<b>Deuda / EBITDA:</b><br>Compara su deuda total con lo que genera en un año. Valores altos indican mayor riesgo financiero.",
+    "EV": "<b>EV/EBITDA (o P/B en Respaldo):</b><br>Métrica de valoración corporativa para evaluar si la empresa cotiza con descuento.",
+    "DEUDA": "<b>Deuda / Capital:</b><br>Compara su nivel de endeudamiento estructural. Valores altos indican mayor riesgo financiero.",
     "LIQUIDEZ": "<b>Liquidez Corriente:</b><br>Efectivo y activos rápidos disponibles para pagar deudas de corto plazo. Mayor a 1.0x es tranquilidad.",
     "MARGEN": "<b>Margen Neto:</b><br>De cada $100 que vende, ¿cuántos dólares le quedan limpios de ganancia final?",
     "ROE": "<b>ROE (Retorno sobre Patrimonio):</b><br>Qué tan bien la gerencia hace rendir el capital aportado por los accionistas."
@@ -112,28 +112,20 @@ RATIOS_CEDEAR = {
 UNIVERSO_POOL = list(RATIOS_CEDEAR.keys())
 
 # ==============================================================================
-# 3. MOTOR YFINANCE
+# 3. MOTOR YFINANCE Y SCRAPING DE RESPALDO (ANTI CERO)
 # ==============================================================================
 @st.cache_data(ttl=600)
 def descargar_datos_historicos(universo):
     datos_dict = {}
     try:
         df_hist = yf.download(universo, period="2y", progress=False, session=yf_session)
-        if isinstance(df_hist.columns, pd.MultiIndex):
-            df_close = df_hist['Close']
-        else:
-            df_close = df_hist['Close'] if 'Close' in df_hist.columns else df_hist
-            
+        df_close = df_hist['Close'] if 'Close' in df_hist.columns else df_hist
         df_close = df_close.ffill().bfill()
         fecha_ytd = f"{datetime.datetime.now().year}-01-02"
         
         for tk in universo:
             try:
-                if tk in df_close.columns:
-                    serie = df_close[tk].dropna()
-                else:
-                    serie = pd.Series(dtype=float)
-
+                serie = df_close[tk].dropna() if tk in df_close.columns else pd.Series(dtype=float)
                 if not serie.empty and len(serie) >= 30:
                     px_actual = float(serie.iloc[-1])
                     v1d = ((px_actual / float(serie.iloc[-2])) - 1) * 100
@@ -154,14 +146,53 @@ def safe_float(val, default=0.0):
     try: return float(val) if val is not None and not pd.isna(val) else default
     except: return default
 
+def scrape_finviz_fallback(symbol):
+    """ Función de emergencia si Yahoo Finance bloquea la IP. Lee directamente de Finviz. """
+    try:
+        url = f"https://finviz.com/quote.ashx?t={symbol}"
+        r = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=5)
+        if r.status_code != 200: return {}
+        s = BeautifulSoup(r.text, 'html.parser')
+        
+        def extract(label):
+            try:
+                td = s.find(string=label)
+                if td:
+                    val = td.find_next('b').text.replace('%','').replace(',','')
+                    return float(val) if val != '-' else 0.0
+            except: return 0.0
+            return 0.0
+            
+        return {
+            "PE": extract("P/E"),
+            "EV": extract("P/B"), # Proxy si EV no está
+            "DEUDA": extract("Debt/Eq"),
+            "LIQUIDEZ": extract("Current Ratio"),
+            "MARGEN": extract("Profit Margin") / 100,
+            "ROE": extract("ROE") / 100
+        }
+    except: return {}
+
 def obtener_fundamental_completo(symbol):
     try:
         t = yf.Ticker(symbol, session=yf_session)
         inf = t.info or {}
         px = POOL_DATA.get(symbol, {}).get("precio", safe_float(inf.get("currentPrice", 50.0)))
+        
+        # Validamos si Yahoo mandó un diccionario vacío o bloqueado
+        if not inf or safe_float(inf.get("forwardPE", 0.0)) == 0.0:
+            fv_data = scrape_finviz_fallback(symbol)
+            return {
+                "Ticker": symbol, "Nombre": symbol, "Precio": px,
+                "PE": fv_data.get("PE", 0.0), "EV": fv_data.get("EV", 0.0),
+                "DEUDA": fv_data.get("DEUDA", 0.0), "LIQUIDEZ": fv_data.get("LIQUIDEZ", 0.0),
+                "MARGEN": fv_data.get("MARGEN", 0.0), "ROE": fv_data.get("ROE", 0.0), "RAW": {}
+            }
+            
         eb = safe_float(inf.get("ebitda", 1.0))
         td = safe_float(inf.get("totalDebt", 0.0))
         caj = safe_float(inf.get("totalCash", 0.0))
+        
         return {
             "Ticker": symbol, "Nombre": inf.get("longName", symbol), "Precio": px,
             "PE": safe_float(inf.get("forwardPE", 0.0)), "EV": safe_float(inf.get("enterpriseToEbitda", 0.0)),
@@ -253,14 +284,14 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
                     if tk == t_obj: info_raiz = res_f["RAW"]
             
             if dataset:
-                tab_fund, tab_tech, tab_mc = st.tabs(["📊 Fundamental", "📈 Técnico (DMI)", "🎲 Montecarlo"])
+                tab_fund, tab_tech, tab_mc = st.tabs(["📊 Fundamental", "📈 Técnico (DMI)", "🎲 Montecarlo Dual"])
                 
                 # --- PESTAÑA 1: FUNDAMENTAL ---
                 with tab_fund:
                     st.markdown("### 🏢 ¿A qué se dedica esta empresa?")
                     desc_raw = info_raiz.get("longBusinessSummary", "")
                     if not desc_raw:
-                        desc_final = FALLBACK_SUMMARIES.get(t_obj, f"{t_obj} opera en el sector corporativo. (Yahoo Finance bloqueó la descripción extendida temporalmente).")
+                        desc_final = FALLBACK_SUMMARIES.get(t_obj, f"{t_obj} opera en el sector corporativo. (Aviso: Yahoo Finance limitó temporalmente el texto extenso).")
                     else:
                         if HAS_TRANSLATOR:
                             try: desc_final = GoogleTranslator(source='en', target='es').translate(desc_raw)
@@ -303,24 +334,23 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
                     g_pe = min(dataset, key=lambda x: x["PE"] if x["PE"] > 0 else float('inf'))["Ticker"]
                     g_roe = max(dataset, key=lambda x: x["ROE"])["Ticker"]
                     
-                    html_matriz = "<table class='custom-table'><thead><tr>"
-                    html_matriz += "<th>Ticker</th><th>Razón Social</th>"
-                    html_matriz += f"<th>P/E <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['PE']}</span></div></th>"
-                    html_matriz += f"<th>EV/EBITDA <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['EV']}</span></div></th>"
-                    html_matriz += f"<th>Deuda <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['DEUDA']}</span></div></th>"
-                    html_matriz += f"<th>Respaldo <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['LIQUIDEZ']}</span></div></th>"
-                    html_matriz += f"<th>Margen <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['MARGEN']}</span></div></th>"
-                    html_matriz += f"<th>ROE <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['ROE']}</span></div></th></tr></thead><tbody>"
+                    html_tb = "<table class='custom-table'><thead><tr>"
+                    html_tb += "<th>Ticker</th><th>Razón Social</th>"
+                    html_tb += f"<th>P/E <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['PE']}</span></div></th>"
+                    html_table += f"<th>EV/EBITDA <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['EV']}</span></div></th>"
+                    html_table += f"<th>Deuda <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['DEUDA']}</span></div></th>"
+                    html_table += f"<th>Respaldo <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['LIQUIDEZ']}</span></div></th>"
+                    html_table += f"<th>Margen <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['MARGEN']}</span></div></th>"
+                    html_table += f"<th>ROE <div class='tooltip'>ⓘ<span class='tooltiptext'>{EXPLICACIONES_TECNICAS['ROE']}</span></div></th></tr></thead><tbody>"
                     
                     for r in dataset:
                         cls_pe = "class='winner-cell'" if r["Ticker"] == g_pe else ""
                         cls_roe = "class='winner-cell'" if r["Ticker"] == g_roe else ""
-                        html_matriz += f"<tr><td><b>{r['Ticker']}</b></td><td>{r['Nombre']}</td><td {cls_pe}>{r['PE']:.2f}</td><td>{r['EV']:.2f}</td><td>{r['DEUDA']:.2f}x</td><td>{r['LIQUIDEZ']:.2f}x</td><td>{r['MARGEN']*100:.1f}%</td><td {cls_roe}>{r['ROE']*100:.1f}%</td></tr>"
-                    html_matriz += "</tbody></table>"
-                    st.markdown(html_matriz, unsafe_allow_html=True)
+                        html_tb += f"<tr><td><b>{r['Ticker']}</b></td><td>{r['Nombre']}</td><td {cls_pe}>{r['PE']:.2f}</td><td>{r['EV']:.2f}</td><td>{r['DEUDA']:.2f}x</td><td>{r['LIQUIDEZ']:.2f}x</td><td>{r['MARGEN']*100:.1f}%</td><td {cls_roe}>{r['ROE']*100:.1f}%</td></tr>"
+                    html_tb += "</tbody></table>"
+                    st.markdown(html_tb, unsafe_allow_html=True)
                     
                     st.markdown(f"<div class='interpretation-box'><b>Conclusión Sencilla:</b> Comparando con sus rivales, <strong>{g_roe}</strong> es la que mejor hace rendir la plata que tiene invertida. Por otro lado, si miramos qué tan barata está la acción hoy en relación a lo que gana, <strong>{g_pe}</strong> parece ser la mejor oferta en vitrina.</div>", unsafe_allow_html=True)
-                    st.markdown(f"<div class='agent-box'><strong>🟢 Puntos a favor:</strong> Liderazgo asegurado y protección en moneda fuerte.<br><strong>🔴 Puntos en contra:</strong> Riesgos regulatorios por mercados emergentes.</div>", unsafe_allow_html=True)
 
                 # --- PESTAÑA 2: TÉCNICO (DMI) ---
                 with tab_tech:
@@ -361,52 +391,67 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
                         st.markdown(f"<div class='interpretation-box'><strong>¿QUIÉN TIENE EL VOLANTE HOY?</strong> Al precio actual de <b>${p:.2f}</b>, <b>{dom}</b> tienen el control, {tend}</div>", unsafe_allow_html=True)
                     else: st.error("No hay datos técnicos suficientes.")
 
-                # --- PESTAÑA 3: MONTECARLO DUAL ---
+                # --- PESTAÑA 3: MONTECARLO DUAL (10,000 Simulaciones) ---
                 with tab_mc:
-                    st.markdown("### 🎲 La Máquina del Tiempo (Simulador de Escenarios)")
-                    st.markdown("**¿Qué es esto?** Tiramos los dados 100 veces basándonos en cómo se movió el último año para ver los caminos posibles del precio.")
+                    st.markdown("### 🎲 La Máquina del Tiempo (Simulador Estocástico)")
                     
-                    h_mc = yf.download(t_obj, period="1y", progress=False, session=yf_session)
-                    if isinstance(h_mc.columns, pd.MultiIndex):
-                        df_mc = h_mc['Close'][t_obj] if t_obj in h_mc['Close'].columns else h_mc['Close'].iloc[:,0]
-                    else:
-                        df_mc = h_mc['Close'] if 'Close' in h_mc.columns else h_mc
-                        
+                    st.markdown("""
+                    <div class='agent-box'>
+                    <strong>¿Qué tiene en cuenta este modelo matemático?</strong><br>
+                    Es un modelo estadístico puro que funciona mirando por el espejo retrovisor. Solo toma <b>la inercia</b> (el rendimiento promedio diario) y <b>el nerviosismo</b> (la volatilidad) que tuvo el activo durante el último año.<br><br>
+                    <strong>¿Qué NO tiene en cuenta?</strong><br>
+                    Es "ciego" al mundo real. No evalúa balances de la empresa, la inflación, el tipo de cambio, el precio del barril de petróleo, ni las decisiones políticas. <br><br>
+                    <strong>¿Cómo se calcula para sacar los números finales?</strong><br>
+                    La computadora simula <b>10.000 caminos posibles</b> (tira los dados 10.000 veces) para proyectar el precio. <br>
+                    • <i>Escenario Base:</i> Es el promedio exacto de esas 10.000 simulaciones.<br>
+                    • <i>Escenario Optimista:</i> Es la zona donde caen el 5% de los mejores resultados (tu techo de euforia aleatoria).<br>
+                    • <i>Escenario Pesimista:</i> Es la zona del 5% de los peores resultados posibles (tu piso de contención).
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    df_mc = POOL_DATA.get(t_obj, {}).get("serie_completa", pd.Series(dtype=float))
                     if not df_mc.empty and len(df_mc) > 50:
                         ret = df_mc.pct_change().dropna()
                         mu, sigma, p_b = ret.mean(), ret.std(), df_mc.iloc[-1]
                         c1, c2 = st.columns(2)
                         
+                        sims = 10000 # 10.000 simulaciones ejecutadas
+                        
                         with c1:
                             st.markdown("#### Corto Plazo: 30 días")
-                            m_1m = np.zeros((30, 100))
+                            m_1m = np.zeros((30, sims))
                             m_1m[0] = p_b
-                            for t in range(1, 30): m_1m[t] = m_1m[t-1] * np.exp((mu - 0.5 * sigma**2) + sigma * np.random.standard_normal(100))
+                            Z_1m = np.random.standard_normal((29, sims))
+                            for t in range(1, 30): 
+                                m_1m[t] = m_1m[t-1] * np.exp((mu - 0.5 * sigma**2) + sigma * Z_1m[t-1])
+                                
                             f1m = go.Figure()
-                            for i in range(40): f1m.add_trace(go.Scatter(y=m_1m[:, i], mode='lines', line=dict(color='rgba(52, 152, 219, 0.08)'), showlegend=False))
+                            # Dibujamos solo 50 para no colapsar la RAM de la PC
+                            for i in range(50): f1m.add_trace(go.Scatter(y=m_1m[:, i], mode='lines', line=dict(color='rgba(52, 152, 219, 0.08)'), showlegend=False))
                             f1m.add_trace(go.Scatter(y=np.mean(m_1m, axis=1), mode='lines', name="Promedio", line=dict(color='#2ecc71', width=2.5)))
                             f1m.update_layout(template="plotly_dark", paper_bgcolor='#111520', plot_bgcolor='#0c0f16', height=300, margin=dict(l=10,r=10,t=10,b=10))
                             st.plotly_chart(f1m, use_container_width=True)
                             
                             pe, pdn, pup = np.mean(m_1m[-1, :]), np.percentile(m_1m[-1, :], 5), np.percentile(m_1m[-1, :], 95)
-                            st.markdown(f"<div class='agent-box' style='border-left: 4px solid #2ecc71;'><b>Traducción Sencilla:</b> Teniendo en cuenta el escenario vanilla, el <b>Precio Justo a 30 días</b> es <b>${pe:.2f} USD</b>. Si la bolsa se dispara, subiría a <b>${pup:.2f} USD</b>. Si entran en pánico, el piso es <b>${pdn:.2f} USD</b>.</div>", unsafe_allow_html=True)
+                            st.markdown(f"<div class='interpretation-box' style='border-left: 4px solid #2ecc71;'><b>Traducción Sencilla:</b> En un escenario normal (vanilla), el <b>Precio Justo a 30 días</b> promedia los <b>${pe:.2f} USD</b>. En caso de euforia estadística, el techo roza los <b>${pup:.2f} USD</b>. Frente al pánico, el piso es <b>${pdn:.2f} USD</b>.</div>", unsafe_allow_html=True)
                         
                         with c2:
                             st.markdown("#### Largo Plazo: 1 Año (252 días)")
-                            m_1y = np.zeros((252, 100))
+                            m_1y = np.zeros((252, sims))
                             m_1y[0] = p_b
-                            for t in range(1, 252): m_1y[t] = m_1y[t-1] * np.exp((mu - 0.5 * sigma**2) + sigma * np.random.standard_normal(100))
+                            Z_1y = np.random.standard_normal((251, sims))
+                            for t in range(1, 252): 
+                                m_1y[t] = m_1y[t-1] * np.exp((mu - 0.5 * sigma**2) + sigma * Z_1y[t-1])
+                                
                             f1y = go.Figure()
-                            for i in range(40): f1y.add_trace(go.Scatter(y=m_1y[:, i], mode='lines', line=dict(color='rgba(155, 89, 182, 0.08)'), showlegend=False))
+                            for i in range(50): f1y.add_trace(go.Scatter(y=m_1y[:, i], mode='lines', line=dict(color='rgba(155, 89, 182, 0.08)'), showlegend=False))
                             f1y.add_trace(go.Scatter(y=np.mean(m_1y, axis=1), mode='lines', name="Promedio", line=dict(color='#9b59b6', width=2.5)))
                             f1y.update_layout(template="plotly_dark", paper_bgcolor='#111520', plot_bgcolor='#0c0f16', height=300, margin=dict(l=10,r=10,t=10,b=10))
                             st.plotly_chart(f1y, use_container_width=True)
                             
                             pe_y, pdn_y, pup_y = np.mean(m_1y[-1, :]), np.percentile(m_1y[-1, :], 5), np.percentile(m_1y[-1, :], 95)
-                            st.markdown(f"<div class='agent-box' style='border-left: 4px solid #9b59b6;'><b>Traducción Sencilla:</b> A un año, el <b>Precio Justo Esperado</b> escala a <b>${pe_y:.2f} USD</b>. En un mercado ultra alcista tocaría los <b>${pup_y:.2f} USD</b>, y frente a una crisis el soporte frenaría en <b>${pdn_y:.2f} USD</b>.</div>", unsafe_allow_html=True)
+                            st.markdown(f"<div class='interpretation-box' style='border-left: 4px solid #9b59b6;'><b>Traducción Sencilla:</b> A un año, el <b>Precio Justo Esperado</b> escala a <b>${pe_y:.2f} USD</b>. En un mercado ultra alcista tocaría los <b>${pup_y:.2f} USD</b>, y frente a una crisis el soporte frenaría en <b>${pdn_y:.2f} USD</b>.</div>", unsafe_allow_html=True)
                     else: st.error("No hay datos históricos suficientes para correr el modelo Montecarlo.")
-            else:
-                st.error("No se pudo analizar este activo por falta de sincronización.")
 
 # ------------------------------------------------------------------------------
 # PORTAFOLIO Y MODELOS
@@ -510,7 +555,6 @@ elif menu == "💼 PORTAFOLIO Y MODELOS":
         asesor = st.text_input("Asesor Firmante:", value="Facundo Garcia Marquez")
         
         h_rep = "".join([f"<tr><td>{x['Ticker']}</td><td>{x['Cant']}</td><td>{x['Precio']}</td><td>{x['Mercado']}</td><td>{x['Retorno']}</td></tr>" for x in f_pdf])
-        
         doc = f"<html><head><meta charset='utf-8'><style>body{{font-family:Arial; color:#2c3e50;}} h1{{color:#2ecc71;}} table{{width:100%; border-collapse:collapse; font-size:12px;}} th,td{{padding:8px; border:1px solid #ddd; text-align:left;}}</style></head><body><h1>Reporte de Portafolio</h1><p><b>Asesor:</b> {asesor}</p><p><b>Retorno:</b> {gp:+.2f}%</p><table><thead><tr><th>Ticker</th><th>Cant</th><th>Precio</th><th>Mercado</th><th>Retorno</th></tr></thead><tbody>{h_rep}</tbody></table></body></html>"
         st.download_button("📥 DESCARGAR REPORTE", data=doc.encode('utf-8'), file_name=f"Reporte_{asesor.replace(' ','_')}.html", mime="text/html")
 
