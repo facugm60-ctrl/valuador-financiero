@@ -52,60 +52,27 @@ EXPLICACIONES_TECNICAS = {
 # 1. PARAMETRIZACIÓN Y RATIOS DE LOS 100 ACTIVOS MÁS OPERADOS (BYMA)
 # ==============================================================================
 RATIOS_CEDEAR = {
-    # --- LOS 26 BASE ---
     "VIST": 1, "YPF": 1, "AAPL": 10, "GGAL": 1, "AMD": 10, "NVDA": 24, "MSFT": 30, "AMZN": 14, "GOOGL": 11, "META": 24, 
     "TSLA": 15, "KO": 5, "WMT": 6, "JNJ": 15, "PEP": 15, "PG": 15, "XOM": 5, "PAMP": 1, "SPY": 20, "QQQ": 20, 
     "DIA": 20, "MO": 4, "CVX": 8, "MCD": 24, "BRKB": 22, "MELI": 60, "BABA": 9, "PYPL": 3, "NFLX": 16, "DESP": 1, "VALE": 2,
-    # --- MERVAL / LOCALES ADICIONALES ---
     "ALUA": 1, "BBAR": 1, "BMA": 1, "CEPU": 1, "COME": 1, "CRES": 1, "EDN": 1, "LOMA": 1, "MIRG": 1, "TECO2": 1, 
     "TGNO4": 1, "TGSU2": 1, "TRAN": 1, "TXAR": 1, "BYMA": 1, "VALO": 1, "SUPV": 1, "BHIP": 1, "INVJ": 1, "LEDE": 1,
-    # --- CEDEARS ACCIONES ADICIONALES ---
     "TS": 1, "TEN": 1, "HMY": 1, "AUY": 1, "GOLD": 2, "NEM": 1, "FCX": 1, "X": 1, "NUE": 1, "CAT": 20,
     "DE": 20, "GE": 22, "MMM": 15, "BA": 20, "LMT": 20, "XLI": 20, "INTC": 5, "CSCO": 5, "ORCL": 7, "CRM": 16,
     "IBM": 10, "QCOM": 11, "TSM": 9, "ASML": 25, "XLE": 20, "BP": 4, "SHEL": 4, "PBR": 2, "OGZD": 2, "HMC": 2,
     "F": 1, "GM": 2, "TM": 15, "DIS": 12, "HD": 20, "NKE": 6, "SBUX": 8, "TGT": 12, "JD": 4, "BIDU": 22,
     "PFE": 4, "MRK": 10, "BMY": 6, "ABT": 10, "LLY": 50, "C": 6, "JPM": 15, "BAC": 4, "WFC": 5, "GS": 30,
-    "MS": 10, "AXP": 15, "V": 16, "MA": 22, "T": 3, "VZ": 3, "NFLX": 16, "UBER": 6, "ABNB": 10, "SHOP": 6,
-    # --- ETFs ADICIONALES ---
+    "MS": 10, "AXP": 15, "V": 16, "MA": 22, "T": 3, "VZ": 3, "UBER": 6, "ABNB": 10, "SHOP": 6,
     "EEM": 5, "EWZ": 2, "FXI": 5, "GLD": 20, "SLV": 10, "IWM": 20, "XLB": 20, "XLF": 20, "XLV": 20, "XLP": 20
 }
 UNIVERSO_POOL = list(RATIOS_CEDEAR.keys())
 
 # ==============================================================================
-# CONFIGURACIÓN DE PÁGINA Y ESTILOS FINTECH
+# CONFIGURACIÓN DE PÁGINA Y ESTILOS
 # ==============================================================================
 st.set_page_config(page_title="Terminal Quanti Pro", layout="wide", initial_sidebar_state="collapsed")
 
-st.markdown("""
-    <style>
-    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght=300;400;600;700;800&display=swap');
-    html, body, [class*="css"], [data-testid="stAppViewContainer"], [data-testid="stHeader"] { background-color: #0c0f16 !important; color: #f1f5f9 !important; font-family: 'Montserrat', sans-serif !important; }
-    .stMarkdown, p, span, label, li { color: #cbd5e1 !important; }
-    .block-container {padding-top: 1.5rem; padding-bottom: 2rem;}
-    h1 {font-weight: 800; color: #ffffff !important; font-size: 30px !important;}
-    h2 {font-weight: 700; color: #f8fafc !important; font-size: 21px !important; margin-top: 15px;}
-    h3 {font-weight: 600; color: #f1f5f9 !important; font-size: 16px !important;}
-    div[data-testid="stRadio"] > label { display: none !important; }
-    div[data-testid="stRadio"] > div { background: rgba(22, 27, 34, 0.7) !important; backdrop-filter: blur(12px) !important; padding: 8px !important; border-radius: 12px !important; border: 1px solid rgba(255, 255, 255, 0.08) !important; gap: 12px !important; box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5) !important; margin-bottom: 20px !important; }
-    div[data-testid="stRadio"] label[data-baseweb="radio"] { background-color: transparent !important; border: 1px solid transparent !important; padding: 8px 18px !important; border-radius: 8px !important; color: #94a3b8 !important; font-weight: 600 !important; }
-    div[data-testid="stRadio"] label[data-baseweb="radio"]:hover { color: #ffffff !important; background: rgba(255, 255, 255, 0.05) !important; }
-    div[data-testid="stMetric"] { background-color: #111520 !important; border: 1px solid #1f2937 !important; border-radius: 10px !important; padding: 15px 20px !important; }
-    .stButton>button { width: 100%; background: linear-gradient(135deg, #2ecc71, #27ae60) !important; color: white !important; font-weight: 700; border-radius: 8px; border: none; padding: 0.6rem; font-size: 13px !important; text-transform: uppercase; }
-    .stButton>button:hover { background: linear-gradient(135deg, #27ae60, #219653) !important; transform: translateY(-1px); }
-    div[data-testid="stTextInput"] input, div[data-testid="stSelectbox"] div, div[data-testid="stNumberInput"] input { background-color: #111520 !important; color: #ffffff !important; border: 1px solid #1f2937 !important; border-radius: 8px !important; }
-    .radar-box-gainer-high { background: linear-gradient(135deg, #064e3b, #047857); border: 1px solid #10b981; padding: 14px; border-radius: 8px; font-weight: bold; color: #34d399 !important; }
-    .radar-box-loser { background: linear-gradient(135deg, #7f1d1d, #b91c1c); border: 1px solid #f87171; padding: 14px; border-radius: 8px; font-weight: bold; color: #f87171 !important; }
-    .interpretation-box { background-color: #111520; padding: 16px; border-radius: 8px; font-size: 13px; color: #e2e8f0; border: 1px solid #1f2937; border-left: 4px solid #2ecc71; margin-top: 10px; }
-    .agent-box { background-color: #090d16; padding: 18px; border-radius: 8px; font-size: 13px; color: #e2e8f0; border: 1px solid #1f2937; border-left: 4px solid #dfa427; margin-top: 10px; }
-    .custom-table { width: 100%; border-collapse: collapse; margin: 15px 0; font-size: 13px; background-color: #111520; border-radius: 8px; overflow: hidden; border: 1px solid #1f2937; }
-    .custom-table th { background-color: #161b22; color: #ffffff; padding: 12px; text-align: left; font-weight: 600; border-bottom: 2px solid #1f2937; position:relative; }
-    .custom-table td { padding: 12px; border-bottom: 1px solid #1f2937; color: #e2e8f0; }
-    .winner-cell { background-color: rgba(46, 204, 113, 0.15) !important; color: #2ecc71 !important; font-weight: bold; }
-    .tooltip { position: relative; display: inline-block; cursor: pointer; color: #3498db; margin-left: 4px; font-weight: bold; }
-    .tooltip .tooltiptext { visibility: hidden; width: 280px; background-color: #1f2937; color: #fff; text-align: left; padding: 12px; border-radius: 6px; position: absolute; z-index: 999; bottom: 125%; left: 50%; margin-left: -140px; font-size: 11px; font-weight: normal; line-height: 1.4; border: 1px solid #3b82f6; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
-    .tooltip:hover .tooltiptext { visibility: visible; opacity: 1; }
-    </style>
-""", unsafe_allow_html=True)
+st.markdown("""<style>@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght=300;400;600;700;800&display=swap'); html, body, [class*="css"], [data-testid="stAppViewContainer"], [data-testid="stHeader"] { background-color: #0c0f16 !important; color: #f1f5f9 !important; font-family: 'Montserrat', sans-serif !important; } .stMarkdown, p, span, label, li { color: #cbd5e1 !important; } .block-container {padding-top: 1.5rem; padding-bottom: 2rem;} h1 {font-weight: 800; color: #ffffff !important; font-size: 30px !important;} h2 {font-weight: 700; color: #f8fafc !important; font-size: 21px !important; margin-top: 15px;} h3 {font-weight: 600; color: #f1f5f9 !important; font-size: 16px !important;} div[data-testid="stRadio"] > label { display: none !important; } div[data-testid="stRadio"] > div { background: rgba(22, 27, 34, 0.7) !important; backdrop-filter: blur(12px) !important; padding: 8px !important; border-radius: 12px !important; border: 1px solid rgba(255, 255, 255, 0.08) !important; gap: 12px !important; box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5) !important; margin-bottom: 20px !important; } div[data-testid="stRadio"] label[data-baseweb="radio"] { background-color: transparent !important; border: 1px solid transparent !important; padding: 8px 18px !important; border-radius: 8px !important; color: #94a3b8 !important; font-weight: 600 !important; } div[data-testid="stRadio"] label[data-baseweb="radio"]:hover { color: #ffffff !important; background: rgba(255, 255, 255, 0.05) !important; } div[data-testid="stMetric"] { background-color: #111520 !important; border: 1px solid #1f2937 !important; border-radius: 10px !important; padding: 15px 20px !important; } .stButton>button { width: 100%; background: linear-gradient(135deg, #2ecc71, #27ae60) !important; color: white !important; font-weight: 700; border-radius: 8px; border: none; padding: 0.6rem; font-size: 13px !important; text-transform: uppercase; } .stButton>button:hover { background: linear-gradient(135deg, #27ae60, #219653) !important; transform: translateY(-1px); } div[data-testid="stTextInput"] input, div[data-testid="stSelectbox"] div, div[data-testid="stNumberInput"] input { background-color: #111520 !important; color: #ffffff !important; border: 1px solid #1f2937 !important; border-radius: 8px !important; } .radar-box-gainer-high { background: linear-gradient(135deg, #064e3b, #047857); border: 1px solid #10b981; padding: 14px; border-radius: 8px; font-weight: bold; color: #34d399 !important; } .radar-box-loser { background: linear-gradient(135deg, #7f1d1d, #b91c1c); border: 1px solid #f87171; padding: 14px; border-radius: 8px; font-weight: bold; color: #f87171 !important; } .interpretation-box { background-color: #111520; padding: 16px; border-radius: 8px; font-size: 13px; color: #e2e8f0; border: 1px solid #1f2937; border-left: 4px solid #2ecc71; margin-top: 10px; } .agent-box { background-color: #090d16; padding: 18px; border-radius: 8px; font-size: 13px; color: #e2e8f0; border: 1px solid #1f2937; border-left: 4px solid #dfa427; margin-top: 10px; } .custom-table { width: 100%; border-collapse: collapse; margin: 15px 0; font-size: 13px; background-color: #111520; border-radius: 8px; overflow: hidden; border: 1px solid #1f2937; } .custom-table th { background-color: #161b22; color: #ffffff; padding: 12px; text-align: left; font-weight: 600; border-bottom: 2px solid #1f2937; position:relative; } .custom-table td { padding: 12px; border-bottom: 1px solid #1f2937; color: #e2e8f0; } .winner-cell { background-color: rgba(46, 204, 113, 0.15) !important; color: #2ecc71 !important; font-weight: bold; } .tooltip { position: relative; display: inline-block; cursor: pointer; color: #3498db; margin-left: 4px; font-weight: bold; } .tooltip .tooltiptext { visibility: hidden; width: 280px; background-color: #1f2937; color: #fff; text-align: left; padding: 12px; border-radius: 6px; position: absolute; z-index: 999; bottom: 125%; left: 50%; margin-left: -140px; font-size: 11px; font-weight: normal; line-height: 1.4; border: 1px solid #3b82f6; box-shadow: 0 4px 20px rgba(0,0,0,0.5); } .tooltip:hover .tooltiptext { visibility: visible; opacity: 1; }</style>""", unsafe_allow_html=True)
 
 # ==============================================================================
 # 2. CONEXIÓN EXTERNA DOLARITO
@@ -130,7 +97,7 @@ def obtener_dolar_mep_real():
 DOLAR_MEP = obtener_dolar_mep_real()
 
 # ==============================================================================
-# 3. MOTOR DE BAJADA DE PRECIOS OPTIMIZADO (SÓLO RADAR INICIAL PARA VELOCIDAD)
+# 3. MOTOR DE BAJADA DE PRECIOS OPTIMIZADO PARA DASHBOARD
 # ==============================================================================
 RADAR_KEYS = ["VIST", "YPF", "AAPL", "GGAL", "NVDA", "KO", "XOM", "WMT"]
 
@@ -160,17 +127,19 @@ def descargar_datos_radar(watchlist):
 POOL_DATA_RADAR = descargar_datos_radar(RADAR_KEYS)
 
 # ==============================================================================
-# 4. FUNCIONES EXTRA BAJO DEMANDA (SOPORTA LOS 100 INYECTADOS DINÁMICAMENTE)
+# 4. FUNCIONES EXTRA BAJO DEMANDA (SOPORTA TODOS LOS ACTIVOS)
 # ==============================================================================
 def descargar_activo_individual_historico(ticker):
     try:
-        # Se corrigió el espacio en blanco tk_Bolsa
         tk_Bolsa = ticker + ".BA" if ticker in ["ALUA","BBAR","BMA","CEPU","COME","CRES","EDN","GGAL","LOMA","MIRG","PAMP","TECO2","TGNO4","TGSU2","TRAN","TXAR","YPF","BYMA","VALO","SUPV","BHIP","INVJ","LEDE"] else ticker
         df = yf.download(tk_Bolsa, period="2y", progress=False, session=yf_session)
+        
+        # Corrección crucial para aplanar el MultiIndex de Yahoo Finance
         if isinstance(df.columns, pd.MultiIndex):
-            df_close = df['Close'][tk_Bolsa] if tk_Bolsa in df['Close'].columns else df['Close'].iloc[:,0]
-        else:
-            df_close = df['Close'] if 'Close' in df.columns else df
+            df.columns = df.columns.get_level_values(0)
+            
+        df = df.loc[:, ~df.columns.duplicated()]
+        df_close = df['Close'] if 'Close' in df.columns else df
         df_close = df_close.ffill().bfill()
         return df_close, df
     except:
@@ -199,7 +168,6 @@ def obtener_fundamental_completo(symbol):
         t = yf.Ticker(tk_Bolsa, session=yf_session)
         inf = t.info or {}
         
-        # Sincronizamos el precio actual vivo
         px = safe_float(inf.get("currentPrice", inf.get("regularMarketPrice", 50.0)))
         if symbol in POOL_DATA_RADAR: px = POOL_DATA_RADAR[symbol]["precio"]
         
@@ -261,11 +229,10 @@ if menu == "🌐 DASHBOARD Y WATCHLIST":
     st.dataframe(pd.DataFrame(rows_w).set_index("Ticker"), use_container_width=True)
 
 # ------------------------------------------------------------------------------
-# PESTAÑA ANÁLISIS INTEGRAL (MÓDULO 100% DINÁMICO)
+# PESTAÑA ANÁLISIS INTEGRAL
 # ------------------------------------------------------------------------------
 elif menu == "🔍 ANÁLISIS INTEGRAL":
     c_s1, c_s2 = st.columns([1, 2])
-    
     t_obj = c_s1.selectbox("📍 Activo Bajo Estudio:", UNIVERSO_POOL, index=UNIVERSO_POOL.index("VIST")).upper().strip()
     t_comp_raw = c_s2.text_input("Peers de Control (Separados por coma):", value="YPF, XOM").upper()
     
@@ -349,13 +316,12 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
                 # --- SUB-PESTAÑA 2: TÉCNICO (DMI) ---
                 with tab_tech:
                     st.markdown(f"### 📈 El pulso del mercado (Gráfico DMI): {t_obj}")
-                    if not df_raw.empty:
+                    if not df_raw.empty and 'High' in df_raw.columns:
                         df_t = df_raw.copy()
-                        df_t.columns = [str(c).lower() for c in df_t.columns]
-                        df_t['EMA30'] = df_t['close'].ewm(span=30, adjust=False).mean()
-                        up, down = df_t['high'].diff(), -df_t['low'].diff()
+                        df_t['EMA30'] = df_t['Close'].ewm(span=30, adjust=False).mean()
+                        up, down = df_t['High'].diff(), -df_t['Low'].diff()
                         pdm, mdm = np.where((up > down) & (up > 0), up, 0.0), np.where((down > up) & (down > 0), down, 0.0)
-                        tr = pd.DataFrame({'tr1': df_t['high']-df_t['low'], 'tr2': abs(df_t['high']-df_t['close'].shift(1)), 'tr3': abs(df_t['low']-df_t['close'].shift(1))}).max(axis=1)
+                        tr = pd.DataFrame({'tr1': df_t['High']-df_t['Low'], 'tr2': abs(df_t['High']-df_t['Close'].shift(1)), 'tr3': abs(df_t['Low']-df_t['Close'].shift(1))}).max(axis=1)
                         trs = tr.rolling(14).sum()
                         df_t['+DI'] = 100 * (pd.Series(pdm, index=df_t.index).rolling(14).sum() / trs)
                         df_t['-DI'] = 100 * (pd.Series(mdm, index=df_t.index).rolling(14).sum() / trs)
@@ -363,8 +329,8 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
                         df_t = df_t.dropna()
                         
                         fig_d = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.65, 0.35], vertical_spacing=0.04)
-                        fig_d.add_trace(go.Scatter(x=df_t.index, y=df_t['close'], name="Precio", line=dict(color='#ffffff')), row=1, col=1)
-                        fig_d.add_trace(go.Scatter(x=df_t.index, y=df_t['ema30'], name="Promedio 30", line=dict(color='#f1c40f', dash='dash')), row=1, col=1)
+                        fig_d.add_trace(go.Scatter(x=df_t.index, y=df_t['Close'], name="Precio", line=dict(color='#ffffff')), row=1, col=1)
+                        fig_d.add_trace(go.Scatter(x=df_t.index, y=df_t['EMA30'], name="Promedio 30", line=dict(color='#f1c40f', dash='dash')), row=1, col=1)
                         fig_d.add_trace(go.Scatter(x=df_t.index, y=df_t['+DI'], name="+DI (Verde)", line=dict(color='#2ecc71')), row=2, col=1)
                         fig_d.add_trace(go.Scatter(x=df_t.index, y=df_t['-DI'], name="-DI (Rojo)", line=dict(color='#e74c3c')), row=2, col=1)
                         fig_d.add_trace(go.Scatter(x=df_t.index, y=df_t['ADX'], name="ADX (Azul)", line=dict(color='#3498db')), row=2, col=1)
@@ -474,4 +440,4 @@ elif menu == "💼 PORTAFOLIO Y MODELOS":
 
 st.markdown("---")
 st.markdown("<p style='text-align: right; font-size: 12px; color: #cbd5e1;'>Desarrollado por <a href='https://www.linkedin.com/in/facundo-garciamarquez?utm_source=share_via&utm_content=profile&utm_medium=member_android' target='_blank' style='color: #2ecc71; text-decoration: none; font-weight: 600;'>Facundo Garcia Marquez</a> | Terminal Quanti Pro</p>", unsafe_allow_html=True)
-st.markdown("""<div style='background-color: rgba(231, 76, 60, 0.08); padding: 12px; border-left: 4px solid #e74c3c; font-size: 11px; color: #94a3b8;'><strong>⚠️ ADVERTENCIA EXCLUSIÓN DE RESPONSABILIDAD:</strong> Las cotizaciones de mercado y el análisis automatizado se exponen únicamente con fines educativos y de simulación de portafolios. No constituyen bajo ningún concepto asesoramiento financiero ni una recomendación explícita de compra o venta de activos o instrumentos de inversión corporativos.</div>""", unsafe_allow_html=True)
+st.markdown("""<div style='background-color: rgba(231, 76, 60, 0.08); padding: 12px; border-left: 4px solid #e74c3c; font-size: 11px; color: #94a3b8;'><strong>⚠️ ADVERTENCIA EXCLUSIÓN DE RESPONSABILIDAD:</strong> Las cotizaciones de mercado y el análisis automatizado se exponen únicamente con fines educativos y de simulación de portafolios. No constituyen bajo ningún concepto asesoramiento financiero ni una recomendación explícita de compra o venta de activos corporativos.</div>""", unsafe_allow_html=True)
