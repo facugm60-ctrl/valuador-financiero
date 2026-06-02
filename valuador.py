@@ -164,8 +164,8 @@ POOL_DATA_RADAR = descargar_datos_radar(RADAR_KEYS)
 # ==============================================================================
 def descargar_activo_individual_historico(ticker):
     try:
-        # Si es local ej. GGAL, yfinance usa GGAL.BA
-        tk_ Bolsa = ticker + ".BA" if ticker in ["ALUA","BBAR","BMA","CEPU","COME","CRES","EDN","GGAL","LOMA","MIRG","PAMP","TECO2","TGNO4","TGSU2","TRAN","TXAR","YPF","BYMA","VALO","SUPV","BHIP","INVJ","LEDE"] else ticker
+        # Se corrigió el espacio en blanco tk_Bolsa
+        tk_Bolsa = ticker + ".BA" if ticker in ["ALUA","BBAR","BMA","CEPU","COME","CRES","EDN","GGAL","LOMA","MIRG","PAMP","TECO2","TGNO4","TGSU2","TRAN","TXAR","YPF","BYMA","VALO","SUPV","BHIP","INVJ","LEDE"] else ticker
         df = yf.download(tk_Bolsa, period="2y", progress=False, session=yf_session)
         if isinstance(df.columns, pd.MultiIndex):
             df_close = df['Close'][tk_Bolsa] if tk_Bolsa in df['Close'].columns else df['Close'].iloc[:,0]
@@ -266,7 +266,6 @@ if menu == "🌐 DASHBOARD Y WATCHLIST":
 elif menu == "🔍 ANÁLISIS INTEGRAL":
     c_s1, c_s2 = st.columns([1, 2])
     
-    # Selectbox asistido con los 100 activos cargados
     t_obj = c_s1.selectbox("📍 Activo Bajo Estudio:", UNIVERSO_POOL, index=UNIVERSO_POOL.index("VIST")).upper().strip()
     t_comp_raw = c_s2.text_input("Peers de Control (Separados por coma):", value="YPF, XOM").upper()
     
@@ -278,7 +277,6 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
             dataset = [obtener_fundamental_completo(tk) for tk in lista_tickers]
             info_raiz = next((d["RAW"] for d in dataset if d["Ticker"] == t_obj), {})
             
-            # Descargamos la serie temporal del activo bajo análisis para Técnico y Montecarlo
             serie_mc, df_raw = descargar_activo_individual_historico(t_obj)
             
             if not serie_mc.empty:
@@ -442,7 +440,6 @@ elif menu == "💼 PORTAFOLIO Y MODELOS":
             t, n, px_c, co, im, dv = p["Ticker"], p["Nominales"], p["Costo_Unitario_Cedear"], p["Comision_USD"], p["Impuesto_USD"], p["Dividendos_Edit"]
             ratio = RATIOS_CEDEAR.get(t, 1)
             
-            # Cálculo rápido de mercado dinámico para portafolio
             try:
                 px_s, _ = descargar_activo_individual_historico(t)
                 px_s = px_s.iloc[-1] if not px_s.empty else (px_c * ratio / DOLAR_MEP)
