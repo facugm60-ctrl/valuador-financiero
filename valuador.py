@@ -32,7 +32,7 @@ except ImportError:
 FALLBACK_SUMMARIES = {
     "VIST": "Vista Energy es una compañía independiente de petróleo y gas, enfocada principalmente en la exploración y producción de Vaca Muerta, Argentina. Es uno de los operadores líderes en la cuenca, destacándose por su alta eficiencia operativa, bajos costos de extracción y rápida expansión en la producción de crudo no convencional (shale oil).",
     "YPF": "YPF Sociedad Anónima es la principal empresa energética de Argentina, dedicada a la exploración, producción, refinación y venta de petróleo, gas y derivados. Como líder histórico del país y actor central en Vaca Muerta, controla gran parte del mercado de combustibles y está expandiendo su infraestructura hacia el GNL.",
-    "XOM": "Exxon Mobil Corporation es uno de los gigantes energéticos más grandes del mundo. Su modelo de negocio integrado (exploración, producción y refinación) y su enorme escala le permiten generar flujos de caja masivos y sostener una política de dividendos robusta.",
+    "XOM": "Exxon Mobil Corporation es uno de los giants energéticos más grandes del mundo. Su modelo de negocio integrado (exploración, producción y refinación) y su enorme escala le permiten generar flujos de caja masivos y sostener una política de dividendos robusta.",
     "AAPL": "Apple Inc. diseña, fabrica y vende tecnología de consumo, además de contar con un ecosistema de servicios altamente rentable (App Store, iCloud). Su ventaja competitiva radica en la fidelidad de sus usuarios y un ecosistema cerrado que le permite altos márgenes.",
     "MSFT": "Microsoft Corporation es un líder global en software y computación en la nube (Azure). Domina la infraestructura corporativa mundial, complementada con su suite Office 365, Windows y su fuerte liderazgo actual en inteligencia artificial aplicada a negocios.",
     "NVDA": "NVIDIA Corporation es el líder indiscutido en el diseño de unidades de procesamiento gráfico (GPUs). Es la columna vertebral tecnológica de la revolución de la Inteligencia Artificial, proveyendo los chips esenciales para los centros de datos.",
@@ -154,14 +154,42 @@ def safe_float(val, default=0.0):
     try: return float(val) if val is not None and not pd.isna(val) else default
     except: return default
 
+def scrape_finviz_fallback(symbol):
+    try:
+        url = f"https://finviz.com/quote.ashx?t={symbol}"
+        r = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=5)
+        if r.status_code != 200: return {}
+        s = BeautifulSoup(r.text, 'html.parser')
+        def extract(label):
+            try:
+                td = s.find(string=label)
+                if td:
+                    val = td.find_next('b').text.replace('%','').replace(',','')
+                    return float(val) if val != '-' else 0.0
+            except: return 0.0
+            return 0.0
+        return {"PE": extract("P/E"), "EV": extract("P/B"), "DEUDA": extract("Debt/Eq"), "LIQUIDEZ": extract("Current Ratio"), "MARGEN": extract("Profit Margin") / 100, "ROE": extract("ROE") / 100}
+    except: return {}
+
 def obtener_fundamental_completo(symbol):
     try:
         t = yf.Ticker(symbol, session=yf_session)
         inf = t.info or {}
         px = POOL_DATA.get(symbol, {}).get("precio", safe_float(inf.get("currentPrice", 50.0)))
+        
+        if not inf or safe_float(inf.get("forwardPE", 0.0)) == 0.0:
+            fv_data = scrape_finviz_fallback(symbol)
+            return {
+                "Ticker": symbol, "Nombre": symbol, "Precio": px,
+                "PE": fv_data.get("PE", 0.0), "EV": fv_data.get("EV", 0.0),
+                "DEUDA": fv_data.get("DEUDA", 0.0), "LIQUIDEZ": fv_data.get("LIQUIDEZ", 0.0),
+                "MARGEN": fv_data.get("MARGEN", 0.0), "ROE": fv_data.get("ROE", 0.0), "RAW": {}
+            }
+            
         eb = safe_float(inf.get("ebitda", 1.0))
         td = safe_float(inf.get("totalDebt", 0.0))
         caj = safe_float(inf.get("totalCash", 0.0))
+        
         return {
             "Ticker": symbol, "Nombre": inf.get("longName", symbol), "Precio": px,
             "PE": safe_float(inf.get("forwardPE", 0.0)), "EV": safe_float(inf.get("enterpriseToEbitda", 0.0)),
@@ -188,12 +216,6 @@ def filtrar_peers_por_sector(ticker_raiz, lista_ingresada):
 # ==============================================================================
 # 4. INTERFAZ Y DASHBOARD
 # ==============================================================================
-if "cartera_list_v4" not in st.session_state:
-    st.session_state.cartera_list_v4 = [
-        {"Ticker": "VIST", "Nominales": 100, "Fecha_Compra": datetime.date(2025, 6, 15), "Costo_Unitario_Cedear": 77200.0, "Comision_USD": 0.5, "Impuesto_USD": 0.1, "Dividendos_Edit": 0.0},
-        {"Ticker": "XOM", "Nominales": 50, "Fecha_Compra": datetime.date(2025, 8, 10), "Costo_Unitario_Cedear": 31500.0, "Comision_USD": 0.4, "Impuesto_USD": 0.05, "Dividendos_Edit": 0.0}
-    ]
-
 menu = st.radio("Secciones operativas:", ["🌐 DASHBOARD Y WATCHLIST", "🔍 ANÁLISIS INTEGRAL", "💼 PORTAFOLIO Y MODELOS"], horizontal=True)
 st.markdown("---")
 
@@ -253,9 +275,8 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
                     if tk == t_obj: info_raiz = res_f["RAW"]
             
             if dataset:
-                tab_fund, tab_tech, tab_mc = st.tabs(["📊 Fundamental", "📈 Técnico (DMI)", "🎲 Montecarlo Dual"])
+                tab_fund, tab_tech, tab_mc = st.tabs(["📊 Fundamental", "📈 Técnico (DMI)", "🎲 Montecarlo"])
                 
-                # --- PESTAÑA 1: FUNDAMENTAL ---
                 with tab_fund:
                     st.markdown("### 🏢 ¿A qué se dedica esta empresa?")
                     desc_raw = info_raiz.get("longBusinessSummary", "")
@@ -285,7 +306,6 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
                             if q_fin is not None and not q_fin.empty:
                                 r_rev = [idx for idx in q_fin.index if "totalrevenue" in str(idx).lower().replace(" ", "")]
                                 r_net = [idx for idx in q_fin.index if "netincome" in str(idx).lower().replace(" ", "")]
-                                
                                 if r_rev and r_net:
                                     df_q = q_fin.loc[[r_rev[0], r_net[0]]].dropna(axis=1).iloc[:, :4]
                                     labels = [d.strftime('%d-%m-%Y') if hasattr(d, 'strftime') else str(d) for d in df_q.columns][::-1]
@@ -321,7 +341,6 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
                     
                     st.markdown(f"<div class='interpretation-box'><b>Conclusión Sencilla:</b> Comparando con sus rivales, <strong>{g_roe}</strong> es la que mejor hace rendir la plata que tiene invertida. Por otro lado, si miramos qué tan barata está la acción hoy en relación a lo que gana, <strong>{g_pe}</strong> parece ser la mejor oferta en vitrina.</div>", unsafe_allow_html=True)
 
-                # --- PESTAÑA 2: TÉCNICO (DMI) ---
                 with tab_tech:
                     st.markdown(f"### 📈 El pulso del mercado (Gráfico DMI): {t_obj}")
                     st.markdown("**¿Cómo leer este gráfico fácilmente?**<br>* **Línea Verde (+DI - Fuerza Compradora):** Mide la motivación de compra. Si supera a la roja, compradores al mando.<br>* **Línea Roja (-DI - Fuerza Vendedora):** Mide la presión de venta. Si supera a la verde, pánico o toma de ganancias.<br>* **Línea Azul (ADX - Fuerza de Tendencia):** Te dice si el movimiento va en serio. Sobre 25, tendencia sólida.", unsafe_allow_html=True)
@@ -360,45 +379,28 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
                         st.markdown(f"<div class='interpretation-box'><strong>¿QUIÉN TIENE EL VOLANTE HOY?</strong> Al precio actual de <b>${p:.2f}</b>, <b>{dom}</b> tienen el control, {tend}</div>", unsafe_allow_html=True)
                     else: st.error("No hay datos técnicos suficientes.")
 
-                # --- PESTAÑA 3: MONTECARLO DUAL (10,000 SIMULACIONES) ---
                 with tab_mc:
                     st.markdown("### 🎲 La Máquina del Tiempo (Simulador Estocástico)")
-                    st.markdown("""
-                    <div class='agent-box'>
-                    <strong>¿Qué tiene en cuenta este modelo matemático?</strong><br>
-                    Es un modelo puramente estadístico. Solo toma <b>la inercia</b> (el rendimiento promedio diario) y <b>el nerviosismo</b> (la volatilidad) que tuvo el activo durante el último año.<br><br>
-                    <strong>¿Qué NO tiene en cuenta?</strong><br>
-                    Es "ciego" al mundo real. No evalúa balances de la empresa, la inflación, el tipo de cambio, el precio del barril de petróleo, ni las decisiones de la FED. <br><br>
-                    <strong>¿Cómo saca los números finales?</strong><br>
-                    La computadora simula <b>10.000 caminos posibles</b> (tira los dados 10.000 veces) para proyectar el precio. <br>
-                    • <i>Escenario Base:</i> Es el promedio exacto de esas 10.000 simulaciones.<br>
-                    • <i>Escenario Optimista:</i> Es la zona donde caen el 5% de los mejores resultados (techo matemático de euforia).<br>
-                    • <i>Escenario Pesimista:</i> Es la zona del 5% de los peores resultados posibles (piso de pánico o soporte).
-                    </div>
-                    """, unsafe_allow_html=True)
+                    st.markdown("""<div class='agent-box'><strong>¿Qué tiene en cuenta este modelo matemático?</strong> Es un modelo puramente estadístico. Solo toma <b>la inercia</b> (el rendimiento promedio diario) y <b>el nerviosismo</b> (la volatilidad) que tuvo el activo durante el último año.<br><br><strong>¿Qué NO tiene en cuenta?</strong> Es "ciego" al mundo real. No evalúa balances de la empresa, la inflación, el tipo de cambio, el precio del barril de petróleo, ni las decisiones de la FED.<br><br><strong>¿Cómo saca los números finales?</strong> La computadora simula <b>10.000 caminos posibles</b> (tira los dados 10.000 veces) para proyectar el precio. <br>• <i>Escenario Base:</i> Es el promedio exacto de esas 10.000 simulaciones.<br>• <i>Escenario Optimista:</i> Es la zona donde caen el 5% de los mejores resultados (techo matemático de euforia).<br>• <i>Escenario Pesimista:</i> Es la zona del 5% de los peores resultados posibles (piso de pánico o soporte).</div>""", unsafe_allow_html=True)
                     
                     df_mc = POOL_DATA.get(t_obj, {}).get("serie_completa", pd.Series(dtype=float))
                     if not df_mc.empty and len(df_mc) > 50:
                         ret = df_mc.pct_change().dropna()
                         mu, sigma, p_b = ret.mean(), ret.std(), df_mc.iloc[-1]
                         c1, c2 = st.columns(2)
-                        
-                        sims = 10000 # El motor corre 10.000 veces por detrás
+                        sims = 10000 
                         
                         with c1:
                             st.markdown("#### Corto Plazo: 30 días")
                             m_1m = np.zeros((30, sims))
                             m_1m[0] = p_b
                             Z_1m = np.random.standard_normal((29, sims))
-                            for t in range(1, 30): 
-                                m_1m[t] = m_1m[t-1] * np.exp((mu - 0.5 * sigma**2) + sigma * Z_1m[t-1])
-                                
+                            for t in range(1, 30): m_1m[t] = m_1m[t-1] * np.exp((mu - 0.5 * sigma**2) + sigma * Z_1m[t-1])
                             f1m = go.Figure()
                             for i in range(50): f1m.add_trace(go.Scatter(y=m_1m[:, i], mode='lines', line=dict(color='rgba(52, 152, 219, 0.08)'), showlegend=False))
                             f1m.add_trace(go.Scatter(y=np.mean(m_1m, axis=1), mode='lines', name="Promedio", line=dict(color='#2ecc71', width=2.5)))
                             f1m.update_layout(template="plotly_dark", paper_bgcolor='#111520', plot_bgcolor='#0c0f16', height=300, margin=dict(l=10,r=10,t=10,b=10))
                             st.plotly_chart(f1m, use_container_width=True)
-                            
                             pe, pdn, pup = np.mean(m_1m[-1, :]), np.percentile(m_1m[-1, :], 5), np.percentile(m_1m[-1, :], 95)
                             st.markdown(f"<div class='interpretation-box' style='border-left: 4px solid #2ecc71;'><b>Traducción Sencilla:</b> En un escenario normal (vanilla), el <b>Precio Justo a 30 días</b> promedia los <b>${pe:.2f} USD</b>. En caso de euforia estadística, el techo roza los <b>${pup:.2f} USD</b>. Frente al pánico, el piso es <b>${pdn:.2f} USD</b>.</div>", unsafe_allow_html=True)
                         
@@ -407,38 +409,31 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
                             m_1y = np.zeros((252, sims))
                             m_1y[0] = p_b
                             Z_1y = np.random.standard_normal((251, sims))
-                            for t in range(1, 252): 
-                                m_1y[t] = m_1y[t-1] * np.exp((mu - 0.5 * sigma**2) + sigma * Z_1y[t-1])
-                                
+                            for t in range(1, 252): m_1y[t] = m_1y[t-1] * np.exp((mu - 0.5 * sigma**2) + sigma * Z_1y[t-1])
                             f1y = go.Figure()
                             for i in range(50): f1y.add_trace(go.Scatter(y=m_1y[:, i], mode='lines', line=dict(color='rgba(155, 89, 182, 0.08)'), showlegend=False))
                             f1y.add_trace(go.Scatter(y=np.mean(m_1y, axis=1), mode='lines', name="Promedio", line=dict(color='#9b59b6', width=2.5)))
                             f1y.update_layout(template="plotly_dark", paper_bgcolor='#111520', plot_bgcolor='#0c0f16', height=300, margin=dict(l=10,r=10,t=10,b=10))
                             st.plotly_chart(f1y, use_container_width=True)
-                            
                             pe_y, pdn_y, pup_y = np.mean(m_1y[-1, :]), np.percentile(m_1y[-1, :], 5), np.percentile(m_1y[-1, :], 95)
                             st.markdown(f"<div class='interpretation-box' style='border-left: 4px solid #9b59b6;'><b>Traducción Sencilla:</b> A un año, el <b>Precio Justo Esperado</b> escala a <b>${pe_y:.2f} USD</b>. En un mercado ultra alcista tocaría los <b>${pup_y:.2f} USD</b>, y frente a una crisis el soporte frenaría en <b>${pdn_y:.2f} USD</b>.</div>", unsafe_allow_html=True)
                     else: st.error("No hay datos históricos suficientes para correr el modelo Montecarlo.")
-            else:
-                st.error("No se pudo obtener información fundamental de los activos desde Yahoo Finance. Intenta nuevamente.")
+            else: st.error("No se pudo obtener información fundamental de los activos. Intenta nuevamente.")
 
 # ------------------------------------------------------------------------------
 # PORTAFOLIO Y MODELOS FACTORIALES
 # ------------------------------------------------------------------------------
 elif menu == "💼 PORTAFOLIO Y MODELOS":
     st.subheader("🤖 Modelos Factoriales (Asignación Táctica)")
-    
     FACTORES = {
         "Dividend Income": {"desc": "Empresas maduras con dividendos predecibles.", "activos": {"KO": "Resiliencia.", "XOM": "Energía.", "JNJ": "Salud.", "PEP": "Consumo.", "PG": "Higiene.", "WMT": "Retail."}},
         "Momentum Institucional": {"desc": "Inercia de compras y volumen a mediano plazo.", "activos": {"VIST": "Vaca Muerta.", "NVDA": "IA.", "MSFT": "SaaS.", "AAPL": "Hardware.", "AMD": "Procesadores.", "META": "Redes."}},
         "Large Caps Alpha": {"desc": "Núcleo de portafolio con corporaciones de escala global.", "activos": {"MSFT": "Monopolio moderno.", "AAPL": "Caja colosal.", "AMZN": "Líder cloud.", "GOOGL": "Foso de búsqueda.", "BRKB": "Value investing."}}
     }
-    
     cat_sel = st.selectbox("Estrategia a Evaluar:", list(FACTORES.keys()))
     col1, col2 = st.columns([2, 1])
     tk_ele = col1.selectbox("Seleccionar activo sugerido:", list(FACTORES[cat_sel]["activos"].keys()))
     col1.markdown(f"💡 **Fundamento:** {FACTORES[cat_sel]['activos'][tk_ele]}")
-    
     if col2.button("➕ ACOPLAR A MI CARTERA"):
         if not any(x["Ticker"] == tk_ele for x in st.session_state.cartera_list_v4):
             px_sub = POOL_DATA.get(tk_ele, {}).get("precio", 150.0)
@@ -451,7 +446,6 @@ elif menu == "💼 PORTAFOLIO Y MODELOS":
     st.markdown("---")
     st.subheader("💼 Mi Cartera de Inversiones Consolidada (BYMA)")
     is_ars = st.segmented_control("Moneda:", ["ARS", "USD"], default="ARS") == "ARS"
-    
     with st.expander("➕ Cargar nueva posición"):
         with st.form("alta_manual"):
             cx1, cx2, cx3 = st.columns(3)
@@ -467,10 +461,8 @@ elif menu == "💼 PORTAFOLIO Y MODELOS":
     if not df_in.empty:
         df_ed = st.data_editor(df_in, column_config={"Ticker": st.column_config.TextColumn(disabled=True), "Nominales": st.column_config.NumberColumn(disabled=True), "Fecha_Compra": st.column_config.DateColumn(disabled=True), "Costo_Unitario_Cedear": st.column_config.NumberColumn("Precio ARS", disabled=True), "Comision_USD": st.column_config.NumberColumn(disabled=True), "Impuesto_USD": st.column_config.NumberColumn(disabled=True), "Dividendos_Edit": st.column_config.NumberColumn("Divs (USD)", disabled=False)}, use_container_width=True, hide_index=True)
         st.session_state.cartera_list_v4 = df_ed.to_dict(orient="records")
-        
         f_html, f_pdf = [], []
         c_tot, m_tot, d_tot = 0.0, 0.0, 0.0
-        
         for p in st.session_state.cartera_list_v4:
             t, n, px_c, co, im, dv = p["Ticker"], p["Nominales"], p["Costo_Unitario_Cedear"], p["Comision_USD"], p["Impuesto_USD"], p["Dividendos_Edit"]
             ratio = RATIOS_CEDEAR.get(t, 1)
@@ -479,17 +471,14 @@ elif menu == "💼 PORTAFOLIO Y MODELOS":
             pl_usd = (v_usd + dv) - c_usd
             pct = (pl_usd / c_usd) * 100 if c_usd > 0 else 0.0
             c_tot += c_usd; m_tot += v_usd; d_tot += dv
-            
             if is_ars:
-                c_f, v_f, dv_f, pl_f = c_usd*DOLAR_MEP/ratio, v_usd*DOLAR_MEP/ratio, dv*DOLAR_MEP/ratio, pl_usd*DOLAR_MEP/ratio
+                c_f, v_f, pl_f = c_usd*DOLAR_MEP/ratio, v_usd*DOLAR_MEP/ratio, pl_usd*DOLAR_MEP/ratio
                 lbl, px_v = "ARS", px_c
             else:
-                c_f, v_f, dv_f, pl_f = c_usd, v_usd, dv, pl_usd
+                c_f, v_f, pl_f = c_usd, v_usd, pl_usd
                 lbl, px_v = "USD", px_s
-                
             f_html.append({"Ticker": t, "Cant": n, "Ratio": f"{ratio}:1", f"Precio": f"${px_v:,.2f}", f"Capital": f"${c_f:,.2f}", f"Mercado": f"${v_f:,.2f}", f"P&L": f"${pl_f:,.2f}", "Retorno": f"{pct:+.2f}%"})
             f_pdf.append({"Ticker": t, "Cant": n, "Precio": f"${px_v:,.2f}", "Mercado": f"${v_f:,.2f}", "Retorno": f"{pct:+.2f}%"})
-            
         st.dataframe(pd.DataFrame(f_html).set_index("Ticker"), use_container_width=True)
         
         st.markdown("### 📈 Estado Neto Patrimonial")
@@ -522,15 +511,10 @@ elif menu == "💼 PORTAFOLIO Y MODELOS":
         st.markdown("---")
         st.subheader("📥 Exportación Institucional")
         asesor = st.text_input("Asesor Firmante:", value="Facundo Garcia Marquez")
-        
         h_rep = "".join([f"<tr><td>{x['Ticker']}</td><td>{x['Cant']}</td><td>{x['Precio']}</td><td>{x['Mercado']}</td><td>{x['Retorno']}</td></tr>" for x in f_pdf])
-        
         doc = f"<html><head><meta charset='utf-8'><style>body{{font-family:Arial; color:#2c3e50;}} h1{{color:#2ecc71;}} table{{width:100%; border-collapse:collapse; font-size:12px;}} th,td{{padding:8px; border:1px solid #ddd; text-align:left;}}</style></head><body><h1>Reporte de Portafolio</h1><p><b>Asesor:</b> {asesor}</p><p><b>Retorno:</b> {gp:+.2f}%</p><table><thead><tr><th>Ticker</th><th>Cant</th><th>Precio</th><th>Mercado</th><th>Retorno</th></tr></thead><tbody>{h_rep}</tbody></table></body></html>"
         st.download_button("📥 DESCARGAR REPORTE", data=doc.encode('utf-8'), file_name=f"Reporte_{asesor.replace(' ','_')}.html", mime="text/html")
 
-# ==============================================================================
-# PIE DE PÁGINA
-# ==============================================================================
 st.markdown("---")
-st.markdown("<p style='text-align: right; font-size: 12px; color: #2ecc71; font-weight: 600;'>Facundo Garcia Marquez | Terminal Quanti Pro</p>", unsafe_allow_html=True)
-st.markdown("<div style='background-color: rgba(231, 76, 60, 0.08); padding: 12px; border-left: 4px solid #e74c3c; font-size: 11px; color: #94a3b8;'><strong>⚠️ ADVERTENCIA:</strong> Fines educativos y de simulación.</div>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: right; font-size: 12px; color: #cbd5e1;'>Desarrollado por <a href='https://www.linkedin.com/in/facundo-garciamarquez?utm_source=share_via&utm_content=profile&utm_medium=member_android' target='_blank' style='color: #2ecc71; text-decoration: none; font-weight: 600;'>Facundo Garcia Marquez</a> | Terminal Quanti Pro</p>", unsafe_allow_html=True)
+st.markdown("""<div style='background-color: rgba(231, 76, 60, 0.08); padding: 12px; border-left: 4px solid #e74c3c; font-size: 11px; color: #94a3b8;'><strong>⚠️ ADVERTENCIA EXCLUSIÓN DE RESPONSABILIDAD:</strong> Las cotizaciones de mercado y el análisis automatizado se exponen únicamente con fines educativos y de simulación de portafolios. No constituyen bajo ningún concepto asesoramiento financiero ni una recomendación explícita de compra o venta de activos o instrumentos de inversión corporativos.</div>""", unsafe_allow_html=True)
