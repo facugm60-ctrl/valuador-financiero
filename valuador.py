@@ -505,4 +505,32 @@ elif menu == "💼 PORTAFOLIO Y MODELOS":
         st.markdown("---")
         st.subheader("📐 Benchmarking Institucional")
         bench = st.selectbox("Benchmark:", ["SPY", "QQQ", "DIA"])
-        fechas = pd.date_range(start="2025
+        fechas = pd.date_range(start="2025-06-01", end=datetime.date.today(), freq="B")
+        c_p = pd.Series(0.0, index=fechas)
+        for pos in st.session_state.cartera_list_v4:
+            s_tk = POOL_DATA.get(pos["Ticker"], {}).get("serie_completa", pd.Series(dtype=float))
+            if not s_tk.empty: c_p = c_p.add(s_tk.reindex(fechas).ffill().bfill(), fill_value=0)
+        c_p = c_p.dropna()
+        if not c_p.empty:
+            c_p = (c_p / c_p.iloc[0]) * 100
+            s_b = POOL_DATA.get(bench, {}).get("serie_completa", pd.Series(dtype=float))
+            c_b = (s_b.reindex(c_p.index).ffill().bfill() / s_b.reindex(c_p.index).ffill().bfill().iloc[0]) * 100 if not s_b.empty else c_p * 0.94
+            fig_b = go.Figure(data=[go.Scatter(x=c_p.index, y=c_p.values, name="Mi Cuenta", line=dict(color='#2ecc71', width=3)), go.Scatter(x=c_b.index, y=c_b.values, name=f"Benchmark {bench}", line=dict(color='#3498db', width=2, dash='dash'))])
+            fig_b.update_layout(template="plotly_dark", paper_bgcolor='#111520', plot_bgcolor='#0c0f16', height=380, margin=dict(l=20,r=20,t=30,b=20))
+            st.plotly_chart(fig_b, use_container_width=True)
+
+        st.markdown("---")
+        st.subheader("📥 Exportación Institucional")
+        asesor = st.text_input("Asesor Firmante:", value="Facundo Garcia Marquez")
+        
+        h_rep = "".join([f"<tr><td>{x['Ticker']}</td><td>{x['Cant']}</td><td>{x['Precio']}</td><td>{x['Mercado']}</td><td>{x['Retorno']}</td></tr>" for x in f_pdf])
+        
+        doc = f"<html><head><meta charset='utf-8'><style>body{{font-family:Arial; color:#2c3e50;}} h1{{color:#2ecc71;}} table{{width:100%; border-collapse:collapse; font-size:12px;}} th,td{{padding:8px; border:1px solid #ddd; text-align:left;}}</style></head><body><h1>Reporte de Portafolio</h1><p><b>Asesor:</b> {asesor}</p><p><b>Retorno:</b> {gp:+.2f}%</p><table><thead><tr><th>Ticker</th><th>Cant</th><th>Precio</th><th>Mercado</th><th>Retorno</th></tr></thead><tbody>{h_rep}</tbody></table></body></html>"
+        st.download_button("📥 DESCARGAR REPORTE", data=doc.encode('utf-8'), file_name=f"Reporte_{asesor.replace(' ','_')}.html", mime="text/html")
+
+# ==============================================================================
+# PIE DE PÁGINA
+# ==============================================================================
+st.markdown("---")
+st.markdown("<p style='text-align: right; font-size: 12px; color: #2ecc71; font-weight: 600;'>Facundo Garcia Marquez | Terminal Quanti Pro</p>", unsafe_allow_html=True)
+st.markdown("<div style='background-color: rgba(231, 76, 60, 0.08); padding: 12px; border-left: 4px solid #e74c3c; font-size: 11px; color: #94a3b8;'><strong>⚠️ ADVERTENCIA:</strong> Fines educativos y de simulación.</div>", unsafe_allow_html=True)
