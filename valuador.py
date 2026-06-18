@@ -12,7 +12,7 @@ from bs4 import BeautifulSoup
 import plotly.graph_objects as go
 import plotly.express as px
 from plotly.subplots import make_subplots
-import scipy.optimize as sco # NUEVO: Para Markowitz (Simon CIS 465)
+import scipy.optimize as sco
 
 # ------------------------------------------------------------------------------
 # DISFRAZ ANTI-BLOQUEO PARA YAHOO FINANCE & FINVIZ
@@ -49,7 +49,7 @@ EXPLICACIONES_TECNICAS = {
 }
 
 # ==============================================================================
-# 1. PARAMETRIZACIÓN Y RATIOS (MUESTRA REDUCIDA PARA EJEMPLO)
+# 1. PARAMETRIZACIÓN Y RATIOS 
 # ==============================================================================
 RATIOS_CEDEAR = {
     "VIST": 1, "YPF": 1, "AAPL": 10, "GGAL": 1, "NVDA": 24, "MSFT": 30, "KO": 5, "XOM": 5, "WMT": 6, "PAMP": 1, "SPY": 20
@@ -59,7 +59,7 @@ UNIVERSO_POOL = list(RATIOS_CEDEAR.keys())
 # ==============================================================================
 # CONFIGURACIÓN DE PÁGINA Y ESTILOS
 # ==============================================================================
-st.set_page_config(page_title="Terminal Quanti Pro - Simon Edition", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="Terminal Quanti Pro", layout="wide", initial_sidebar_state="collapsed")
 
 st.markdown("""<style>@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght=300;400;600;700;800&display=swap'); html, body, [class*="css"], [data-testid="stAppViewContainer"], [data-testid="stHeader"] { background-color: #0c0f16 !important; color: #f1f5f9 !important; font-family: 'Montserrat', sans-serif !important; } .block-container {padding-top: 1.5rem; padding-bottom: 2rem;} h1 {font-weight: 800; color: #ffffff !important; font-size: 30px !important;} h2 {font-weight: 700; color: #f8fafc !important; font-size: 21px !important; margin-top: 15px;} h3 {font-weight: 600; color: #f1f5f9 !important; font-size: 16px !important;} div[data-testid="stRadio"] > div { background: rgba(22, 27, 34, 0.7) !important; padding: 8px !important; border-radius: 12px !important; border: 1px solid rgba(255, 255, 255, 0.08) !important; margin-bottom: 20px !important; } div[data-testid="stMetric"] { background-color: #111520 !important; border: 1px solid #1f2937 !important; border-radius: 10px !important; padding: 15px 20px !important; } .stButton>button { width: 100%; background: linear-gradient(135deg, #2ecc71, #27ae60) !important; color: white !important; font-weight: 700; border-radius: 8px; border: none; padding: 0.6rem; text-transform: uppercase; } .radar-box-gainer-high { background: linear-gradient(135deg, #064e3b, #047857); border: 1px solid #10b981; padding: 14px; border-radius: 8px; font-weight: bold; color: #34d399 !important; } .radar-box-loser { background: linear-gradient(135deg, #7f1d1d, #b91c1c); border: 1px solid #f87171; padding: 14px; border-radius: 8px; font-weight: bold; color: #f87171 !important; } .interpretation-box { background-color: #111520; padding: 16px; border-radius: 8px; font-size: 13px; border-left: 4px solid #2ecc71; margin-top: 10px; } .agent-box { background-color: #090d16; padding: 18px; border-radius: 8px; font-size: 13px; border-left: 4px solid #dfa427; margin-top: 10px; } .custom-table { width: 100%; border-collapse: collapse; margin: 15px 0; font-size: 13px; background-color: #111520; border-radius: 8px; overflow: hidden; border: 1px solid #1f2937; } .custom-table th { background-color: #161b22; padding: 12px; text-align: left; } .custom-table td { padding: 12px; border-bottom: 1px solid #1f2937; } .winner-cell { background-color: rgba(46, 204, 113, 0.15) !important; color: #2ecc71 !important; font-weight: bold; }</style>""", unsafe_allow_html=True)
 
@@ -72,12 +72,12 @@ def safe_float(val):
 # ==============================================================================
 @st.cache_data(ttl=600)
 def obtener_dolar_mep_real():
-    return 1433.25 # Simplificado para estabilidad del dashboard
+    return 1433.25 
 
 DOLAR_MEP = obtener_dolar_mep_real()
 
 # ==============================================================================
-# 3. FUNCIONES CORE Y SCRAPING PROFUNDO (GBA 424)
+# 3. FUNCIONES CORE Y SCRAPING PROFUNDO 
 # ==============================================================================
 @st.cache_data(ttl=600)
 def descargar_activo_individual_historico(ticker):
@@ -94,7 +94,6 @@ def descargar_activo_individual_historico(ticker):
 
 @st.cache_data(ttl=3600)
 def scrape_finviz_fallback(symbol):
-    """ Web Scraping robusto si Yahoo Finance bloquea la data fundamental """
     try:
         url = f"https://finviz.com/quote.ashx?t={symbol}"
         r = yf_session.get(url, timeout=5)
@@ -118,7 +117,6 @@ def obtener_fundamental_completo(symbol):
         inf = t.info or {}
         px = safe_float(inf.get("currentPrice", inf.get("regularMarketPrice", 50.0)))
         
-        # Si Yahoo bloquea los datos, activamos Finviz (Resolución de problema técnico)
         if not inf or safe_float(inf.get("forwardPE", 0.0)) == 0.0:
             fv_data = scrape_finviz_fallback(symbol)
             return {
@@ -152,13 +150,13 @@ if "cartera_list_v4" not in st.session_state:
     ]
 
 # MENÚ DE CONSOLA
-menu = st.radio("Secciones operativas:", ["🔍 ANÁLISIS INTEGRAL (SIMON FRAMEWORK)", "💼 PORTAFOLIO Y OPTIMIZADOR"], horizontal=True)
+menu = st.radio("Secciones operativas:", ["🔍 ANÁLISIS INTEGRAL", "💼 PORTAFOLIO Y OPTIMIZADOR"], horizontal=True)
 st.markdown("---")
 
 # ------------------------------------------------------------------------------
-# PESTAÑA ANÁLISIS INTEGRAL (MAPEO DE MATERIAS)
+# PESTAÑA ANÁLISIS INTEGRAL
 # ------------------------------------------------------------------------------
-if menu == "🔍 ANÁLISIS INTEGRAL (SIMON FRAMEWORK)":
+if menu == "🔍 ANÁLISIS INTEGRAL":
     c_s1, c_s2 = st.columns([1, 2])
     t_obj = c_s1.selectbox("📍 Activo Bajo Estudio:", UNIVERSO_POOL, index=UNIVERSO_POOL.index("VIST")).upper().strip()
     t_comp_raw = c_s2.text_input("Peers de Control (Separados por coma):", value="YPF, XOM").upper()
@@ -170,14 +168,12 @@ if menu == "🔍 ANÁLISIS INTEGRAL (SIMON FRAMEWORK)":
             serie_mc, df_raw = descargar_activo_individual_historico(t_obj)
             
             if not serie_mc.empty:
-                # ESTRUCTURA SIMON BUSINESS SCHOOL
                 tab_comp, tab_mc_fund, tab_mc_price = st.tabs([
-                    "📊 Múltiplos Comparables (GBA 462F)", 
-                    "🧬 Montecarlo Fundamental DCF (CIS 418)", 
-                    "🎲 Simulación Estocástica de Precio (GBA 420)"
+                    "📊 Múltiplos Comparables", 
+                    "🧬 Montecarlo Fundamental DCF", 
+                    "🎲 Simulación Estocástica de Precio"
                 ])
                 
-                # --- MATERIA GBA 462F: VALUACIÓN RELATIVA ---
                 with tab_comp:
                     st.markdown("### Matriz de Comparación Relativa")
                     g_pe = min(dataset, key=lambda x: x["PE"] if x["PE"] > 0 else float('inf'))["Ticker"]
@@ -191,18 +187,14 @@ if menu == "🔍 ANÁLISIS INTEGRAL (SIMON FRAMEWORK)":
                     html_matriz_final += "</tbody></table>"
                     st.markdown(html_matriz_final, unsafe_allow_html=True)
 
-                # --- MATERIA CIS 418: MONTECARLO SOBRE DCF (CORRECCIÓN SESGO) ---
                 with tab_mc_fund:
                     st.markdown("### 🧬 Análisis de Sensibilidad Estocástico (Margen vs Valor)")
                     st.markdown("<div class='agent-box'>En lugar de simular precios a ciegas, aplicamos Montecarlo sobre la incertidumbre operativa (Márgenes). Si el margen operativo de la empresa varía según una distribución normal, ¿Cuál es la probabilidad del Valor Intrínseco final?</div>", unsafe_allow_html=True)
                     
-                    # Mini DCF Simulado
                     margen_base = dataset[0]["MARGEN"] if dataset[0]["MARGEN"] > 0 else 0.15
-                    vol_margen = 0.05 # 5% de volatilidad en el margen
+                    vol_margen = 0.05 
                     simulaciones_margen = np.random.normal(margen_base, vol_margen, 10000)
                     
-                    # Simplificación del DCF: Valor Intrínseco = (Ingresos * Margen) * Múltiplo
-                    # Asumimos ingresos estáticos de 10B y múltiplo histórico de 10x para simplificar visualización
                     ingresos_base = 100 
                     multiplo_salida = 10
                     valores_intrinsecos = (ingresos_base * simulaciones_margen) * multiplo_salida
@@ -212,14 +204,13 @@ if menu == "🔍 ANÁLISIS INTEGRAL (SIMON FRAMEWORK)":
                     st.plotly_chart(fig_dcf, use_container_width=True)
                     st.markdown(f"<div class='interpretation-box'>El 90% de las simulaciones arrojan que, considerando la volatilidad histórica de sus operaciones, el Valor Intrínseco del negocio se ubica entre <b>${np.percentile(valores_intrinsecos, 5):.2f}</b> y <b>${np.percentile(valores_intrinsecos, 95):.2f}</b>.</div>", unsafe_allow_html=True)
 
-                # --- MATERIA GBA 420: MONTECARLO DE PRECIO (CORRECCIÓN DE DRIFT) ---
                 with tab_mc_price:
                     st.markdown("### 🎲 Simulación de Caminata Aleatoria (Sin Sesgo Histórico)")
                     st.markdown("<div class='agent-box'><b>Corrección Aplicada:</b> Se eliminó el <i>Drift Bias</i> (tendencia alcista histórica). La simulación asume un $\\mu = 0$ (mercado eficiente a corto plazo) aislando puramente la <b>Volatilidad</b> ($\\sigma$) del activo para evaluar riesgos de caída reales.</div>", unsafe_allow_html=True)
                     
                     ret = serie_mc.pct_change().dropna()
                     sigma, p_b = ret.std(), serie_mc.iloc[-1]
-                    mu_neutral = 0.0 # CORRECCIÓN DEL SESGO ALCISTA
+                    mu_neutral = 0.0 
                     
                     m_1y = np.zeros((252, 10000))
                     m_1y[0] = p_b
@@ -235,7 +226,7 @@ if menu == "🔍 ANÁLISIS INTEGRAL (SIMON FRAMEWORK)":
                     st.plotly_chart(f1y, use_container_width=True)
 
 # ------------------------------------------------------------------------------
-# PESTAÑA PORTAFOLIO (MKT 440 & CIS 465)
+# PESTAÑA PORTAFOLIO 
 # ------------------------------------------------------------------------------
 elif menu == "💼 PORTAFOLIO Y OPTIMIZADOR":
     st.subheader("💼 Gestión de Carteras y Frontera Eficiente")
@@ -252,7 +243,6 @@ elif menu == "💼 PORTAFOLIO Y OPTIMIZADOR":
             tickers_cartera = list(set([p["Ticker"] for p in st.session_state.cartera_list_v4]))
             
             try:
-                # Descargar data de todos los activos de la cartera
                 data = yf.download(tickers_cartera, period="1y", progress=False)['Close'].ffill().bfill()
                 if isinstance(data, pd.Series): data = pd.DataFrame({tickers_cartera[0]: data})
                 
@@ -260,9 +250,8 @@ elif menu == "💼 PORTAFOLIO Y OPTIMIZADOR":
                 mean_returns = returns.mean() * 252
                 cov_matrix = returns.cov() * 252
                 
-                # Función objetivo: Maximizar Sharpe Ratio (Minimizar negativo)
                 num_assets = len(tickers_cartera)
-                rf = 0.04 # Risk free rate (4%)
+                rf = 0.04 
                 
                 def neg_sharpe_ratio(weights, mean_returns, cov_matrix, risk_free_rate):
                     p_var = np.dot(weights.T, np.dot(cov_matrix, weights))
