@@ -47,7 +47,7 @@ UNIVERSO_100 = [
     "C", "BAC", "WFC", "GS", "MS", "BLK", "AXP", "PYPL", "SQ", "HSBC",
     "VIST", "YPF", "GGAL", "PAMP", "TXAR", "ALUA", "BMA", "CEPU", "CRES", "EDN",
     "SPY", "QQQ", "IWM", "DIA", "EEM", "XLE", "XLK", "XLF", "XLV", "XLP",
-    "ASML", "MA", "MCO", "SPGI", "LVMUY", "NVO", "HD", "COST", "ACN", "NKE"
+    "ASML", "MA", "MCO", "SPGI", "LVMUY", "NVO", "LLY", "HD", "COST", "ACN", "NKE"
 ]
 
 FALLBACK_SUMMARIES = {
@@ -195,7 +195,7 @@ menu = st.radio("Secciones operativas:", ["🌐 DASHBOARD Y WATCHLIST", "🔍 AN
 st.markdown("---")
 
 # ------------------------------------------------------------------------------
-# PESTAÑA DASHBOARD Y WATCHLIST (RESOLUCIÓN DE NAMEERROR DE RADAR_KEYS)
+# PESTAÑA DASHBOARD Y WATCHLIST
 # ------------------------------------------------------------------------------
 if menu == "🌐 DASHBOARD Y WATCHLIST":
     st.subheader("⚡ Market Radar: Momentum de Ruedas (Universo de 100 Activos)")
@@ -213,14 +213,14 @@ if menu == "🌐 DASHBOARD Y WATCHLIST":
         st.markdown("---")
         st.subheader("📌 Monitoreo General del Mercado (Watchlist Core)")
         rows_w = []
-        for t in WATCHLIST_CORE:  # Corregido: Se mapea explícitamente sobre el pool Core configurado
+        for t in WATCHLIST_CORE:  
             p_info = POOL_TOTAL_RADAR.get(t, {"precio": 100.0, "1D": 0.0})
             px_ars = (p_info["precio"] / RATIOS_CEDEAR.get(t, 1)) * DOLAR_MEP
             rows_w.append({"Ticker": t, "Precio USD": f"${p_info['precio']:.2f}", "Cedear Estimado (ARS)": f"${px_ars:,.2f}", "Variación Diaria (1D)": f"{p_info['1D']:+.2f}%"})
         st.dataframe(pd.DataFrame(rows_w).set_index("Ticker"), use_container_width=True)
 
 # ------------------------------------------------------------------------------
-# PESTAÑA ANÁLISIS INTEGRAL (CAJA DE SORPRESAS TRIMESTRAL REAL)
+# PESTAÑA ANÁLISIS INTEGRAL (ANÁLISIS TÉCNICO COMPLETO RESTAURADO)
 # ------------------------------------------------------------------------------
 elif menu == "🔍 ANÁLISIS INTEGRAL":
     c_s1, c_s2 = st.columns([1, 2])
@@ -326,6 +326,7 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
                     if g_roe and g_pe:
                         st.markdown(f"<div class='interpretation-box'><b>Conclusión Sencilla:</b> Frente a los de control seleccionados, <b>{g_roe}</b> es la de mayor eficiencia sobre patrimonio, mientras que <b>{g_pe}</b> cotiza con mayor descuento contable.</div>", unsafe_allow_html=True)
 
+                # --- SUB-PESTAÑA 2: TÉCNICO (DMI) RESTAURADO CON DESCRIPCIÓN E INTERPRETACIÓN ---
                 with tab_tech:
                     st.markdown(f"### 📈 El pulso del mercado (Gráfico DMI): {t_obj}")
                     if not df_raw.empty and 'High' in df_raw.columns:
@@ -349,9 +350,28 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
                         fig_d.update_layout(template="plotly_dark", paper_bgcolor='#111520', plot_bgcolor='#0c0f16', height=450, margin=dict(l=20,r=20,t=10,b=10))
                         st.plotly_chart(fig_d, use_container_width=True)
                         
+                        p = df_t['Close'].iloc[-1]
+                        di_p = df_t['+DI'].iloc[-1]
+                        di_m = df_t['-DI'].iloc[-1]
+                        adx = df_t['ADX'].iloc[-1]
                         soporte = df_t['Low'].tail(30).min()
                         resistencia = df_t['High'].tail(30).max()
-                        st.markdown(f"<div class='interpretation-box'><b>Niveles Clave a vigilar (Últimos 30 días):</b><br>• <b>Soporte (Piso):</b> ${soporte:.2f}<br>• <b>Resistencia (Techo):</b> ${resistencia:.2f}</div>", unsafe_allow_html=True)
+                        
+                        if di_p > di_m and adx > 25:
+                            senal = "<span style='color:#2ecc71; font-weight:bold;'>SEÑAL DE COMPRA CLARA 🟢</span>"
+                            contexto = "La tendencia alcista actual tiene fuerza. Buen timing para entrar o mantener la posición."
+                        elif di_p > di_m and adx <= 25:
+                            senal = "<span style='color:#f1c40f; font-weight:bold;'>MANTENER / NEUTRAL 🟡</span>"
+                            contexto = "El precio sube pero sin convicción (sin fuerza en la tendencia). No es ideal para compras nuevas."
+                        elif di_m > di_p and adx > 25:
+                            senal = "<span style='color:#e74c3c; font-weight:bold;'>SEÑAL DE VENTA / ALERTA 🔴</span>"
+                            contexto = "La tendencia bajista es fuerte. Riesgo elevado de mayores caídas."
+                        else:
+                            senal = "<span style='color:#e74c3c; font-weight:bold;'>PRECAUCIÓN / LATERAL 🔴</span>"
+                            contexto = "El mercado está cayendo pero sin volumen agresivo, o simplemente lateralizando."
+                            
+                        st.markdown(f"<div class='interpretation-box'><b>Veredicto del Gráfico:</b> {senal}<br><br>{contexto}<br><br><b>Niveles Clave a vigilar (Últimos 30 días):</b><br>• <b>Soporte (Piso):</b> ${soporte:.2f} (Si rompe este nivel hacia abajo, saltan las alarmas de venta).<br>• <b>Toma de Ganancias (Techo):</b> ${resistencia:.2f} (Si llega acá, es probable que el mercado venda para asegurar ganancias).</div>", unsafe_allow_html=True)
+                    else: st.error("No se pudieron procesar datos para el gráfico técnico.")
 
                 with tab_mc_fund:
                     st.markdown("### 🧬 DCF Estocástico: Precio Objetivo Intrínseco por Acción")
@@ -443,7 +463,7 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
                         st.plotly_chart(f1y, use_container_width=True)
 
 # ------------------------------------------------------------------------------
-# PESTAÑA PORTAFOLIO Y MODELOS (CON DETALLE FUNDAMENTAL ACTIVO POR ACTIVO)
+# PESTAÑA PORTAFOLIO Y MODELOS
 # ------------------------------------------------------------------------------
 elif menu == "💼 PORTAFOLIO Y MODELOS":
     st.subheader("💼 Mi Cartera de Inversiones Consolidada (Flujos y Rentas)")
@@ -498,9 +518,11 @@ elif menu == "💼 PORTAFOLIO Y MODELOS":
         k4.metric("Total Return Cartera", f"{gp:+.2f}%")
         k5.metric("Alpha vs SPY (YTD)", f"{alpha:+.2f}%", delta_color="normal" if alpha >= 0 else "inverse")
 
+        st.markdown("<div class='interpretation-box'><b>Medición de Alpha:</b> Comparamos el rendimiento total de la cartera contra el retorno YTD del S&P 500 (SPY). Un Alpha positivo indica que la gestión activa superó al mercado.</div>", unsafe_allow_html=True)
+
         st.markdown("---")
         
-        # --- BLOQUE REESTRUCTURADO: ESTRATEGIAS CON JUSTIFICACIÓN COMPLETA ACTIVO POR ACTIVO ---
+        # --- BLOQUE ESTRATEGIAS CON DETALLE FUNDAMENTAL ACTIVO POR ACTIVO ---
         st.subheader("🎯 Ideas de Inversión Institucionales (Desglosadas por Fundamentos)")
         
         estrategias = {
@@ -573,7 +595,7 @@ elif menu == "💼 PORTAFOLIO Y MODELOS":
             "LLY": "<b>Eli Lilly:</b> Ventaja competitiva derivada de patentes críticas en biotecnología con alto retorno sobre capital invertido (ROIC).",
             "HD": "<b>Home Depot:</b> Escala de red y capilaridad logística interna inmune a la disrupción del comercio electrónico tradicional.",
             "COST": "<b>Costco:</b> Modelo basado en membresías recurrentes que asegura fidelidad absoluta y flujo de caja predictivo.",
-            "ACN": "<b>Accenture:</b> Costos de cambio elevados para sus clientes debido a la profunda integración de sus servicios de consultoría."
+            "ACN": "<b>Accenture:</b> Costos de cambio elevados para sus clientes debido a la profunda integración de sus servicios de consultorías."
         }
 
         tabs_est = st.tabs(list(estrategias.keys()))
@@ -582,14 +604,12 @@ elif menu == "💼 PORTAFOLIO Y MODELOS":
                 nombre_est = list(estrategias.keys())[i]
                 st.markdown(f"<div class='agent-box'>{justificaciones_macro[nombre_est]}</div>", unsafe_allow_html=True)
                 st.markdown("<br><b>Análisis Fundamental Activo por Activo:</b>", unsafe_allow_html=True)
-                
                 tickers_de_estrategia = estrategias[nombre_est]
-                
-                # Desglose de los 10 activos de la estrategia en pantalla de forma ordenada
                 for tk in tickers_de_estrategia:
                     st.markdown(f"• {detalles_activos.get(tk, tk)}")
 
         st.markdown("---")
+        # --- OPTIMIZACIÓN MARKOWITZ ---
         st.subheader("🧠 Optimización Institucional de Portafolio (Markowitz)")
         if st.button("Calcular Frontera Eficiente"):
             with st.spinner("Calculando matriz de covarianza..."):
