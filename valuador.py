@@ -362,56 +362,49 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
                         st.markdown(f"<div class='interpretation-box'><b>Veredicto del Gráfico:</b> {senal}<br><br>{contexto}<br><br><b>Niveles Clave a vigilar (Últimos 30 días):</b><br>• <b>Soporte (Piso):</b> ${soporte:.2f} (Si rompe este nivel hacia abajo, saltan las alarmas de venta).<br>• <b>Toma de Ganancias (Techo):</b> ${resistencia:.2f} (Si llega acá, es probable que el mercado venda para asegurar ganancias).</div>", unsafe_allow_html=True)
                     else: st.error("No se pudieron procesar datos para el gráfico técnico.")
 
-                # --- SUB-PESTAÑA 3: DCF ESTOCÁSTICO ---
+                # --- SUB-PESTAÑA 3: DCF ESTOCÁSTICO (CORREGIDO) ---
                 with tab_mc_fund:
                     st.markdown("### 🧬 DCF Estocástico: Valor Intrínseco Basado en Fundamentos")
-                    st.markdown("<div class='agent-box'><b>Mejora Cuantitativa:</b> Reemplazamos la estimación estática por un modelo de Flujos de Fondos Descontados (DCF) estocástico. Simulamos la tasa de crecimiento y el margen operativo para capturar la incertidumbre real del negocio.</div>", unsafe_allow_html=True)
+                    st.markdown("<div class='agent-box'><b>Flujo Reactivo:</b> Modificá los parámetros y el modelo estocástico recalculará los 10,000 escenarios en tiempo real sin recargar la página.</div>", unsafe_allow_html=True)
                     
-                    # Inputs paramétricos básicos (se podrían conectar a la API a futuro)
                     c_col1, c_col2, c_col3 = st.columns(3)
                     ingresos_base = c_col1.number_input("Ingresos Anuales (Base USD Billions):", value=10.0, step=1.0)
                     wacc_base = c_col2.number_input("Costo de Capital (WACC) %:", value=10.0, step=0.5) / 100
                     g_terminal = c_col3.number_input("Tasa Crecimiento Perpetuo (g) %:", value=2.5, step=0.5) / 100
 
-                    if st.button("Ejecutar Simulación DCF"):
-                        margen_base = dataset[0]["MARGEN"] if dataset[0]["MARGEN"] > 0 else 0.15
+                    # Se ejecuta directamente al leer los inputs
+                    margen_base = dataset[0]["MARGEN"] if dataset[0]["MARGEN"] > 0 else 0.15
+                    
+                    sims = 10000
+                    crecimiento_sim = np.random.normal(0.08, 0.03, sims)
+                    margen_sim = np.random.normal(margen_base, 0.04, sims)
+                    
+                    valores_intrinsecos = []
+                    
+                    for i in range(sims):
+                        flujos = []
+                        ingreso_proyectado = ingresos_base
+                        for año in range(1, 6):
+                            ingreso_proyectado *= (1 + crecimiento_sim[i])
+                            fcf = ingreso_proyectado * margen_sim[i] * 0.60 
+                            flujos.append(fcf / ((1 + wacc_base)**año))
                         
-                        # Simulación de 10,000 escenarios para Crecimiento a 5 años y Márgenes
-                        sims = 10000
-                        crecimiento_sim = np.random.normal(0.08, 0.03, sims) # Asumimos 8% de crecimiento medio con 3% de volatilidad
-                        margen_sim = np.random.normal(margen_base, 0.04, sims) # Volatilidad del margen
+                        fcf_terminal = ingreso_proyectado * margen_sim[i] * 0.60 * (1 + g_terminal)
+                        vt = fcf_terminal / (wacc_base - g_terminal)
+                        vt_descontado = vt / ((1 + wacc_base)**5)
                         
-                        valores_intrinsecos = []
+                        valor_empresa = sum(flujos) + vt_descontado
+                        valores_intrinsecos.append(valor_empresa)
                         
-                        for i in range(sims):
-                            flujos = []
-                            ingreso_proyectado = ingresos_base
-                            # Proyectamos 5 años
-                            for año in range(1, 6):
-                                ingreso_proyectado *= (1 + crecimiento_sim[i])
-                                # Asumimos un FCF proxy = Ingreso * Margen * (1 - Tasa Reinversión 40%)
-                                fcf = ingreso_proyectado * margen_sim[i] * 0.60 
-                                flujos.append(fcf / ((1 + wacc_base)**año))
-                            
-                            # Valor Terminal
-                            fcf_terminal = ingreso_proyectado * margen_sim[i] * 0.60 * (1 + g_terminal)
-                            vt = fcf_terminal / (wacc_base - g_terminal)
-                            vt_descontado = vt / ((1 + wacc_base)**5)
-                            
-                            valor_empresa = sum(flujos) + vt_descontado
-                            valores_intrinsecos.append(valor_empresa)
-                            
-                        valores_intrinsecos = np.array(valores_intrinsecos)
-                        
-                        # Filtramos valores negativos extremos si el margen colapsa
-                        valores_intrinsecos = valores_intrinsecos[valores_intrinsecos > 0]
-                        
-                        fig_dcf = px.histogram(valores_intrinsecos, nbins=60, title="Distribución de Probabilidad del Valor de la Empresa (DCF)", color_discrete_sequence=['#27ae60'])
-                        fig_dcf.update_layout(template="plotly_dark", paper_bgcolor='#111520', plot_bgcolor='#0c0f16', showlegend=False, xaxis_title="Valor Empresa (Billions USD)", yaxis_title="Frecuencia")
-                        st.plotly_chart(fig_dcf, use_container_width=True)
-                        
-                        p25, p50, p75 = np.percentile(valores_intrinsecos, 25), np.percentile(valores_intrinsecos, 50), np.percentile(valores_intrinsecos, 75)
-                        st.markdown(f"<div class='interpretation-box'>Basado en la estructura de flujos proyectada, el valor central (Mediana) del negocio se estima en <b>${p50:.2f} Billions</b>.<br>El rango intercuartil (donde se concentra el 50% de probabilidad más realista) va desde <b>${p25:.2f} B</b> hasta <b>${p75:.2f} B</b>.</div>", unsafe_allow_html=True)
+                    valores_intrinsecos = np.array(valores_intrinsecos)
+                    valores_intrinsecos = valores_intrinsecos[valores_intrinsecos > 0]
+                    
+                    fig_dcf = px.histogram(valores_intrinsecos, nbins=60, title="Distribución de Probabilidad del Valor de la Empresa (DCF)", color_discrete_sequence=['#27ae60'])
+                    fig_dcf.update_layout(template="plotly_dark", paper_bgcolor='#111520', plot_bgcolor='#0c0f16', showlegend=False, xaxis_title="Valor Empresa (Billions USD)", yaxis_title="Frecuencia")
+                    st.plotly_chart(fig_dcf, use_container_width=True)
+                    
+                    p25, p50, p75 = np.percentile(valores_intrinsecos, 25), np.percentile(valores_intrinsecos, 50), np.percentile(valores_intrinsecos, 75)
+                    st.markdown(f"<div class='interpretation-box'>El valor central (Mediana) del negocio se estima en <b>${p50:.2f} Billions</b>. Rango intercuartil (50% de probabilidad): <b>${p25:.2f} B</b> a <b>${p75:.2f} B</b>.</div>", unsafe_allow_html=True)
 
                 # --- SUB-PESTAÑA 4: MONTECARLO PRECIO ---
                 with tab_mc:
@@ -519,31 +512,61 @@ elif menu == "💼 PORTAFOLIO Y MODELOS":
             
         st.dataframe(pd.DataFrame(f_html).set_index("Ticker"), use_container_width=True)
         
-        st.markdown("### 📈 Estado Neto Patrimonial de la Cuenta")
-        k1, k2, k3, k4 = st.columns(4)
+        st.markdown("### 📈 Estado Neto Patrimonial y Benchmark")
+        k1, k2, k3, k4, k5 = st.columns(5)
         gp = ((m_tot + d_tot - c_tot) / c_tot) * 100 if c_tot > 0 else 0.0
         fac = DOLAR_MEP if is_ars else 1
         mon = "ARS" if is_ars else "USD"
         
+        # Extracción del benchmark (SPY YTD)
+        try:
+            spy_data = yf.download("SPY", period="ytd", progress=False)['Close']
+            rendimiento_spy = ((spy_data.iloc[-1] / spy_data.iloc[0]) - 1) * 100
+        except:
+            rendimiento_spy = 0.0
+            
+        alpha = gp - float(rendimiento_spy)
+        color_alpha = "normal" if alpha >= 0 else "inverse"
+        
         k1.metric("Capital Invertido", f"${(c_tot*fac):,.2f} {mon}")
         k2.metric("Valuación Mercado", f"${(m_tot*fac):,.2f} {mon}")
-        k3.metric("Flujo Rentas (Dividendos)", f"${(d_tot*fac):,.2f} {mon}")
-        k4.metric("Total Return Global", f"${((m_tot+d_tot-c_tot)*fac):,.2f} {mon}", f"{gp:+.2f}%")
-        
-        st.markdown("<div class='interpretation-box'><b>Análisis de Flujos:</b> El <i>Total Return Global</i> ya descuenta las comisiones operativas e incorpora el flujo de caja proyectado por cobro de dividendos.</div>", unsafe_allow_html=True)
+        k3.metric("Flujo Rentas", f"${(d_tot*fac):,.2f} {mon}")
+        k4.metric("Total Return Cartera", f"{gp:+.2f}%")
+        k5.metric("Alpha vs SPY (YTD)", f"{alpha:+.2f}%", delta_color=color_alpha)
+
+        st.markdown("<div class='interpretation-box'><b>Medición de Alpha:</b> Comparamos el rendimiento total de la cartera contra el retorno YTD del S&P 500 (SPY). Un Alpha positivo indica que la gestión activa superó al mercado.</div>", unsafe_allow_html=True)
 
         st.markdown("---")
-        st.subheader("🧠 Optimización Institucional de Portafolio (Markowitz)")
-        st.markdown("Calcula los pesos óptimos de tu cartera actual para maximizar el Sharpe Ratio basado en la matriz de covarianza de los activos.")
         
+        # --- BLOQUE NUEVO: ESTRATEGIAS ---
+        st.subheader("🎯 Ideas de Inversión Institucionales (Top 10)")
+        estrategias = {
+            "💰 Income Investing (Dividendos)": ["KO", "PEP", "JNJ", "PFE", "XOM", "CVX", "VZ", "T", "MO", "PM"],
+            "🏢 Large Caps (Blue Chips)": ["AAPL", "MSFT", "GOOGL", "AMZN", "META", "BRK-B", "UNH", "V", "JPM", "WMT"],
+            "🚀 Small / Mid Caps (Growth)": ["RBLX", "PLTR", "SOFI", "DKNG", "U", "NET", "CRWD", "DDOG", "SNOW", "AFRM"],
+            "⚖️ Value Investing (Subvaluadas)": ["C", "GM", "F", "BAC", "WFC", "INTC", "WBA", "KHC", "BTI", "HMC"],
+            "🏰 Quality & Wide Moat (Fosos)": ["ASML", "MA", "MCO", "SPGI", "LVMUY", "NVO", "LLY", "HD", "COST", "ACN"]
+        }
+        
+        tabs_est = st.tabs(list(estrategias.keys()))
+        for i, tab in enumerate(tabs_est):
+            with tab:
+                st.markdown(f"**Activos seleccionados para esta estrategia:**")
+                # Mostramos los tickers en forma de etiquetas visuales
+                html_tags = "".join([f"<span style='background:#1f2937; padding:5px 10px; border-radius:5px; margin-right:8px; font-weight:bold;'>{t}</span>" for t in list(estrategias.values())[i]])
+                st.markdown(html_tags, unsafe_allow_html=True)
+
+        st.markdown("---")
+        # --- OPTIMIZACIÓN MARKOWITZ ---
+        st.subheader("🧠 Optimización Institucional de Portafolio (Markowitz)")
         if st.button("Calcular Frontera Eficiente"):
             with st.spinner("Calculando matriz de covarianza..."):
                 tickers_cartera = list(set([p["Ticker"] for p in st.session_state.cartera_list_v4]))
                 try:
                     data = yf.download(tickers_cartera, period="1y", progress=False)['Close'].ffill().bfill()
                     if isinstance(data, pd.Series): data = pd.DataFrame({tickers_cartera[0]: data})
-                    if data.empty:
-                        st.error("Error de conexión con datos históricos. Ejecutar script de forma local.")
+                    if data.empty or len(tickers_cartera) < 2:
+                        st.error("Se necesitan al menos 2 activos válidos en cartera para calcular la covarianza.")
                     else:
                         returns = data.pct_change().dropna()
                         mean_returns = returns.mean() * 252
@@ -567,7 +590,7 @@ elif menu == "💼 PORTAFOLIO Y MODELOS":
                         fig_pie.update_layout(template="plotly_dark", paper_bgcolor='#111520', plot_bgcolor='#0c0f16')
                         st.plotly_chart(fig_pie)
                 except Exception as e:
-                    st.error("Se necesitan al menos 2 activos válidos en cartera para calcular la covarianza.")
+                    st.error(f"Error al calcular matriz: {e}")
 
 # ==============================================================================
 # FOOTER Y LEGALES (RESTAURADO)
