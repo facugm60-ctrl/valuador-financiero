@@ -247,7 +247,7 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
             serie_mc, df_raw = descargar_activo_individual_historico(t_obj)
             
             if not serie_mc.empty:
-                tab_fund, tab_tech, tab_mc_fund, tab_mc = st.tabs(["📊 Fundamental", "📈 Técnico (DMI)", "🧬 Montecarlo Operativo", "🎲 Montecarlo Precio"])
+                tab_fund, tab_tech, tab_mc_fund, tab_mc = st.tabs(["📊 Fundamental", "📈 Técnico (DMI)", "🧬 DCF Estocástico", "🎲 Montecarlo Precio"])
                 
                 # --- SUB-PESTAÑA 1: FUNDAMENTAL ---
                 with tab_fund:
@@ -362,25 +362,68 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
                         st.markdown(f"<div class='interpretation-box'><b>Veredicto del Gráfico:</b> {senal}<br><br>{contexto}<br><br><b>Niveles Clave a vigilar (Últimos 30 días):</b><br>• <b>Soporte (Piso):</b> ${soporte:.2f} (Si rompe este nivel hacia abajo, saltan las alarmas de venta).<br>• <b>Toma de Ganancias (Techo):</b> ${resistencia:.2f} (Si llega acá, es probable que el mercado venda para asegurar ganancias).</div>", unsafe_allow_html=True)
                     else: st.error("No se pudieron procesar datos para el gráfico técnico.")
 
-                # --- SUB-PESTAÑA 3: MONTECARLO OPERATIVO ---
+                # --- SUB-PESTAÑA 3: DCF ESTOCÁSTICO ---
                 with tab_mc_fund:
-                    st.markdown("### 🧬 Análisis de Sensibilidad Estocástico (Margen vs Valor)")
-                    st.markdown("<div class='agent-box'>En lugar de simular precios a ciegas, aplicamos Montecarlo sobre la incertidumbre operativa (Márgenes). Si el margen operativo de la empresa varía según su volatilidad, ¿Cuál es la probabilidad del Valor Intrínseco final?</div>", unsafe_allow_html=True)
-                    margen_base = dataset[0]["MARGEN"] if dataset[0]["MARGEN"] > 0 else 0.15
-                    simulaciones_margen = np.random.normal(margen_base, 0.05, 10000)
-                    valores_intrinsecos = (100 * simulaciones_margen) * 10
-                    fig_dcf = px.histogram(valores_intrinsecos, nbins=50, title="Distribución de Probabilidad del Valor Intrínseco", color_discrete_sequence=['#9b59b6'])
-                    fig_dcf.update_layout(template="plotly_dark", paper_bgcolor='#111520', plot_bgcolor='#0c0f16', showlegend=False)
-                    st.plotly_chart(fig_dcf, use_container_width=True)
-                    st.markdown(f"<div class='interpretation-box'>El 90% de las simulaciones arrojan que, considerando la volatilidad histórica, el Valor Intrínseco del negocio se ubica entre <b>${np.percentile(valores_intrinsecos, 5):.2f}</b> y <b>${np.percentile(valores_intrinsecos, 95):.2f}</b>.</div>", unsafe_allow_html=True)
+                    st.markdown("### 🧬 DCF Estocástico: Valor Intrínseco Basado en Fundamentos")
+                    st.markdown("<div class='agent-box'><b>Mejora Cuantitativa:</b> Reemplazamos la estimación estática por un modelo de Flujos de Fondos Descontados (DCF) estocástico. Simulamos la tasa de crecimiento y el margen operativo para capturar la incertidumbre real del negocio.</div>", unsafe_allow_html=True)
+                    
+                    # Inputs paramétricos básicos (se podrían conectar a la API a futuro)
+                    c_col1, c_col2, c_col3 = st.columns(3)
+                    ingresos_base = c_col1.number_input("Ingresos Anuales (Base USD Billions):", value=10.0, step=1.0)
+                    wacc_base = c_col2.number_input("Costo de Capital (WACC) %:", value=10.0, step=0.5) / 100
+                    g_terminal = c_col3.number_input("Tasa Crecimiento Perpetuo (g) %:", value=2.5, step=0.5) / 100
+
+                    if st.button("Ejecutar Simulación DCF"):
+                        margen_base = dataset[0]["MARGEN"] if dataset[0]["MARGEN"] > 0 else 0.15
+                        
+                        # Simulación de 10,000 escenarios para Crecimiento a 5 años y Márgenes
+                        sims = 10000
+                        crecimiento_sim = np.random.normal(0.08, 0.03, sims) # Asumimos 8% de crecimiento medio con 3% de volatilidad
+                        margen_sim = np.random.normal(margen_base, 0.04, sims) # Volatilidad del margen
+                        
+                        valores_intrinsecos = []
+                        
+                        for i in range(sims):
+                            flujos = []
+                            ingreso_proyectado = ingresos_base
+                            # Proyectamos 5 años
+                            for año in range(1, 6):
+                                ingreso_proyectado *= (1 + crecimiento_sim[i])
+                                # Asumimos un FCF proxy = Ingreso * Margen * (1 - Tasa Reinversión 40%)
+                                fcf = ingreso_proyectado * margen_sim[i] * 0.60 
+                                flujos.append(fcf / ((1 + wacc_base)**año))
+                            
+                            # Valor Terminal
+                            fcf_terminal = ingreso_proyectado * margen_sim[i] * 0.60 * (1 + g_terminal)
+                            vt = fcf_terminal / (wacc_base - g_terminal)
+                            vt_descontado = vt / ((1 + wacc_base)**5)
+                            
+                            valor_empresa = sum(flujos) + vt_descontado
+                            valores_intrinsecos.append(valor_empresa)
+                            
+                        valores_intrinsecos = np.array(valores_intrinsecos)
+                        
+                        # Filtramos valores negativos extremos si el margen colapsa
+                        valores_intrinsecos = valores_intrinsecos[valores_intrinsecos > 0]
+                        
+                        fig_dcf = px.histogram(valores_intrinsecos, nbins=60, title="Distribución de Probabilidad del Valor de la Empresa (DCF)", color_discrete_sequence=['#27ae60'])
+                        fig_dcf.update_layout(template="plotly_dark", paper_bgcolor='#111520', plot_bgcolor='#0c0f16', showlegend=False, xaxis_title="Valor Empresa (Billions USD)", yaxis_title="Frecuencia")
+                        st.plotly_chart(fig_dcf, use_container_width=True)
+                        
+                        p25, p50, p75 = np.percentile(valores_intrinsecos, 25), np.percentile(valores_intrinsecos, 50), np.percentile(valores_intrinsecos, 75)
+                        st.markdown(f"<div class='interpretation-box'>Basado en la estructura de flujos proyectada, el valor central (Mediana) del negocio se estima en <b>${p50:.2f} Billions</b>.<br>El rango intercuartil (donde se concentra el 50% de probabilidad más realista) va desde <b>${p25:.2f} B</b> hasta <b>${p75:.2f} B</b>.</div>", unsafe_allow_html=True)
 
                 # --- SUB-PESTAÑA 4: MONTECARLO PRECIO ---
                 with tab_mc:
-                    st.markdown("### 🎲 La Máquina del Tiempo (Caminata Aleatoria)")
-                    st.markdown("<div class='agent-box'><b>Mejora Matemática:</b> Se eliminó la inercia histórica. Ahora el simulador asume un mercado eficiente a corto plazo (drift = 0) y estresa puramente la <b>Volatilidad real</b> del activo para evaluar riesgos de caída lógicos.</div>", unsafe_allow_html=True)
+                    st.markdown("### 🎲 La Máquina del Tiempo (Movimiento Browniano Geométrico)")
+                    st.markdown("<div class='agent-box'><b>Mejora Matemática:</b> Se ajustó el <i>Drift</i>. Ya no asumimos $\mu = 0$. Utilizamos una estimación de retorno esperado ligada a la volatilidad histórica del activo para simular un costo de oportunidad del accionista realista.</div>", unsafe_allow_html=True)
                     
                     ret = serie_mc.pct_change().dropna()
-                    mu, sigma, p_b = 0.0, ret.std(), serie_mc.iloc[-1] 
+                    sigma = ret.std()
+                    # Drift proxy: asume un Sharpe Ratio constante de mercado (ej. 0.5) para estimar mu diario
+                    mu_diario = (0.5 * sigma * np.sqrt(252)) / 252 
+                    p_b = serie_mc.iloc[-1] 
+                    
                     c1, c2 = st.columns(2)
                     sims = 10000
                     
@@ -389,28 +432,32 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
                         m_1m = np.zeros((30, sims))
                         m_1m[0] = p_b
                         Z_1m = np.random.standard_normal((29, sims))
-                        for t in range(1, 30): m_1m[t] = m_1m[t-1] * np.exp((mu - 0.5 * sigma**2) + sigma * Z_1m[t-1])
+                        for t in range(1, 30): 
+                            m_1m[t] = m_1m[t-1] * np.exp((mu_diario - 0.5 * sigma**2) + sigma * Z_1m[t-1])
+                        
                         f1m = go.Figure()
                         for i in range(40): f1m.add_trace(go.Scatter(y=m_1m[:, i], mode='lines', line=dict(color='rgba(52, 152, 219, 0.08)'), showlegend=False))
                         f1m.add_trace(go.Scatter(y=np.mean(m_1m, axis=1), mode='lines', name="Promedio", line=dict(color='#2ecc71', width=2.5)))
                         f1m.update_layout(template="plotly_dark", paper_bgcolor='#111520', plot_bgcolor='#0c0f16', height=300, margin=dict(l=10,r=10,t=10,b=10))
                         st.plotly_chart(f1m, use_container_width=True)
                         pe, pdn, pup = np.mean(m_1m[-1, :]), np.percentile(m_1m[-1, :], 5), np.percentile(m_1m[-1, :], 95)
-                        st.markdown(f"<div class='interpretation-box'><b>Escenario 30 días:</b> Base Esperado: <b>${pe:.2f} USD</b> | Techo optimista: <b>${pup:.2f} USD</b> | Soporte pesimista: <b>${pdn:.2f} USD</b></div>", unsafe_allow_html=True)
+                        st.markdown(f"<div class='interpretation-box'><b>Escenario 30 días:</b> Base Esperado: <b>${pe:.2f}</b> | Techo (95%): <b>${pup:.2f}</b> | Soporte (5%): <b>${pdn:.2f}</b></div>", unsafe_allow_html=True)
                     
                     with c2:
                         st.markdown("#### Largo Plazo: 1 Año")
                         m_1y = np.zeros((252, sims))
                         m_1y[0] = p_b
                         Z_1y = np.random.standard_normal((251, sims))
-                        for t in range(1, 252): m_1y[t] = m_1y[t-1] * np.exp((mu - 0.5 * sigma**2) + sigma * Z_1y[t-1])
+                        for t in range(1, 252): 
+                            m_1y[t] = m_1y[t-1] * np.exp((mu_diario - 0.5 * sigma**2) + sigma * Z_1y[t-1])
+                        
                         f1y = go.Figure()
                         for i in range(40): f1y.add_trace(go.Scatter(y=m_1y[:, i], mode='lines', line=dict(color='rgba(155, 89, 182, 0.08)'), showlegend=False))
                         f1y.add_trace(go.Scatter(y=np.mean(m_1y, axis=1), mode='lines', name="Promedio", line=dict(color='#9b59b6', width=2.5)))
                         f1y.update_layout(template="plotly_dark", paper_bgcolor='#111520', plot_bgcolor='#0c0f16', height=300, margin=dict(l=10,r=10,t=10,b=10))
                         st.plotly_chart(f1y, use_container_width=True)
                         pe_y, pdn_y, pup_y = np.mean(m_1y[-1, :]), np.percentile(m_1y[-1, :], 5), np.percentile(m_1y[-1, :], 95)
-                        st.markdown(f"<div class='interpretation-box'><b>Escenario 1 Año:</b> Base Esperado: <b>${pe_y:.2f} USD</b> | Techo optimista: <b>${pup_y:.2f} USD</b> | Soporte pesimista: <b>${pdn_y:.2f} USD</b></div>", unsafe_allow_html=True)
+                        st.markdown(f"<div class='interpretation-box'><b>Escenario 1 Año:</b> Base Esperado: <b>${pe_y:.2f}</b> | Techo (95%): <b>${pup_y:.2f}</b> | Soporte (5%): <b>${pdn_y:.2f}</b></div>", unsafe_allow_html=True)
             else: 
                 st.error("No se pudieron recopilar series de tiempo. Yahoo Finance bloqueó la consulta desde la nube. Por favor, corre la app localmente.")
 
