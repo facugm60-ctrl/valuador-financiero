@@ -589,14 +589,24 @@ elif menu == "🔍 ANÁLISIS & COMPARADOR":
             st.markdown("#### Consenso Analistas Sell-Side")
             recom = str(d_obj["RAW"].get("recommendationKey", "hold")).lower()
             val_gauge = 5 if "strong_buy" in recom or "strong buy" in recom else 4 if "buy" in recom else 2 if "sell" in recom else 3
+            
             fig_g = go.Figure(go.Indicator(
-                mode="gauge+number", value=val_gauge,
+                mode="gauge+number",
+                value=val_gauge,
+                domain={'x': [0, 1], 'y': [0, 1]},
+                number={'font': {'size': 42}},
                 title={'text': "Escala 1 (Venta) a 5 (Compra)", 'font': {'size': 11, 'color': '#94a3b8'}},
-                gauge={'axis': {'range': [1, 5], 'tickvals': [1, 2, 3, 4, 5], 'ticktext': ['Venta F.', 'Venta', 'Mantener', 'Compra', 'Compra F.']},
-                       'bar': {'color': "#d4a34b"},
-                       'steps': [{'range': [1, 2.5], 'color': "rgba(244, 63, 94, 0.2)"}, {'range': [2.5, 3.5], 'color': "rgba(255, 255, 255, 0.05)"}, {'range': [3.5, 5], 'color': "rgba(16, 185, 129, 0.2)"}]}
+                gauge={
+                    'axis': {'range': [1, 5], 'tickvals': [1, 2, 3, 4, 5], 'ticktext': ['Venta F.', 'Venta', 'Mantener', 'Compra', 'Compra F.']},
+                    'bar': {'color': "#d4a34b"},
+                    'steps': [
+                        {'range': [1, 2.5], 'color': "rgba(244, 63, 94, 0.2)"},
+                        {'range': [2.5, 3.5], 'color': "rgba(255, 255, 255, 0.05)"},
+                        {'range': [3.5, 5], 'color': "rgba(16, 185, 129, 0.2)"}
+                    ]
+                }
             ))
-            fig_g.update_layout(height=190, margin=dict(l=10, r=10, t=20, b=10), paper_bgcolor='#0d111a', font={'color': '#ffffff'})
+            fig_g.update_layout(height=200, margin=dict(l=20, r=20, t=30, b=20), paper_bgcolor='#0d111a', font={'color': '#ffffff'})
             st.plotly_chart(fig_g, use_container_width=True)
             st.caption(f"ℹ️ *Fuente: Consenso institucional estandarizado vía LSEG / Yahoo Finance (Recomendación: {recom.upper()}).*")
 
@@ -611,14 +621,12 @@ elif menu == "🔍 ANÁLISIS & COMPARADOR":
             ]
             st.markdown(f"<div class='table-viewport'><table class='terminal-table'><thead><tr><th>Métrica Contable</th><th>Últimos 12M</th><th>Consenso Siguiente Ejercicio</th><th>Variación</th></tr></thead><tbody>{''.join(filas_bal)}</tbody></table></div>", unsafe_allow_html=True)
 
-        # MÓDULO ESTILO TRADINGVIEW: EXPECTATIVAS Y REPORTE DE EECC TRIMESTRALES
         st.markdown("---")
         st.markdown(f"#### 📅 Reporte de Resultados y Expectativas de Beneficios (EPS) - {t_obj}")
         
-        # Simulación de historial trimestral realista de EPS (Estilo TradingView)
         trimestres_ej = ["Q3 '25", "Q4 '25", "Q1 '26", "Q2 '26", "Q3 '26"]
         eps_estimados = [eps_trail*0.22, eps_trail*0.24, eps_trail*0.25, eps_trail*0.26, eps_trail*0.28]
-        eps_reales = [eps_trail*0.23, eps_trail*0.25, eps_trail*0.29, eps_trail*0.25, None] # Q3 26 futuro estimado
+        eps_reales = [eps_trail*0.23, eps_trail*0.25, eps_trail*0.29, eps_trail*0.25, None]
         
         fig_eecc = go.Figure()
         fig_eecc.add_trace(go.Scatter(
@@ -872,7 +880,6 @@ elif menu == "💼 PORTAFOLIO Y MODELOS":
 
     st.markdown(f"<div class='table-viewport'><table class='terminal-table'><thead><tr><th>Ticker</th><th>Fecha Ingreso</th><th>Nominales</th><th>PPC</th><th>Precio Actual</th><th>Invertido</th><th>Valuación</th><th>P&L Neto</th><th>Total Return</th><th>Semáforo</th></tr></thead><tbody>{''.join(filas_html)}</tbody></table></div>", unsafe_allow_html=True)
 
-    # Métricas Consolidadas
     k1, k2, k3, k4, k5 = st.columns(5)
     ret_tot = ((v_tot_usd - c_tot_usd) / c_tot_usd) * 100 if c_tot_usd > 0 else 0.0
     mon = "ARS" if is_ars else "USD"
@@ -885,7 +892,6 @@ elif menu == "💼 PORTAFOLIO Y MODELOS":
     k4.metric("Total Return", f"{ret_tot:+.2f}%")
     k5.metric("Alpha vs SPY", f"{alpha:+.2f}%", delta_color="normal" if alpha >= 0 else "inverse")
 
-    # Módulo de Descarga PDF
     if HAS_REPORTLAB:
         def generar_pdf():
             buffer = io.BytesIO()
@@ -905,7 +911,6 @@ elif menu == "💼 PORTAFOLIO Y MODELOS":
             
         st.download_button("📥 Descargar Reporte Completo en PDF", generar_pdf(), "Reporte_Cartera.pdf", "application/pdf")
 
-    # BENCHMARK DINÁMICO
     st.markdown("---")
     st.markdown("#### 📊 Curva de Rendimiento Relativo: Cartera vs. SPY vs. QQQ")
     
@@ -937,7 +942,6 @@ elif menu == "💼 PORTAFOLIO Y MODELOS":
         except Exception as e:
             st.caption(f"Curva de benchmark en cálculo: {e}")
 
-    # ESTRATEGIAS Y MARKOWITZ
     st.markdown("---")
     st.subheader("🎯 Carteras Modelo y Asignación Estratégica por Perfil")
 
