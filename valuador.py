@@ -15,6 +15,49 @@ from plotly.subplots import make_subplots
 import scipy.optimize as sco
 
 # ------------------------------------------------------------------------------
+# INTEGRACIÓN GOOGLE GEMINI AI
+# ------------------------------------------------------------------------------
+try:
+    import google.generativeai as genai
+    HAS_GEMINI_LIB = True
+except ImportError:
+    HAS_GEMINI_LIB = False
+
+# Configuración segura de la API Key desde st.secrets
+GEMINI_KEY = st.secrets.get("GEMINI_API_KEY", None) if hasattr(st, "secrets") else None
+if HAS_GEMINI_LIB and GEMINI_KEY:
+    genai.configure(api_key=GEMINI_KEY)
+
+def generar_tesis_gemini(ticker, nombre, precio, pe, roe, deuda, margen, dcf_valor):
+    if not HAS_GEMINI_LIB:
+        return "⚠️ La librería `google-generativeai` no está instalada en requirements.txt."
+    if not GEMINI_KEY:
+        return "⚠️ Clave `GEMINI_API_KEY` no configurada en los Secrets de Streamlit."
+    
+    try:
+        model = genai.GenerativeModel("gemini-1.5-flash")
+        upside = ((dcf_valor - precio) / precio) * 100 if precio > 0 else 0
+        prompt = f"""
+        Actúa como un Senior Portfolio Manager y analista fundamental de Wall Street.
+        Elabora una tesis ejecutiva, concisa y rigurosa para {nombre} ({ticker}) basada en estos datos reales:
+        - Precio actual de mercado: ${precio:.2f} USD
+        - Valor justo estimado por DCF estocástico: ${dcf_valor:.2f} USD (Upside/Downside implícito: {upside:+.1f}%)
+        - Múltiplo P/E: {pe:.2f}
+        - ROE: {roe*100:.1f}%
+        - Margen Neto: {margen*100:.1f}%
+        - Deuda Neta / EBITDA: {deuda:.2f}x
+
+        Estructura tu respuesta exactamente en tres secciones con bullets claros:
+        1. 🏛️ Calidad del Negocio y Solvencia: Evalúa márgenes, retorno sobre capital y carga de deuda.
+        2. ⚖️ Valuación Intrínseca vs. Mercado: Diagnóstico sobre si el precio descuenta valor frente al DCF.
+        3. 🎯 Veredicto Fundamental: Dictamen final (Compra / Mantener / Venta) con un argumento clave de riesgo.
+        """
+        response = model.generate_content(prompt)
+        return response.text
+    except Exception as e:
+        return f"Error al generar la tesis con Gemini: {e}"
+
+# ------------------------------------------------------------------------------
 # DISFRAZ ANTI-BLOQUEO PARA YAHOO FINANCE & FINVIZ
 # ------------------------------------------------------------------------------
 yf_session = requests.Session()
@@ -39,10 +82,10 @@ WATCHLIST_CORE = ["VIST", "YPF", "AAPL", "GGAL", "NVDA", "KO", "XOM", "WMT"]
 
 UNIVERSO_100 = [
     "AAPL", "MSFT", "GOOGL", "AMZN", "META", "NVDA", "TSLA", "BRK-B", "JPM", "V", 
-    "DIS", "NFLX", "AMD", "INTC", "QCOM", "TXN", "CRM", "ADBE", "ORAC", "CSCO",
+    "DIS", "NFLX", "AMD", "INTC", "QCOM", "TXN", "CRM", "ADBE", "ORCL", "CSCO",
     "KO", "PEP", "WMT", "COST", "PG", "PM", "MO", "EL", "CL", "HD",
     "XOM", "CVX", "SHEL", "BP", "TTE", "COP", "SLB", "HAL", "E", "PBR",
-    "JNJ", "PFE", "MRK", "ABV", "LLY", "NVO", "BMY", "AMGN", "GILD", "MDT",
+    "JNJ", "PFE", "MRK", "ABBV", "LLY", "NVO", "BMY", "AMGN", "GILD", "MDT",
     "CAT", "GE", "MMM", "HON", "LMT", "BA", "UPS", "FDX", "DE", "EMR",
     "C", "BAC", "WFC", "GS", "MS", "BLK", "AXP", "PYPL", "SQ", "HSBC",
     "VIST", "YPF", "GGAL", "PAMP", "TXAR", "ALUA", "BMA", "CEPU", "CRES", "EDN",
@@ -77,7 +120,34 @@ UNIVERSO_POOL = list(RATIOS_CEDEAR.keys())
 
 st.set_page_config(page_title="Terminal Quanti Pro", layout="wide", initial_sidebar_state="collapsed")
 
-st.markdown("""<style>@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght=300;400;600;700;800&display=swap'); html, body, [class*="css"], [data-testid="stAppViewContainer"], [data-testid="stHeader"] { background-color: #0c0f16 !important; color: #f1f5f9 !important; font-family: 'Montserrat', sans-serif !important; } .stMarkdown, p, span, label, li { color: #cbd5e1 !important; } .block-container {padding-top: 1.5rem; padding-bottom: 2rem;} h1 {font-weight: 800; color: #ffffff !important; font-size: 30px !important;} h2 {font-weight: 700; color: #f8fafc !important; font-size: 21px !important; margin-top: 15px;} h3 {font-weight: 600; color: #f1f5f9 !important; font-size: 16px !important;} div[data-testid="stRadio"] > label { display: none !important; } div[data-testid="stRadio"] > div { background: rgba(22, 27, 34, 0.7) !important; backdrop-filter: blur(12px) !important; padding: 8px !important; border-radius: 12px !important; border: 1px solid rgba(255, 255, 255, 0.08) !important; gap: 12px !important; box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5) !important; margin-bottom: 20px !important; } div[data-testid="stRadio"] label[data-baseweb="radio"] { background-color: transparent !important; border: 1px solid transparent !important; padding: 8px 18px !important; border-radius: 8px !important; color: #94a3b8 !important; font-weight: 600 !important; } div[data-testid="stRadio"] label[data-baseweb="radio"]:hover { color: #ffffff !important; background: rgba(255, 255, 255, 0.05) !important; } div[data-testid="stMetric"] { background-color: #111520 !important; border: 1px solid #1f2937 !important; border-radius: 10px !important; padding: 15px 20px !important; } .stButton>button { width: 100%; background: linear-gradient(135deg, #2ecc71, #27ae60) !important; color: white !important; font-weight: 700; border-radius: 8px; border: none; padding: 0.6rem; font-size: 13px !important; text-transform: uppercase; } div[data-testid="stTextInput"] input, div[data-testid="stSelectbox"] div, div[data-testid="stNumberInput"] input { background-color: #111520 !important; color: #ffffff !important; border: 1px solid #1f2937 !important; border-radius: 8px !important; } .radar-box-gainer-high { background: linear-gradient(135deg, #064e3b, #047857); border: 1px solid #10b981; padding: 14px; border-radius: 8px; font-weight: bold; color: #34d399 !important; } .radar-box-loser { background: linear-gradient(135deg, #7f1d1d, #b91c1c); border: 1px solid #f87171; padding: 14px; border-radius: 8px; font-weight: bold; color: #f87171 !important; } .interpretation-box { background-color: #111520; padding: 16px; border-radius: 8px; font-size: 13px; color: #e2e8f0; border: 1px solid #1f2937; border-left: 4px solid #2ecc71; margin-top: 10px; } .agent-box { background-color: #090d16; padding: 18px; border-radius: 8px; font-size: 13px; color: #e2e8f0; border: 1px solid #1f2937; border-left: 4px solid #dfa427; margin-top: 10px; } .custom-table { width: 100%; border-collapse: collapse; margin: 15px 0; font-size: 13px; background-color: #111520; border-radius: 8px; overflow: hidden; border: 1px solid #1f2937; } .custom-table th { background-color: #161b22; color: #ffffff; padding: 12px; text-align: left; font-weight: 600; border-bottom: 2px solid #1f2937; } .custom-table td { padding: 12px; border-bottom: 1px solid #1f2937; color: #e2e8f0; } .winner-cell { background-color: rgba(46, 204, 113, 0.15) !important; color: #2ecc71 !important; font-weight: bold; } .tooltip { position: relative; display: inline-block; cursor: pointer; color: #3498db; margin-left: 4px; font-weight: bold; } .tooltip .tooltiptext { visibility: hidden; width: 280px; background-color: #1f2937; color: #fff; text-align: left; padding: 12px; border-radius: 6px; position: absolute; z-index: 999; bottom: 125%; left: 50%; margin-left: -140px; font-size: 11px; font-weight: normal; line-height: 1.4; border: 1px solid #3b82f6; box-shadow: 0 4px 20px rgba(0,0,0,0.5); } .tooltip:hover .tooltiptext { visibility: visible; opacity: 1; }</style>""", unsafe_allow_html=True)
+st.markdown("""<style>
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;700;800&display=swap');
+html, body, [class*="css"], [data-testid="stAppViewContainer"], [data-testid="stHeader"] { background-color: #0c0f16 !important; color: #f1f5f9 !important; font-family: 'Montserrat', sans-serif !important; }
+.stMarkdown, p, span, label, li { color: #cbd5e1 !important; }
+.block-container {padding-top: 1.5rem; padding-bottom: 2rem;}
+h1 {font-weight: 800; color: #ffffff !important; font-size: 30px !important;}
+h2 {font-weight: 700; color: #f8fafc !important; font-size: 21px !important; margin-top: 15px;}
+h3 {font-weight: 600; color: #f1f5f9 !important; font-size: 16px !important;}
+div[data-testid="stRadio"] > label { display: none !important; }
+div[data-testid="stRadio"] > div { background: rgba(22, 27, 34, 0.7) !important; backdrop-filter: blur(12px) !important; padding: 8px !important; border-radius: 12px !important; border: 1px solid rgba(255, 255, 255, 0.08) !important; gap: 12px !important; box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5) !important; margin-bottom: 20px !important; }
+div[data-testid="stRadio"] label[data-baseweb="radio"] { background-color: transparent !important; border: 1px solid transparent !important; padding: 8px 18px !important; border-radius: 8px !important; color: #94a3b8 !important; font-weight: 600 !important; }
+div[data-testid="stRadio"] label[data-baseweb="radio"]:hover { color: #ffffff !important; background: rgba(255, 255, 255, 0.05) !important; }
+div[data-testid="stMetric"] { background-color: #111520 !important; border: 1px solid #1f2937 !important; border-radius: 10px !important; padding: 15px 20px !important; }
+.stButton>button { width: 100%; background: linear-gradient(135deg, #2ecc71, #27ae60) !important; color: white !important; font-weight: 700; border-radius: 8px; border: none; padding: 0.6rem; font-size: 13px !important; text-transform: uppercase; }
+div[data-testid="stTextInput"] input, div[data-testid="stSelectbox"] div, div[data-testid="stNumberInput"] input { background-color: #111520 !important; color: #ffffff !important; border: 1px solid #1f2937 !important; border-radius: 8px !important; }
+.radar-box-gainer-high { background: linear-gradient(135deg, #064e3b, #047857); border: 1px solid #10b981; padding: 14px; border-radius: 8px; font-weight: bold; color: #34d399 !important; }
+.radar-box-loser { background: linear-gradient(135deg, #7f1d1d, #b91c1c); border: 1px solid #f87171; padding: 14px; border-radius: 8px; font-weight: bold; color: #f87171 !important; }
+.interpretation-box { background-color: #111520; padding: 16px; border-radius: 8px; font-size: 13px; color: #e2e8f0; border: 1px solid #1f2937; border-left: 4px solid #2ecc71; margin-top: 10px; }
+.agent-box { background-color: #090d16; padding: 18px; border-radius: 8px; font-size: 13px; color: #e2e8f0; border: 1px solid #1f2937; border-left: 4px solid #dfa427; margin-top: 10px; }
+.gemini-box { background-color: #0a0f1d; padding: 18px; border-radius: 8px; font-size: 13px; color: #f1f5f9; border: 1px solid #3b82f6; border-left: 4px solid #60a5fa; margin-top: 15px; }
+.custom-table { width: 100%; border-collapse: collapse; margin: 15px 0; font-size: 13px; background-color: #111520; border-radius: 8px; overflow: hidden; border: 1px solid #1f2937; }
+.custom-table th { background-color: #161b22; color: #ffffff; padding: 12px; text-align: left; font-weight: 600; border-bottom: 2px solid #1f2937; }
+.custom-table td { padding: 12px; border-bottom: 1px solid #1f2937; color: #e2e8f0; }
+.winner-cell { background-color: rgba(46, 204, 113, 0.15) !important; color: #2ecc71 !important; font-weight: bold; }
+.tooltip { position: relative; display: inline-block; cursor: pointer; color: #3498db; margin-left: 4px; font-weight: bold; }
+.tooltip .tooltiptext { visibility: hidden; width: 280px; background-color: #1f2937; color: #fff; text-align: left; padding: 12px; border-radius: 6px; position: absolute; z-index: 999; bottom: 125%; left: 50%; margin-left: -140px; font-size: 11px; font-weight: normal; line-height: 1.4; border: 1px solid #3b82f6; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
+.tooltip:hover .tooltiptext { visibility: visible; opacity: 1; }
+</style>""", unsafe_allow_html=True)
 
 def safe_float(val):
     try: return float(val)
@@ -107,7 +177,11 @@ def descargar_pool_completo_100(pool):
     datos_dict = {}
     try:
         df_hist = yf.download(pool, period="5d", progress=False, session=yf_session)
-        df_close = df_hist['Close'].ffill().bfill()
+        if isinstance(df_hist.columns, pd.MultiIndex):
+            df_close = df_hist['Close'].ffill().bfill()
+        else:
+            df_close = df_hist['Close'].ffill().bfill() if 'Close' in df_hist.columns else df_hist.ffill().bfill()
+            
         for tk in pool:
             try:
                 serie = df_close[tk].dropna() if tk in df_close.columns else pd.Series(dtype=float)
@@ -129,8 +203,10 @@ def descargar_activo_individual_historico(ticker):
         if isinstance(df.columns, pd.MultiIndex):
             df.columns = df.columns.get_level_values(0)
         df = df.loc[:, ~df.columns.duplicated()]
-        df_close = df['Close'].ffill().bfill() if 'Close' in df.columns else df
-        return df_close, df
+        df_close = df['Close'].ffill().bfill() if 'Close' in df.columns else df.ffill().bfill()
+        if isinstance(df_close, pd.DataFrame):
+            df_close = df_close.iloc[:, 0]
+        return df_close.dropna(), df
     except:
         return pd.Series(dtype=float), pd.DataFrame()
 
@@ -201,7 +277,7 @@ if menu == "🌐 DASHBOARD Y WATCHLIST":
     st.subheader("⚡ Market Radar: Momentum de Ruedas (Universo de 100 Activos)")
     
     if not POOL_TOTAL_RADAR:
-        st.warning("Error de sincronización con las APIs. Correr localmente para evitar bloqueos.")
+        st.warning("Sincronizando datos de mercado... Si no cargan, recargar en unos instantes.")
     else:
         ordenados = sorted(POOL_TOTAL_RADAR.items(), key=lambda x: x[1]["1D"], reverse=True)
         c1, c2 = st.columns(2)
@@ -220,7 +296,7 @@ if menu == "🌐 DASHBOARD Y WATCHLIST":
         st.dataframe(pd.DataFrame(rows_w).set_index("Ticker"), use_container_width=True)
 
 # ------------------------------------------------------------------------------
-# PESTAÑA ANÁLISIS INTEGRAL (ANÁLISIS TÉCNICO COMPLETO RESTAURADO)
+# PESTAÑA ANÁLISIS INTEGRAL (FUNDAMENTAL + TÉCNICO + DCF + IA)
 # ------------------------------------------------------------------------------
 elif menu == "🔍 ANÁLISIS INTEGRAL":
     c_s1, c_s2 = st.columns([1, 2])
@@ -240,6 +316,31 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
             if not serie_mc.empty:
                 tab_fund, tab_tech, tab_mc_fund, tab_mc = st.tabs(["📊 Fundamental", "📈 Técnico (DMI)", "🧬 DCF Estocástico", "🎲 Montecarlo Precio"])
                 
+                # --- CALCULO PREVIO DCF PARA USARLO EN FUNDAMENTAL E IA ---
+                shares_outstanding = safe_float(info_raiz.get("sharesOutstanding", 0.0))
+                if shares_outstanding == 0: shares_outstanding = 0.20 * 1e9
+                
+                ingresos_base_def = safe_float(info_raiz.get("totalRevenue", 10.0*1e9)) / 1e9
+                wacc_base_def = 0.115
+                g_terminal_def = 0.02
+                margen_base_def = dataset[0]["MARGEN"] if dataset[0]["MARGEN"] > 0 else 0.15
+                precio_mercado_dcf = dataset[0]["Precio"]
+                
+                sims_calc = 5000
+                crec_sim = np.random.normal(0.07, 0.04, sims_calc)
+                mg_sim = np.random.normal(margen_base_def, 0.03, sims_calc)
+                vals_dcf = []
+                for idx_s in range(sims_calc):
+                    f_d = []
+                    ing_p = ingresos_base_def
+                    for y in range(1, 6):
+                        ing_p *= (1 + crec_sim[idx_s])
+                        f_d.append((ing_p * mg_sim[idx_s] * 0.65) / ((1 + wacc_base_def)**y))
+                    vt = (ing_p * mg_sim[idx_s] * 0.65 * (1 + g_terminal_def)) / (wacc_base_def - g_terminal_def)
+                    vals_dcf.append((sum(f_d) + (vt / ((1 + wacc_base_def)**5))) * 1e9 / shares_outstanding)
+                dcf_fair_value_est = float(np.median([v for v in vals_dcf if v > 0])) if vals_dcf else precio_mercado_dcf
+
+                # --- 1. PESTAÑA FUNDAMENTAL ---
                 with tab_fund:
                     st.markdown("### 🏢 ¿A qué se dedica esta empresa?")
                     desc_raw = info_raiz.get("longBusinessSummary", "")
@@ -262,45 +363,42 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
                         st.plotly_chart(fig_g, use_container_width=True)
                         
                     with col_caja:
-                        st.markdown("#### 🎁 Caja de Sorpresas: Cuadro Real Temporada de Balances")
+                        st.markdown("#### 📑 Calidad de Balances: Ganancias y Flujos Reales")
                         try:
-                            eps_actual = safe_float(info_raiz.get("trailingEps", 1.50))
-                            eps_estimado = eps_actual * np.random.uniform(0.92, 0.98)
-                            sorpresa_eps = ((eps_actual - eps_estimado) / eps_estimado) * 100
-                            
-                            rev_actual = safe_float(info_raiz.get("totalRevenue", 12e9)) / 1e9
-                            rev_estimado = rev_actual * np.random.uniform(0.96, 1.01)
-                            sorpresa_rev = ((rev_actual - rev_estimado) / rev_estimado) * 100
+                            eps_trail = safe_float(info_raiz.get("trailingEps", 0.0))
+                            eps_fwd = safe_float(info_raiz.get("forwardEps", eps_trail))
+                            rev_total = safe_float(info_raiz.get("totalRevenue", 0.0)) / 1e9
+                            gross_profit = safe_float(info_raiz.get("grossProfits", rev_total * 0.4 * 1e9)) / 1e9
                             
                             html_earnings = f"""
                             <table class='custom-table'>
                                 <thead>
                                     <tr>
-                                        <th>Métrica Contable</th>
-                                        <th>Reportado (Actual)</th>
-                                        <th>Consenso Analistas</th>
-                                        <th>Sorpresa (%)</th>
+                                        <th>Métrica Contable Real</th>
+                                        <th>Reportado Últimos 12M</th>
+                                        <th>Proyección Consenso / Siguiente Ejercicio</th>
+                                        <th>Crecimiento Esperado</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <tr>
                                         <td><b>EPS (Ganancia por Acción)</b></td>
-                                        <td>${eps_actual:.2f}</td>
-                                        <td>${eps_estimado:.2f}</td>
-                                        <td style='color: {"#2ecc71" if sorpresa_eps >= 0 else "#e74c3c"}; font-weight: bold;'>{sorpresa_eps:+.2f}%</td>
+                                        <td>${eps_trail:.2f}</td>
+                                        <td>${eps_fwd:.2f}</td>
+                                        <td style='color: {"#2ecc71" if eps_fwd >= eps_trail else "#e74c3c"}; font-weight: bold;'>{(((eps_fwd/eps_trail)-1)*100 if eps_trail > 0 else 0.0):+.2f}%</td>
                                     </tr>
                                     <tr>
-                                        <td><b>Ingresos Totales (Revenue)</b></td>
-                                        <td>${rev_actual:.2f} B</td>
-                                        <td>${rev_estimado:.2f} B</td>
-                                        <td style='color: {"#2ecc71" if sorpresa_rev >= 0 else "#e74c3c"}; font-weight: bold;'>{sorpresa_rev:+.2f}%</td>
+                                        <td><b>Ingresos (Revenue) vs Beneficio Bruto</b></td>
+                                        <td>${rev_total:.2f} B</td>
+                                        <td>${gross_profit:.2f} B (Gross Profit)</td>
+                                        <td style='color: #2ecc71; font-weight: bold;'>{(gross_profit/rev_total*100 if rev_total>0 else 0):.1f}% Margen Bruto</td>
                                     </tr>
                                 </tbody>
                             </table>
                             """
                             st.markdown(html_earnings, unsafe_allow_html=True)
                         except:
-                            st.warning("Datos de consenso temporalmente no disponibles en la nube.")
+                            st.warning("Datos contables no reportados en la API para este activo.")
                     
                     st.markdown("---")
                     st.markdown("#### Matriz de Comparación (Frente a sus competidores)")
@@ -324,9 +422,22 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
                     st.markdown(html_matriz_final, unsafe_allow_html=True)
                     
                     if g_roe and g_pe:
-                        st.markdown(f"<div class='interpretation-box'><b>Conclusión Sencilla:</b> Frente a los de control seleccionados, <b>{g_roe}</b> es la de mayor eficiencia sobre patrimonio, mientras que <b>{g_pe}</b> cotiza con mayor descuento contable.</div>", unsafe_allow_html=True)
+                        st.markdown(f"<div class='interpretation-box'><b>Conclusión Comparativa:</b> Frente a los de control seleccionados, <b>{g_roe}</b> lidera en eficiencia de capital (ROE), mientras que <b>{g_pe}</b> cotiza con el ratio P/E más bajo del grupo.</div>", unsafe_allow_html=True)
 
-                # --- SUB-PESTAÑA 2: TÉCNICO (DMI) RESTAURADO CON DESCRIPCIÓN E INTERPRETACIÓN ---
+                    # --- SECCIÓN INTEGRADA: TESIS CON GOOGLE GEMINI ---
+                    st.markdown("---")
+                    st.markdown("#### 🤖 Tesis de Inversión Automatizada (Powered by Gemini AI)")
+                    if st.button(f"✨ Redactar Tesis Ejecutiva con IA para {t_obj}"):
+                        with st.spinner("Analizando estados contables y calculando diagnóstico con Gemini..."):
+                            d_obj = dataset[0]
+                            tesis = generar_tesis_gemini(
+                                ticker=t_obj, nombre=d_obj["Nombre"], precio=d_obj["Precio"],
+                                pe=d_obj["PE"], roe=d_obj["ROE"], deuda=d_obj["DEUDA"],
+                                margen=d_obj["MARGEN"], dcf_valor=dcf_fair_value_est
+                            )
+                            st.markdown(f"<div class='gemini-box'>{tesis.replace(chr(10), '<br>')}</div>", unsafe_allow_html=True)
+
+                # --- 2. PESTAÑA TÉCNICO (DMI) ---
                 with tab_tech:
                     st.markdown(f"### 📈 El pulso del mercado (Gráfico DMI): {t_obj}")
                     if not df_raw.empty and 'High' in df_raw.columns:
@@ -350,7 +461,6 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
                         fig_d.update_layout(template="plotly_dark", paper_bgcolor='#111520', plot_bgcolor='#0c0f16', height=450, margin=dict(l=20,r=20,t=10,b=10))
                         st.plotly_chart(fig_d, use_container_width=True)
                         
-                        p = df_t['Close'].iloc[-1]
                         di_p = df_t['+DI'].iloc[-1]
                         di_m = df_t['-DI'].iloc[-1]
                         adx = df_t['ADX'].iloc[-1]
@@ -370,17 +480,14 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
                             senal = "<span style='color:#e74c3c; font-weight:bold;'>PRECAUCIÓN / LATERAL 🔴</span>"
                             contexto = "El mercado está cayendo pero sin volumen agresivo, o simplemente lateralizando."
                             
-                        st.markdown(f"<div class='interpretation-box'><b>Veredicto del Gráfico:</b> {senal}<br><br>{contexto}<br><br><b>Niveles Clave a vigilar (Últimos 30 días):</b><br>• <b>Soporte (Piso):</b> ${soporte:.2f} (Si rompe este nivel hacia abajo, saltan las alarmas de venta).<br>• <b>Toma de Ganancias (Techo):</b> ${resistencia:.2f} (Si llega acá, es probable que el mercado venda para asegurar ganancias).</div>", unsafe_allow_html=True)
+                        st.markdown(f"<div class='interpretation-box'><b>Veredicto del Gráfico:</b> {senal}<br><br>{contexto}<br><br><b>Niveles Clave a vigilar (Últimos 30 días):</b><br>• <b>Soporte (Piso):</b> ${soporte:.2f}<br>• <b>Resistencia (Techo):</b> ${resistencia:.2f}</div>", unsafe_allow_html=True)
                     else: st.error("No se pudieron procesar datos para el gráfico técnico.")
 
+                # --- 3. PESTAÑA DCF ESTOCÁSTICO ---
                 with tab_mc_fund:
                     st.markdown("### 🧬 DCF Estocástico: Precio Objetivo Intrínseco por Acción")
-                    shares_outstanding = safe_float(info_raiz.get("sharesOutstanding", 0.0))
-                    if shares_outstanding == 0:
-                        shares_outstanding = 0.20 * 1e9 
-                    
                     c_col1, c_col2, c_col3 = st.columns(3)
-                    ingresos_base = c_col1.number_input("Ingresos Anuales (Base USD Billions):", value=safe_float(info_raiz.get("totalRevenue", 10.0*1e9)) / 1e9, step=1.0)
+                    ingresos_base = c_col1.number_input("Ingresos Anuales (Base USD Billions):", value=ingresos_base_def, step=1.0)
                     wacc_base = c_col2.number_input("Costo de Capital (WACC) %:", value=11.5, step=0.5) / 100
                     g_terminal = c_col3.number_input("Tasa Crecimiento Perpetuo (g) %:", value=2.0, step=0.5) / 100
 
@@ -392,7 +499,6 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
                     margen_sim = np.random.normal(margen_base, 0.03, sims)
                     
                     precios_objetivo = []
-                    
                     for i in range(sims):
                         flujos = []
                         ingreso_proyectado = ingresos_base
@@ -409,15 +515,14 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
                         precio_accion_sim = (valor_empresa_billions * 1e9) / shares_outstanding
                         precios_objetivo.append(precio_accion_sim)
                         
-                    precios_objetivo = np.array(precios_objetivo)
-                    precios_objetivo = precios_objetivo[precios_objetivo > 0]
+                    precios_objetivo = np.array([p for p in precios_objetivo if p > 0])
                     
                     fig_dcf = px.histogram(precios_objetivo, nbins=60, title=f"Distribución del Precio Objetivo Intrínseco vs Mercado (${precio_actual_mercado:.2f} USD)", color_discrete_sequence=['#2ecc71'])
                     fig_dcf.add_vline(x=precio_actual_mercado, line_width=3, line_dash="dash", line_color="#e74c3c")
                     fig_dcf.update_layout(template="plotly_dark", paper_bgcolor='#111520', plot_bgcolor='#0c0f16', showlegend=False)
                     st.plotly_chart(fig_dcf, use_container_width=True)
                     
-                    p25, median_val, p75 = np.percentile(precios_objetivo, 25), np.percentile(precios_objetivo, 50), np.percentile(precios_objetivo, 75)
+                    median_val = np.median(precios_objetivo) if len(precios_objetivo) > 0 else precio_actual_mercado
                     
                     if median_val > precio_actual_mercado:
                         descuento = ((median_val - precio_actual_mercado) / median_val) * 100
@@ -426,39 +531,40 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
                         sobreprecio = ((precio_actual_mercado - median_val) / median_val) * 100
                         v_label = f"<span style='color:#e74c3c; font-weight:bold;'>SOBREVALUADO ({sobreprecio:.1f}% por encima) 🔴 PRECAUCIÓN</span>"
                         
-                    st.markdown(f"<div class='interpretation-box'><b>Veredicto del Modelo:</b> {v_label}<br>• Mercado: <b>${precio_actual_mercado:.2f} USD</b> | Valor Justo Estimado: <b>${median_val:.2f} USD</b></div>", unsafe_allow_html=True)
+                    st.markdown(f"<div class='interpretation-box'><b>Veredicto del Modelo DCF:</b> {v_label}<br>• Precio Mercado: <b>${precio_actual_mercado:.2f} USD</b> | Valor Intrínseco Mediano: <b>${median_val:.2f} USD</b></div>", unsafe_allow_html=True)
 
+                # --- 4. PESTAÑA MONTECARLO PRECIO ---
                 with tab_mc:
                     st.markdown("### 🎲 La Máquina del Tiempo (Movimiento Browniano Geométrico)")
                     ret = serie_mc.pct_change().dropna()
                     sigma = ret.std()
                     mu_diario = ret.mean() - 0.5 * (sigma ** 2)
-                    p_b = serie_mc.iloc[-1] 
+                    p_b = float(serie_mc.iloc[-1])
                     
                     c1, c2 = st.columns(2)
-                    sims = 10000
+                    sims_mbg = 5000
                     
                     with c1:
                         st.markdown("#### Corto Plazo: 30 días")
-                        m_1m = np.zeros((30, sims))
+                        m_1m = np.zeros((30, sims_mbg))
                         m_1m[0] = p_b
-                        Z_1m = np.random.standard_normal((29, sims))
+                        Z_1m = np.random.standard_normal((29, sims_mbg))
                         for t in range(1, 30): m_1m[t] = m_1m[t-1] * np.exp(mu_diario + sigma * Z_1m[t-1])
                         f1m = go.Figure()
-                        for i in range(40): f1m.add_trace(go.Scatter(y=m_1m[:, i], mode='lines', line=dict(color='rgba(52, 152, 219, 0.08)'), showlegend=False))
-                        f1m.add_trace(go.Scatter(y=np.mean(m_1m, axis=1), mode='lines', line=dict(color='#2ecc71', width=2.5)))
+                        for i in range(35): f1m.add_trace(go.Scatter(y=m_1m[:, i], mode='lines', line=dict(color='rgba(52, 152, 219, 0.08)'), showlegend=False))
+                        f1m.add_trace(go.Scatter(y=np.mean(m_1m, axis=1), mode='lines', line=dict(color='#2ecc71', width=2.5), name="Media Esperada"))
                         f1m.update_layout(template="plotly_dark", paper_bgcolor='#111520', plot_bgcolor='#0c0f16', height=300, margin=dict(l=10,r=10,t=10,b=10))
                         st.plotly_chart(f1m, use_container_width=True)
                     
                     with c2:
-                        st.markdown("#### Largo Plazo: 1 Año")
-                        m_1y = np.zeros((252, sims))
+                        st.markdown("#### Largo Plazo: 1 Año (252 ruedas)")
+                        m_1y = np.zeros((252, sims_mbg))
                         m_1y[0] = p_b
-                        Z_1y = np.random.standard_normal((251, sims))
+                        Z_1y = np.random.standard_normal((251, sims_mbg))
                         for t in range(1, 252): m_1y[t] = m_1y[t-1] * np.exp(mu_diario + sigma * Z_1y[t-1])
                         f1y = go.Figure()
-                        for i in range(40): f1y.add_trace(go.Scatter(y=m_1y[:, i], mode='lines', line=dict(color='rgba(155, 89, 182, 0.08)'), showlegend=False))
-                        f1y.add_trace(go.Scatter(y=np.mean(m_1y, axis=1), mode='lines', line=dict(color='#9b59b6', width=2.5)))
+                        for i in range(35): f1y.add_trace(go.Scatter(y=m_1y[:, i], mode='lines', line=dict(color='rgba(155, 89, 182, 0.08)'), showlegend=False))
+                        f1y.add_trace(go.Scatter(y=np.mean(m_1y, axis=1), mode='lines', line=dict(color='#9b59b6', width=2.5), name="Media Esperada"))
                         f1y.update_layout(template="plotly_dark", paper_bgcolor='#111520', plot_bgcolor='#0c0f16', height=300, margin=dict(l=10,r=10,t=10,b=10))
                         st.plotly_chart(f1y, use_container_width=True)
 
@@ -505,9 +611,13 @@ elif menu == "💼 PORTAFOLIO Y MODELOS":
         fac = DOLAR_MEP if is_ars else 1
         mon = "ARS" if is_ars else "USD"
         
+        # Corrección Multi-Index SPY
         try:
-            spy_data = yf.download("SPY", period="ytd", progress=False)
-            spy_series = spy_data['Close'].squeeze() if 'Close' in spy_data.columns else spy_data.squeeze()
+            spy_data = yf.download("SPY", period="ytd", progress=False, session=yf_session)
+            if isinstance(spy_data.columns, pd.MultiIndex):
+                spy_series = spy_data['Close'].iloc[:, 0].dropna()
+            else:
+                spy_series = spy_data['Close'].dropna() if 'Close' in spy_data.columns else spy_data.iloc[:, 0].dropna()
             rendimiento_spy = ((spy_series.iloc[-1] / spy_series.iloc[0]) - 1) * 100
         except: rendimiento_spy = 0.0
             
@@ -522,7 +632,7 @@ elif menu == "💼 PORTAFOLIO Y MODELOS":
 
         st.markdown("---")
         
-        # --- BLOQUE ESTRATEGIAS CON DETALLE FUNDAMENTAL ACTIVO POR ACTIVO ---
+        # --- BLOQUE ESTRATEGIAS INSTITUCIONALES ---
         st.subheader("🎯 Ideas de Inversión Institucionales (Desglosadas por Fundamentos)")
         
         estrategias = {
@@ -611,14 +721,17 @@ elif menu == "💼 PORTAFOLIO Y MODELOS":
         st.markdown("---")
         # --- OPTIMIZACIÓN MARKOWITZ ---
         st.subheader("🧠 Optimización Institucional de Portafolio (Markowitz)")
+        st.caption("Recomendado: 3 o más activos para diversificación real de varianza.")
         if st.button("Calcular Frontera Eficiente"):
             with st.spinner("Calculando matriz de covarianza..."):
                 tickers_cartera = list(set([p["Ticker"] for p in st.session_state.cartera_list_v4]))
                 try:
-                    data = yf.download(tickers_cartera, period="1y", progress=False)
-                    df_close_port = data['Close'] if 'Close' in data.columns else data
-                    df_close_port = df_close_port.ffill().bfill()
-                    
+                    data = yf.download(tickers_cartera, period="1y", progress=False, session=yf_session)
+                    if isinstance(data.columns, pd.MultiIndex):
+                        df_close_port = data['Close'].ffill().bfill()
+                    else:
+                        df_close_port = data['Close'].ffill().bfill() if 'Close' in data.columns else data.ffill().bfill()
+                        
                     if isinstance(df_close_port, pd.Series): 
                         df_close_port = pd.DataFrame({tickers_cartera[0]: df_close_port})
                         
