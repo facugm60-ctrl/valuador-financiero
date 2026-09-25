@@ -2,10 +2,8 @@ streamlit
 pandas
 numpy
 yfinance
-requests
 beautifulsoup4
 plotly
 scipy
 google-generativeai
-scipy
 reportlab
