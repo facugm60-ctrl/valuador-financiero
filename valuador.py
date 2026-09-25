@@ -497,10 +497,10 @@ st.markdown("---")
 # 1. DASHBOARD & FINVIZ TREEMAP
 # ==============================================================================
 if menu == "🌐 DASHBOARD & FINVIZ":
-    st.subheader("⚡ Mapa de Mercado Institucional (Finviz Style Treemap)")[cite: 5]
+    st.subheader("⚡ Mapa de Mercado Institucional (Finviz Style Treemap)")
     
     col_p1, col_p2 = st.columns([1, 3])
-    periodo_map = col_p1.selectbox("Período de Rendimiento:", ["1D (Rueda)", "1M (Mensual)", "6M (Semestral)", "1Y (Anual)", "YTD (Año en curso)"])[cite: 5]
+    periodo_map = col_p1.selectbox("Período de Rendimiento:", ["1D (Rueda)", "1M (Mensual)", "6M (Semestral)", "1Y (Anual)", "YTD (Año en curso)"])
     p_key = "1D" if "1D" in periodo_map else "1M" if "1M" in periodo_map else "6M" if "6M" in periodo_map else "1Y" if "1Y" in periodo_map else "YTD"
     
     # Construcción de DataFrame para el Treemap
@@ -858,13 +858,13 @@ elif menu == "💼 PORTAFOLIO Y MODELOS":
 # 4. INVESTIGACIÓN & COPILOT FINANCIERO (ESTILO GOOGLE INVESTIGACIÓN)
 # ==============================================================================
 elif menu == "✨ INVESTIGACIÓN & COPILOT":
-    st.markdown("<h1>Investigación</h1>", unsafe_allow_html=True)[cite: 7]
-    st.markdown("<p style='font-size: 22px; font-weight: 700; color: #ffffff; margin-top: 10px; margin-bottom: 25px;'>Hola, Facu. Haz cualquier pregunta sobre finanzas.</p>", unsafe_allow_html=True)[cite: 7]
+    st.markdown("<h1>Investigación</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='font-size: 22px; font-weight: 700; color: #ffffff; margin-top: 10px; margin-bottom: 25px;'>Hola, Facu. Haz cualquier pregunta sobre finanzas.</p>", unsafe_allow_html=True)
 
-    # Tarjetas de Preguntas Sugeridas (Idénticas a la imagen 3)
-    p_sug1 = "Hazme un resumen de AMD"[cite: 7]
-    p_sug2 = "¿Por qué AMD superó el billón de dólares en capitalización de mercado?"[cite: 7]
-    p_sug3 = "Impacto del aumento del 10% en los precios de los chips de AMD"[cite: 7]
+    # Tarjetas de Preguntas Sugeridas
+    p_sug1 = "Hazme un resumen de AMD"
+    p_sug2 = "¿Por qué AMD superó el billón de dólares en capitalización de mercado?"
+    p_sug3 = "Impacto del aumento del 10% en los precios de los chips de AMD"
 
     col_q1, col_q2, col_q3 = st.columns(3)
     with col_q1:
@@ -877,21 +877,21 @@ elif menu == "✨ INVESTIGACIÓN & COPILOT":
         if st.button(f"⚡ {p_sug3}"):
             st.session_state.copilot_prompt_trigger = p_sug3
 
-    st.markdown("<br><p style='font-size: 14px; font-weight: 600; color: #94a3b8; margin-bottom: 12px;'>Descubre todo lo que puedes hacer</p>", unsafe_allow_html=True)[cite: 7]
+    st.markdown("<br><p style='font-size: 14px; font-weight: 600; color: #94a3b8; margin-bottom: 12px;'>Descubre todo lo que puedes hacer</p>", unsafe_allow_html=True)
 
-    # Píldoras de Acción Rápida (Idénticas a la imagen 3)
+    # Píldoras de Acción Rápida
     col_act1, col_act2, col_act3, col_act4 = st.columns(4)
     with col_act1:
-        if st.button("➕ Crear una cartera"):[cite: 7]
+        if st.button("➕ Crear una cartera"):
             st.session_state.copilot_prompt_trigger = "Diseña una cartera recomendada balanceada para un perfil growth moderado en Argentina con activos CEDEAR y acciones locales, fundamentando los pesos."
     with col_act2:
-        if st.button("✔️ Crear tarea"):[cite: 7]
+        if st.button("✔️ Crear tarea"):
             st.session_state.copilot_prompt_trigger = "Arma una checklist de auditoría financiera para revisar los balances del Q3 de las empresas de mi portafolio."
     with col_act3:
-        if st.button("🔍 Deep Search"):[cite: 7]
+        if st.button("🔍 Deep Search"):
             st.session_state.copilot_prompt_trigger = "Realiza un análisis macroeconómico profundo sobre la tasa de la Fed, la inflación global y su impacto directo en el sector tecnológico y energético."
     with col_act4:
-        if st.button("📈 Analizar mi lista de seguimiento"):[cite: 7]
+        if st.button("📈 Analizar mi lista de seguimiento"):
             st.session_state.copilot_prompt_trigger = f"Analiza en detalle mi Watchlist actual: {', '.join(st.session_state.watchlist_tickers)}. ¿Cuáles ofrecen mejor asimetría riesgo/retorno?"
 
     st.markdown("---")
