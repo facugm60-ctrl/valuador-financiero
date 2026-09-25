@@ -15,77 +15,154 @@ from plotly.subplots import make_subplots
 import scipy.optimize as sco
 
 # ------------------------------------------------------------------------------
-# CONFIGURACIÓN DE PÁGINA Y ESTILOS
+# CONFIGURACIÓN DE PÁGINA Y ESTÉTICA INSTITUCIONAL (OBSIDIAN & BRASS)
 # ------------------------------------------------------------------------------
-st.set_page_config(page_title="Terminal Quanti Pro", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="Apex Financial Terminal", layout="wide", initial_sidebar_state="collapsed")
 
 st.markdown("""<style>
-@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;700;800&display=swap');
-html, body, [class*="css"], [data-testid="stAppViewContainer"], [data-testid="stHeader"] { background-color: #0c0f16 !important; color: #f1f5f9 !important; font-family: 'Montserrat', sans-serif !important; }
-.block-container {padding-top: 1.5rem; padding-bottom: 2rem;}
-h1 {font-weight: 800; color: #ffffff !important; font-size: 28px !important;}
-h2 {font-weight: 700; color: #f8fafc !important; font-size: 20px !important;}
-h3 {font-weight: 600; color: #f1f5f9 !important; font-size: 16px !important;}
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
 
-/* Fix Radio superior */
+html, body, [class*="css"], [data-testid="stAppViewContainer"], [data-testid="stHeader"] { 
+    background-color: #06080d !important; 
+    color: #e2e8f0 !important; 
+    font-family: 'Plus Jakarta Sans', sans-serif !important; 
+}
+
+/* Tipografía monoespaciada para todo dato contable, números y cotizaciones */
+.tabular-nums, td, div[data-testid="stMetricValue"] > div {
+    font-family: 'JetBrains Mono', monospace !important;
+    font-variant-numeric: tabular-nums !important;
+}
+
+.block-container { padding-top: 1.5rem; padding-bottom: 2rem; }
+h1 { font-weight: 800; color: #ffffff !important; font-size: 26px !important; letter-spacing: -0.02em; }
+h2 { font-weight: 700; color: #f8fafc !important; font-size: 19px !important; }
+h3 { font-weight: 600; color: #cbd5e1 !important; font-size: 15px !important; }
+
+/* Radio Selector Minimalista */
 div[data-testid="stRadio"] > div { 
-    background: rgba(22, 27, 34, 0.8) !important; 
-    padding: 6px 12px !important; 
-    border-radius: 10px !important; 
-    border: 1px solid rgba(255, 255, 255, 0.1) !important; 
+    background: #0d111a !important; 
+    padding: 5px !important; 
+    border-radius: 8px !important; 
+    border: 1px solid rgba(255, 255, 255, 0.08) !important; 
     display: flex !important;
-    flex-wrap: wrap !important;
-    gap: 8px !important; 
+    gap: 6px !important; 
     margin-bottom: 15px !important; 
 }
 div[data-testid="stRadio"] label[data-baseweb="radio"] { 
-    padding: 6px 16px !important; 
+    padding: 6px 14px !important; 
     border-radius: 6px !important; 
-    color: #cbd5e1 !important; 
+    color: #94a3b8 !important; 
     font-weight: 600 !important; 
-    font-size: 13px !important;
+    font-size: 12px !important;
+}
+div[data-testid="stRadio"] label[data-baseweb="radio"]:hover {
+    color: #f8fafc !important;
 }
 
-/* Métricas numéricas protegidas contra desbordes */
-div[data-testid="stMetricValue"] > div {
-    font-size: 18px !important;
-    white-space: nowrap !important;
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
+/* Métricas estilo Terminal Quant */
+div[data-testid="stMetric"] { 
+    background-color: #0d111a !important; 
+    border: 1px solid rgba(255, 255, 255, 0.06) !important; 
+    border-radius: 6px !important; 
+    padding: 12px 14px !important; 
 }
-div[data-testid="stMetricLabel"] > div { font-size: 12px !important; color: #94a3b8 !important; }
-div[data-testid="stMetric"] { background-color: #111520 !important; border: 1px solid #1f2937 !important; border-radius: 8px !important; padding: 10px 14px !important; }
+div[data-testid="stMetricLabel"] > div { 
+    font-size: 11px !important; 
+    text-transform: uppercase !important; 
+    letter-spacing: 0.08em !important; 
+    color: #64748b !important; 
+    font-weight: 600 !important; 
+}
+div[data-testid="stMetricValue"] > div { 
+    font-size: 18px !important; 
+    color: #f8fafc !important; 
+    font-weight: 600 !important; 
+}
 
-.stButton>button { width: 100%; background: linear-gradient(135deg, #10b981, #059669) !important; color: white !important; font-weight: 700; border-radius: 8px; border: none; padding: 0.6rem; font-size: 13px !important; }
-.radar-box-gainer { background: rgba(16, 185, 129, 0.1); border: 1px solid #10b981; padding: 12px; border-radius: 8px; color: #34d399 !important; font-size: 13px; }
-.radar-box-loser { background: rgba(239, 68, 68, 0.1); border: 1px solid #ef4444; padding: 12px; border-radius: 8px; color: #f87171 !important; font-size: 13px; }
-.interpretation-box { background-color: #111520; padding: 14px; border-radius: 8px; font-size: 13px; color: #e2e8f0; border-left: 4px solid #10b981; margin: 10px 0; border: 1px solid #1f2937; line-height: 1.5; }
-.gemini-box { background-color: #0b1329; padding: 16px; border-radius: 8px; font-size: 13px; color: #f1f5f9; border: 1px solid #3b82f6; border-left: 4px solid #60a5fa; margin-top: 10px; line-height: 1.6; }
+/* Botones institucionales en Brass / Oro viejo */
+.stButton>button { 
+    width: 100%; 
+    background: linear-gradient(180deg, #d4a34b, #b8862d) !important; 
+    color: #06080d !important; 
+    font-weight: 700; 
+    border-radius: 6px; 
+    border: none; 
+    padding: 0.55rem; 
+    font-size: 12px !important; 
+    letter-spacing: 0.03em;
+}
 
-/* Tabla personalizada con contenedor que no recorta tooltips */
-.table-responsive-box { overflow: visible !important; position: relative; margin: 12px 0; }
-.custom-table { width: 100%; border-collapse: collapse; font-size: 12px; background-color: #111520; border-radius: 6px; border: 1px solid #1f2937; }
-.custom-table th { background-color: #161b22; color: #f8fafc; padding: 10px; text-align: left; font-weight: 600; border-bottom: 2px solid #1f2937; position: relative; }
-.custom-table td { padding: 10px; border-bottom: 1px solid #1f2937; color: #e2e8f0; }
-.winner-cell { background-color: rgba(16, 185, 129, 0.15) !important; color: #34d399 !important; font-weight: 700; }
+/* Contenedores de Información */
+.terminal-card {
+    background-color: #0d111a;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 6px;
+    padding: 14px;
+    margin: 10px 0;
+    font-size: 13px;
+    line-height: 1.55;
+}
+.gold-card { border-left: 3px solid #d4a34b; }
+.blue-card { border-left: 3px solid #0284c7; }
+.green-card { border-left: 3px solid #10b981; }
 
-/* TOOLTIPS CSS PURO (FLOTANTES Y CONTEXTUALES) */
+/* Tablas Quant limpias sin recortes */
+.table-viewport { 
+    overflow: visible !important; 
+    position: relative; 
+    margin: 10px 0; 
+}
+.terminal-table { 
+    width: 100%; 
+    border-collapse: collapse; 
+    font-size: 12px; 
+    background-color: #0d111a; 
+    border: 1px solid rgba(255, 255, 255, 0.07); 
+    border-radius: 6px; 
+}
+.terminal-table th { 
+    background-color: #121824; 
+    color: #94a3b8; 
+    padding: 8px 12px; 
+    text-align: left; 
+    font-weight: 600; 
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08); 
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+.terminal-table td { 
+    padding: 8px 12px; 
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04); 
+    color: #e2e8f0; 
+}
+.terminal-table tr:hover td { 
+    background-color: rgba(255, 255, 255, 0.02); 
+}
+.winner-cell { 
+    background-color: rgba(212, 163, 75, 0.12) !important; 
+    color: #e5a93c !important; 
+    font-weight: 700; 
+}
+
+/* Tooltips */
 .th-tooltip {
     position: relative;
     display: inline-block;
     cursor: pointer;
     color: #38bdf8;
-    margin-left: 5px;
-    font-weight: 800;
+    margin-left: 4px;
+    font-weight: 700;
 }
 .th-tooltip .th-tooltiptext {
     visibility: hidden;
-    width: 220px;
-    background-color: #1e293b;
-    color: #ffffff;
+    width: 230px;
+    background-color: #121824;
+    color: #f1f5f9;
     text-align: left;
     padding: 8px 10px;
-    border-radius: 6px;
+    border-radius: 5px;
     position: absolute;
     z-index: 9999;
     bottom: 130%;
@@ -96,32 +173,28 @@ div[data-testid="stMetric"] { background-color: #111520 !important; border: 1px 
     font-size: 11px;
     font-weight: 400;
     line-height: 1.4;
-    border: 1px solid #38bdf8;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+    border: 1px solid rgba(56, 189, 248, 0.4);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.8);
     pointer-events: none;
-    white-space: normal;
 }
-.th-tooltip:hover .th-tooltiptext {
-    visibility: visible;
-    opacity: 1;
-}
+.th-tooltip:hover .th-tooltiptext { visibility: visible; opacity: 1; }
 
-/* Badge semáforo */
-.traffic-badge {
+/* Badges semáforo táctico */
+.badge-state {
     display: inline-block;
-    padding: 3px 8px;
+    padding: 2px 7px;
     border-radius: 4px;
     font-weight: 700;
-    font-size: 11px;
-    cursor: pointer;
+    font-size: 10.5px;
+    letter-spacing: 0.03em;
 }
-.badge-buy { background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid #10b981; }
-.badge-hold { background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid #f59e0b; }
-.badge-sell { background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid #ef4444; }
+.badge-buy { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4); }
+.badge-hold { background: rgba(212, 163, 75, 0.15); color: #fbbf24; border: 1px solid rgba(212, 163, 75, 0.4); }
+.badge-sell { background: rgba(244, 63, 94, 0.15); color: #fb7185; border: 1px solid rgba(244, 63, 94, 0.4); }
 </style>""", unsafe_allow_html=True)
 
 # ------------------------------------------------------------------------------
-# GESTIÓN SEGURA DE GEMINI AI (SECRETS + SIDEBAR OVERRIDE)
+# CONECTIVIDAD GEMINI AI (DUAL SOURCE + FALLBACKS)
 # ------------------------------------------------------------------------------
 try:
     import google.generativeai as genai
@@ -129,78 +202,83 @@ try:
 except ImportError:
     HAS_GEMINI_LIB = False
 
-# Sidebar para gestión de credenciales
-st.sidebar.markdown("### 🔑 Conexión de Inteligencia Artificial")
+st.sidebar.markdown("### 🔑 Parámetros de Conectividad")
 secrets_key = st.secrets.get("GEMINI_API_KEY", "") if hasattr(st, "secrets") else ""
-gemini_input_key = st.sidebar.text_input("Gemini API Key:", value=secrets_key, type="password", help="Pegá tu key de Google AI Studio si no está en secrets.toml")
+gemini_input_key = st.sidebar.text_input("Gemini API Key:", value=secrets_key, type="password", help="Key de Google AI Studio")
 
 GEMINI_KEY = gemini_input_key.strip() if gemini_input_key else None
 if HAS_GEMINI_LIB and GEMINI_KEY:
-    genai.configure(api_key=GEMINI_KEY)
+    try:
+        genai.configure(api_key=GEMINI_KEY)
+    except:
+        pass
 
-def generar_descripcion_empresa(ticker, nombre, info_dict):
-    """Genera perfil de negocio, guidance y solvencia (máx 5 renglones) con fallback robusto."""
+def ia_sintesis_empresa(ticker, nombre, info_dict):
     deuda = info_dict.get('deuda', 0.0)
     margen = info_dict.get('margen', 0.0)
     roe = info_dict.get('roe', 0.0)
     
-    # Intento con Gemini
     if HAS_GEMINI_LIB and GEMINI_KEY:
         try:
             model = genai.GenerativeModel("gemini-1.5-flash")
             prompt = f"""
-            Actúa como un Senior Research Analyst de Wall Street.
-            Genera un informe institucional para {nombre} ({ticker}) en un MÁXIMO ESTRICTO de 5 renglones continuos:
-            - Renglones 1 y 2: Core business, fuentes directas de ingresos y ventajas competitivas clave (moat).
-            - Renglones 3 y 4: Guidance corporativo reciente (metas de producción, CapEx o proyectos de expansión).
-            - Renglón 5: Nivel de solvencia y estructura de capital (Deuda Neta/EBITDA: {deuda:.2f}x, Margen Neto: {margen*100:.1f}%, ROE: {roe*100:.1f}%).
-            No agregues saludos ni títulos, responde directamente el texto.
+            Actúa como Equity Research Analyst institucional. Redacta un informe para {nombre} ({ticker}) en un MÁXIMO DE 5 RENGLONES:
+            - Renglones 1-2: Core business, ventajas competitivas (Moat) y drivers directos de facturación.
+            - Renglones 3-4: Guidance corporativo reciente (metas operativas de producción, CapEx o inversión).
+            - Renglón 5: Situación de solvencia (Deuda Neta/EBITDA: {deuda:.2f}x, Margen Neto: {margen*100:.1f}%, ROE: {roe*100:.1f}%).
+            Sin títulos ni cortes de línea vacíos.
             """
             res = model.generate_content(prompt)
-            if res and res.text:
-                return res.text.strip()
-        except Exception:
-            pass  # Falla suavemente hacia el motor fundamental propio
-    
-    # Motor analítico propio (Fallback institucional sin roturas)
-    desc_negocio = f"{nombre} ({ticker}) concentra sus operaciones principales en la monetización de activos estratégicos con ventajas competitivas sostenibles en su industria."
-    guidance = f"El plan corporativo proyecta expansión de capacidad operativa y optimización de CapEx para consolidar la generación de flujo libre."
-    solvencia = f"La estructura patrimonial registra un ratio Deuda Neta/EBITDA de {deuda:.2f}x, con un margen de beneficio neto del {margen*100:.1f}% y un retorno sobre patrimonio (ROE) del {roe*100:.1f}%."
-    return f"{desc_negocio}\n{guidance}\n{solvencia}"
+            if res and res.text: return res.text.strip()
+        except: pass
+        
+    return f"{nombre} ({ticker}) sostiene su modelo en activos estratégicos con ventajas de escala en su industria.\nLa gerencia enfoca su guidance en optimización de CapEx para sostener la expansión de márgenes operativos.\nEstructura patrimonial: Deuda Neta/EBITDA de {deuda:.2f}x, Margen Neto de {margen*100:.1f}% y ROE de {roe*100:.1f}%."
 
-def generar_tesis_gemini(ticker, nombre, precio, pe, roe, deuda, margen, dcf_valor):
+def ia_reverse_dcf_check(ticker, implied_g, roic, pe):
+    """Evalúa la viabilidad del crecimiento implícito que descuenta el mercado."""
+    if HAS_GEMINI_LIB and GEMINI_KEY:
+        try:
+            model = genai.GenerativeModel("gemini-1.5-flash")
+            prompt = f"""
+            Actúa como Senior Fund Manager. El precio actual de mercado de {ticker} (P/E de {pe:.1f}x) descuenta matemáticamente un crecimiento anual sostenido de Flujo de Caja Libre (FCF) del {implied_g*100:.1f}% durante los próximos 5 años.
+            El ROE/ROIC actual de la empresa es del {roic*100:.1f}%.
+            En 3 líneas concisas:
+            1. Diagnostica si esa tasa de crecimiento exigida es conservadora, razonable o sumamente exigente respecto a su retorno sobre capital.
+            2. Veredicto del trade: ¿El mercado está pagando de más o existe margen de seguridad?
+            """
+            res = model.generate_content(prompt)
+            if res and res.text: return res.text.strip()
+        except: pass
+    
+    status = "exigente" if implied_g > 0.12 else "razonable" if implied_g >= 0.04 else "conservador"
+    return f"El mercado exige un crecimiento anual de FCF del {implied_g*100:.1f}%, lo que resulta {status} frente a su retorno de capital actual ({roic*100:.1f}%). Valuación actual con múltiplo de {pe:.1f}x."
+
+def ia_tesis_ejecutiva(ticker, nombre, precio, pe, roe, deuda, margen, dcf_valor):
     upside = ((dcf_valor - precio) / precio) * 100 if precio > 0 else 0
     if HAS_GEMINI_LIB and GEMINI_KEY:
         try:
             model = genai.GenerativeModel("gemini-1.5-flash")
             prompt = f"""
-            Actúa como Portfolio Manager Senior. Elabora una tesis de inversión ejecutiva para {nombre} ({ticker}):
-            - Precio Mercado: ${precio:.2f} USD | DCF Estocástico: ${dcf_valor:.2f} USD (Upside/Downside: {upside:+.1f}%)
+            Portfolio Manager Memo para {nombre} ({ticker}):
+            - Precio: ${precio:.2f} USD | DCF Mediano: ${dcf_valor:.2f} USD (Divergencia: {upside:+.1f}%)
             - P/E: {pe:.2f}x | ROE: {roe*100:.1f}% | Margen Neto: {margen*100:.1f}% | Deuda Neta/EBITDA: {deuda:.2f}x
 
-            Responde en exactamente 3 secciones cortas:
-            1. 🏛️ Calidad del Negocio y Solvencia: Evaluación de retorno y sostenibilidad del pasivo.
-            2. ⚖️ Valuación Intrínseca vs Mercado: Diagnóstico del margen de seguridad frente al DCF.
-            3. 🎯 Veredicto Fundamental: Dictamen taxativo (Compra / Mantener / Venta) con un catalizador y riesgo crítico.
+            Formato estricto (3 puntos breves):
+            1. Calidad Operativa y Apalancamiento.
+            2. Rango de Valuación vs DCF.
+            3. Recomendación Final (Compra / Mantener / Venta) con riesgo primario.
             """
             res = model.generate_content(prompt)
-            if res and res.text:
-                return res.text
-        except Exception:
-            pass
-            
-    # Fallback fundamental sin IA
-    tipo = "Compra (Margen de Seguridad Favorable)" if upside > 15 else "Mantener (Precio en Rango Justo)" if upside >= -10 else "Reducir / Venta (Sobrevaluado)"
-    return f"""**1. 🏛️ Calidad del Negocio y Solvencia:** Retorno sobre patrimonio del {roe*100:.1f}% con una cobertura de apalancamiento neto de {deuda:.2f}x EBITDA y margen neto de {margen*100:.1f}%.\n\n**2. ⚖️ Valuación Intrínseca vs Mercado:** La cotización de ${precio:.2f} USD descuenta un upside intrínseco estimado del {upside:+.1f}% frente al valor DCF (${dcf_valor:.2f} USD).\n\n**3. 🎯 Veredicto Fundamental:** **{tipo}**. Catalizador: Crecimiento de márgenes operativos. Riesgo: Presiones sobre el costo de financiamiento global."""
+            if res and res.text: return res.text
+        except: pass
+        
+    return f"**1. Calidad y Deuda:** ROE al {roe*100:.1f}% con apalancamiento neto de {deuda:.2f}x EBITDA.\n**2. Valuación:** Divergencia del {upside:+.1f}% frente a la estimación DCF (${dcf_valor:.2f} USD).\n**3. Dictamen:** {'Compra Acumulativa' if upside > 12 else 'Mantener'} | Riesgo: Volatilidad de tasas globales."
 
 # ------------------------------------------------------------------------------
-# CONEXIÓN DE DATOS Y MERCADO
+# CONEXIÓN A MERCADO
 # ------------------------------------------------------------------------------
 yf_session = requests.Session()
-yf_session.headers.update({
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
-})
+yf_session.headers.update({"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
 
 WATCHLIST_CORE = ["VIST", "YPF", "AAPL", "GGAL", "NVDA", "KO", "XOM", "WMT"]
 RATIOS_CEDEAR = {
@@ -288,9 +366,8 @@ def obtener_fundamental_completo(symbol):
     except:
         return {"Ticker": symbol, "Nombre": symbol, "Precio": 50.0, "PE": 0.0, "EV": 0.0, "DEUDA": 0.0, "LIQUIDEZ": 0.0, "MARGEN": 0.0, "ROE": 0.0, "RAW": {}}
 
-# Session state para persistencia de cartera
+# Session State para cartera
 if "cartera_ops" not in st.session_state:
-    # Registros de posiciones consolidadas (Ticker, Nominales, PPC_ARS, PPC_USD, Divs)
     st.session_state.cartera_ops = [
         {"Ticker": "VIST", "Nominales": 100, "PPC_ARS": 77200.0, "Dividendos_USD": 15.0},
         {"Ticker": "XOM", "Nominales": 50, "PPC_ARS": 31500.0, "Dividendos_USD": 25.5}
@@ -299,26 +376,26 @@ if "cartera_ops" not in st.session_state:
 if "activo_analizado" not in st.session_state: st.session_state.activo_analizado = "VIST"
 if "peers_analizados" not in st.session_state: st.session_state.peers_analizados = "YPF, XOM"
 
-menu = st.radio("Navegación:", ["🌐 DASHBOARD Y WATCHLIST", "🔍 ANÁLISIS INTEGRAL", "💼 PORTAFOLIO Y MODELOS"], horizontal=True)
+menu = st.radio("Secciones operativas:", ["🌐 DASHBOARD & WATCHLIST", "🔍 ANÁLISIS INTEGRAL & REVERSE DCF", "💼 CARTERA & ALLOCATION"], horizontal=True)
 st.markdown("---")
 
 # ==============================================================================
-# 1. DASHBOARD Y WATCHLIST
+# 1. DASHBOARD & WATCHLIST
 # ==============================================================================
-if menu == "🌐 DASHBOARD Y WATCHLIST":
-    st.subheader("⚡ Market Radar: Rendimientos Periódicos")
+if menu == "🌐 DASHBOARD & WATCHLIST":
+    st.subheader("⚡ Monitor de Ruedas y Retornos Periódicos")
     if not DATOS_RADAR:
-        st.warning("Sincronizando feed de mercado... Recargar si persiste.")
+        st.warning("Sincronizando feed de mercado... Por favor recargar si persiste.")
     else:
         ordenados = sorted(DATOS_RADAR.items(), key=lambda x: x[1]["1D"], reverse=True)
         g1, g2 = st.columns(2)
         with g1:
-            st.markdown(f"<div class='radar-box-gainer'>🟢 <b>Top Ganadores (1D):</b> 1. {ordenados[0][0]}: {ordenados[0][1]['1D']:+.2f}% | 2. {ordenados[1][0]}: {ordenados[1][1]['1D']:+.2f}% | 3. {ordenados[2][0]}: {ordenados[2][1]['1D']:+.2f}%</div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='terminal-card green-card'>🟢 <b>Top Ganadores (1D):</b> 1. {ordenados[0][0]} ({ordenados[0][1]['1D']:+.2f}%) | 2. {ordenados[1][0]} ({ordenados[1][1]['1D']:+.2f}%) | 3. {ordenados[2][0]} ({ordenados[2][1]['1D']:+.2f}%)</div>", unsafe_allow_html=True)
         with g2:
-            st.markdown(f"<div class='radar-box-loser'>🔴 <b>Top Perdedores (1D):</b> 1. {ordenados[-1][0]}: {ordenados[-1][1]['1D']:+.2f}% | 2. {ordenados[-2][0]}: {ordenados[-2][1]['1D']:+.2f}% | 3. {ordenados[-3][0]}: {ordenados[-3][1]['1D']:+.2f}%</div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='terminal-card' style='border-left: 3px solid #f43f5e;'>🔴 <b>Top Rezagados (1D):</b> 1. {ordenados[-1][0]} ({ordenados[-1][1]['1D']:+.2f}%) | 2. {ordenados[-2][0]} ({ordenados[-2][1]['1D']:+.2f}%) | 3. {ordenados[-3][0]} ({ordenados[-3][1]['1D']:+.2f}%)</div>", unsafe_allow_html=True)
         
         st.markdown("<br>", unsafe_allow_html=True)
-        st.subheader("📌 Monitoreo General (Watchlist con Períodos Históricos)")
+        st.subheader("📌 Watchlist Core (Performance Multitemporal)")
         filas_w = []
         for t in WATCHLIST_CORE:
             d = DATOS_RADAR.get(t, {"precio": 0.0, "1D": 0.0, "1M": 0.0, "6M": 0.0, "1Y": 0.0, "YTD": 0.0})
@@ -331,14 +408,14 @@ if menu == "🌐 DASHBOARD Y WATCHLIST":
         st.dataframe(pd.DataFrame(filas_w).set_index("Ticker"), use_container_width=True)
 
 # ==============================================================================
-# 2. ANÁLISIS INTEGRAL (FUNDAMENTAL + TÉCNICO + DCF + IA)
+# 2. ANÁLISIS INTEGRAL (CON REVERSE DCF DE IA)
 # ==============================================================================
-elif menu == "🔍 ANÁLISIS INTEGRAL":
+elif menu == "🔍 ANÁLISIS INTEGRAL & REVERSE DCF":
     c_s1, c_s2 = st.columns([1, 2])
-    t_obj = c_s1.selectbox("📍 Activo Bajo Estudio:", UNIVERSO_POOL, index=UNIVERSO_POOL.index(st.session_state.activo_analizado)).upper().strip()
-    t_comp_raw = c_s2.text_input("Peers de Control (Separados por coma):", value=st.session_state.peers_analizados).upper()
+    t_obj = c_s1.selectbox("Activo Analizado:", UNIVERSO_POOL, index=UNIVERSO_POOL.index(st.session_state.activo_analizado)).upper().strip()
+    t_comp_raw = c_s2.text_input("Peers de Referencia (Separados por coma):", value=st.session_state.peers_analizados).upper()
     
-    if st.button("🔥 Correr Análisis"):
+    if st.button("Ejecutar Análisis Cuantitativo"):
         st.session_state.activo_analizado = t_obj
         st.session_state.peers_analizados = t_comp_raw
         st.rerun()
@@ -351,13 +428,14 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
     info_raiz = d_obj["RAW"]
     serie_mc, df_raw = descargar_activo_individual_historico(t_obj)
 
-    # Pre-cálculo DCF Estocástico
+    # Parámetros DCF Base
     shares = safe_float(info_raiz.get("sharesOutstanding", 0.20 * 1e9))
     ingresos = safe_float(info_raiz.get("totalRevenue", 10.0 * 1e9)) / 1e9
     wacc_base, g_terminal = 0.115, 0.02
     margen_base = d_obj["MARGEN"] if d_obj["MARGEN"] > 0 else 0.15
     precio_mkt = d_obj["Precio"]
-    
+
+    # Cálculo DCF Estocástico
     sims = 4000
     crec_sim = np.random.normal(0.07, 0.04, sims)
     mg_sim = np.random.normal(margen_base, 0.03, sims)
@@ -372,130 +450,115 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
         vals_dcf.append((sum(flujos) + (vt / ((1 + wacc_base)**5))) * 1e9 / shares)
     dcf_mediano = float(np.median([v for v in vals_dcf if v > 0])) if vals_dcf else precio_mkt
 
-    tab_fund, tab_tech, tab_dcf, tab_monte = st.tabs(["📊 Fundamental & IA", "📈 Técnico (DMI)", "🧬 DCF Estocástico", "🎲 Montecarlo"])
+    # Cálculo Reverse DCF: ¿Qué 'g' implícito exige el precio de hoy?
+    def obj_reverse_dcf(g_implied):
+        ing = ingresos
+        flujos = []
+        for y in range(1, 6):
+            ing *= (1 + g_implied)
+            flujos.append((ing * margen_base * 0.65) / ((1 + wacc_base)**y))
+        vt = (ing * margen_base * 0.65 * (1 + g_terminal)) / (wacc_base - g_terminal)
+        eq_val = (sum(flujos) + (vt / ((1 + wacc_base)**5))) * 1e9 / shares
+        return abs(eq_val - precio_mkt)
 
-    # --- PESTAÑA FUNDAMENTAL ---
+    res_opt = sco.minimize(obj_reverse_dcf, [0.06], bounds=[(-0.15, 0.50)], method='Nelder-Mead')
+    g_implicito = float(res_opt.x[0])
+
+    tab_fund, tab_rev_dcf, tab_tech, tab_mc = st.tabs(["📊 Balances & Ratios", "🎯 Reverse DCF (IA)", "📈 Técnico (DMI)", "🎲 Montecarlo Precios"])
+
+    # --- PESTAÑA 1: FUNDAMENTAL ---
     with tab_fund:
-        st.markdown(f"### 🏢 Perfil Corporativo y Guidance: {d_obj['Nombre']}")
-        resumen_empresa = generar_descripcion_empresa(
-            t_obj, d_obj["Nombre"], 
-            {"deuda": d_obj["DEUDA"], "margen": d_obj["MARGEN"], "roe": d_obj["ROE"]}
-        )
-        st.markdown(f"<div class='gemini-box'>{resumen_empresa.replace(chr(10), '<br>')}</div>", unsafe_allow_html=True)
+        st.markdown(f"### 🏢 Perfil Corporativo: {d_obj['Nombre']}")
+        resumen_empresa = ia_sintesis_empresa(t_obj, d_obj["Nombre"], {"deuda": d_obj["DEUDA"], "margen": d_obj["MARGEN"], "roe": d_obj["ROE"]})
+        st.markdown(f"<div class='terminal-card blue-card'>{resumen_empresa.replace(chr(10), '<br>')}</div>", unsafe_allow_html=True)
 
         c_w1, c_w2 = st.columns([1, 2])
         with c_w1:
-            st.markdown("#### Consenso Sell-Side Wall Street")
+            st.markdown("#### Consenso Analistas Sell-Side")
             recom = str(info_raiz.get("recommendationKey", "hold")).lower()
             val_gauge = 5 if "strong_buy" in recom or "strong buy" in recom else 4 if "buy" in recom else 2 if "sell" in recom else 3
             fig_g = go.Figure(go.Indicator(
                 mode="gauge+number", value=val_gauge,
-                title={'text': "Escala 1 (Venta) a 5 (Compra)", 'font': {'size': 12}},
+                title={'text': "Consenso (1 Venta a 5 Compra)", 'font': {'size': 11, 'color': '#94a3b8'}},
                 gauge={'axis': {'range': [1, 5], 'tickvals': [1, 2, 3, 4, 5], 'ticktext': ['Venta F.', 'Venta', 'Mantener', 'Compra', 'Compra F.']},
-                       'bar': {'color': "#ffffff"},
-                       'steps': [{'range': [1, 2.5], 'color': "#ef4444"}, {'range': [2.5, 3.5], 'color': "#1e293b"}, {'range': [3.5, 5], 'color': "#10b981"}]}
+                       'bar': {'color': "#d4a34b"},
+                       'steps': [{'range': [1, 2.5], 'color': "rgba(244, 63, 94, 0.2)"}, {'range': [2.5, 3.5], 'color': "rgba(255, 255, 255, 0.05)"}, {'range': [3.5, 5], 'color': "rgba(16, 185, 129, 0.2)"}]}
             ))
-            fig_g.update_layout(height=210, margin=dict(l=10, r=10, t=30, b=10), paper_bgcolor='#111520', font={'color': '#ffffff'})
+            fig_g.update_layout(height=190, margin=dict(l=10, r=10, t=20, b=10), paper_bgcolor='#0d111a', font={'color': '#ffffff'})
             st.plotly_chart(fig_g, use_container_width=True)
-            st.caption("ℹ️ *Fuente: Relevamiento de analistas institucionales recopilados por LSEG / Yahoo Finance.*")
+            st.caption("ℹ️ *Fuente: Relevamiento institucional vía Yahoo Finance / LSEG.*")
 
         with c_w2:
-            st.markdown("#### 📑 Calidad de Balances (Últimos 12M vs Proyección)")
+            st.markdown("#### Calidad de Balances (TTM vs Estimación)")
             eps_trail = safe_float(info_raiz.get("trailingEps", 0.0))
             eps_fwd = safe_float(info_raiz.get("forwardEps", eps_trail))
             rev_tot = safe_float(info_raiz.get("totalRevenue", 0.0)) / 1e9
             gross_prof = safe_float(info_raiz.get("grossProfits", rev_tot * 0.4 * 1e9)) / 1e9
 
-            st.markdown(f"""
-            <div class='table-responsive-box'>
-            <table class='custom-table'>
-                <thead>
-                    <tr>
-                        <th>Métrica Contable</th>
-                        <th>Reportado (TTM)</th>
-                        <th>Estimación Futura</th>
-                        <th>Variación / Eficiencia</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td><b>EPS (Ganancia Neta por Acción)</b></td>
-                        <td>${eps_trail:.2f}</td><td>${eps_fwd:.2f}</td>
-                        <td style='color: {"#34d399" if eps_fwd >= eps_trail else "#f87171"}; font-weight:bold;'>{(((eps_fwd/eps_trail)-1)*100 if eps_trail > 0 else 0.0):+.2f}%</td>
-                    </tr>
-                    <tr>
-                        <td><b>Ingresos Netos (Revenue)</b></td>
-                        <td>${rev_tot:.2f} B</td><td>${gross_prof:.2f} B (Gross Profit)</td>
-                        <td style='color: #34d399; font-weight:bold;'>{(gross_prof/rev_tot*100 if rev_tot>0 else 0):.1f}% Margen Bruto</td>
-                    </tr>
-                </tbody>
-            </table>
-            </div>
-            """, unsafe_allow_html=True)
-            st.caption("ℹ️ *EPS: Beneficio contable neto por acción ordinaria. Margen Bruto: Rentabilidad luego del costo directo de venta.*")
+            # Tabla construida sin indentaciones accidentales
+            filas_bal = [
+                f"<tr><td><b>EPS (Ganancia por Acción)</b></td><td>${eps_trail:.2f}</td><td>${eps_fwd:.2f}</td><td style='color: {'#34d399' if eps_fwd >= eps_trail else '#f43f5e'}; font-weight:bold;'>{(((eps_fwd/eps_trail)-1)*100 if eps_trail > 0 else 0.0):+.2f}%</td></tr>",
+                f"<tr><td><b>Ingresos (Revenue)</b></td><td>${rev_tot:.2f} B</td><td>${gross_prof:.2f} B (Gross Profit)</td><td style='color: #34d399; font-weight:bold;'>{(gross_prof/rev_tot*100 if rev_tot>0 else 0):.1f}% Margen Bruto</td></tr>"
+            ]
+            tabla_bal_html = "<div class='table-viewport'><table class='terminal-table'><thead><tr><th>Métrica Contable</th><th>Últimos 12M</th><th>Consenso Siguiente Ejercicio</th><th>Variación</th></tr></thead><tbody>" + "".join(filas_bal) + "</tbody></table></div>"
+            st.markdown(tabla_bal_html, unsafe_allow_html=True)
 
         st.markdown("---")
-        st.markdown("#### 📊 Matriz de Comparación Relativa vs Peers")
+        st.markdown("#### Matriz Comparativa Relativa vs Peers")
         
-        # Tooltips con definiciones técnicas
-        t_pe = "P/E: Años que tardarías en recuperar el valor por utilidades netas actuales."
-        t_ev = "EV/EBITDA: Valuación integral de la firma sobre su flujo operativo antes de amortizaciones."
-        t_deuda = "Deuda Neta/EBITDA: Nivel de endeudamiento financiero frente al flujo de caja anual."
-        t_liq = "Liquidez: Capacidad de cubrir pasivos de corto plazo con activos corrientes (>1.0x óptimo)."
-        t_mg = "Margen Neto: Ganancia neta final generada por cada $100 facturados."
-        t_roe = "ROE: Retorno generado sobre el patrimonio neto contable de los accionistas."
+        t_pe = "P/E: Cuántas veces ganancias descuenta la cotización actual."
+        t_ev = "EV/EBITDA: Valuación total del negocio sobre su flujo antes de intereses e impuestos."
+        t_deuda = "Deuda Neta/EBITDA: Cobertura del pasivo financiero exigible frente a la caja anual."
+        t_liq = "Liquidez Corriente: Respaldo de corto plazo activo/pasivo (>1.0x deseable)."
+        t_mg = "Margen Neto: Utilidad líquida final resultante por cada $100 facturados."
+        t_roe = "ROE: Retorno generado sobre el patrimonio contable de los accionistas."
 
         validos_pe = [d for d in dataset if d["PE"] > 0]
         g_pe = min(validos_pe, key=lambda x: x["PE"])["Ticker"] if validos_pe else ""
         g_roe = max(dataset, key=lambda x: x["ROE"])["Ticker"] if dataset else ""
 
-        html_mat = f"""
-        <div class='table-responsive-box'>
-        <table class='custom-table'>
-            <thead>
-                <tr>
-                    <th>Ticker</th>
-                    <th>Razón Social</th>
-                    <th>P/E <span class='th-tooltip'>ⓘ<span class='th-tooltiptext'>{t_pe}</span></span></th>
-                    <th>EV/EBITDA <span class='th-tooltip'>ⓘ<span class='th-tooltiptext'>{t_ev}</span></span></th>
-                    <th>Deuda <span class='th-tooltip'>ⓘ<span class='th-tooltiptext'>{t_deuda}</span></span></th>
-                    <th>Liquidez <span class='th-tooltip'>ⓘ<span class='th-tooltiptext'>{t_liq}</span></span></th>
-                    <th>Margen <span class='th-tooltip'>ⓘ<span class='th-tooltiptext'>{t_mg}</span></span></th>
-                    <th>ROE <span class='th-tooltip'>ⓘ<span class='th-tooltiptext'>{t_roe}</span></span></th>
-                </tr>
-            </thead>
-            <tbody>
-        """
+        filas_peers = []
         for r in dataset:
             c_pe = "class='winner-cell'" if r["Ticker"] == g_pe and g_pe != "" else ""
             c_roe = "class='winner-cell'" if r["Ticker"] == g_roe and g_roe != "" else ""
-            html_mat += f"<tr><td><b>{r['Ticker']}</b></td><td>{r['Nombre']}</td><td {c_pe}>{r['PE']:.2f}x</td><td>{r['EV']:.2f}x</td><td>{r['DEUDA']:.2f}x</td><td>{r['LIQUIDEZ']:.2f}x</td><td>{r['MARGEN']*100:.1f}%</td><td {c_roe}>{r['ROE']*100:.1f}%</td></tr>"
-        html_mat += "</tbody></table></div>"
-        st.markdown(html_mat, unsafe_allow_html=True)
+            filas_peers.append(f"<tr><td><b>{r['Ticker']}</b></td><td>{r['Nombre']}</td><td {c_pe}>{r['PE']:.2f}x</td><td>{r['EV']:.2f}x</td><td>{r['DEUDA']:.2f}x</td><td>{r['LIQUIDEZ']:.2f}x</td><td>{r['MARGEN']*100:.1f}%</td><td {c_roe}>{r['ROE']*100:.1f}%</td></tr>")
+
+        matriz_html = f"<div class='table-viewport'><table class='terminal-table'><thead><tr><th>Ticker</th><th>Razón Social</th><th>P/E <span class='th-tooltip'>ⓘ<span class='th-tooltiptext'>{t_pe}</span></span></th><th>EV/EBITDA <span class='th-tooltip'>ⓘ<span class='th-tooltiptext'>{t_ev}</span></span></th><th>Deuda <span class='th-tooltip'>ⓘ<span class='th-tooltiptext'>{t_deuda}</span></span></th><th>Liquidez <span class='th-tooltip'>ⓘ<span class='th-tooltiptext'>{t_liq}</span></span></th><th>Margen <span class='th-tooltip'>ⓘ<span class='th-tooltiptext'>{t_mg}</span></span></th><th>ROE <span class='th-tooltip'>ⓘ<span class='th-tooltiptext'>{t_roe}</span></span></th></tr></thead><tbody>" + "".join(filas_peers) + "</tbody></table></div>"
+        st.markdown(matriz_html, unsafe_allow_html=True)
 
         if g_pe == g_roe and g_pe != "":
-            diag = f"<b>{g_pe}</b> exhibe la mejor combinación de fundamentos: líder en rentabilidad de capital (ROE) y con el múltiplo P/E más bajo del lote, otorgando un sólido margen de seguridad."
+            diag = f"<b>{g_pe}</b> exhibe liderazgo dual en el lote analizado: combina el mayor retorno de capital contable (ROE) con la valuación más atractiva por ratio P/E, ofreciendo margen de seguridad relativo."
         else:
-            diag = f"<b>{g_roe}</b> lidera en rentabilidad sobre capital (ROE), mientras que <b>{g_pe}</b> ofrece el punto de entrada con múltiplo P/E más comprimido respecto al grupo de control."
-        st.markdown(f"<div class='interpretation-box'><b>Conclusión de Múltiplos:</b> {diag}</div>", unsafe_allow_html=True)
+            diag = f"<b>{g_roe}</b> encabeza el grupo en eficiencia y retorno de patrimonio (ROE), mientras que <b>{g_pe}</b> otorga el menor múltiplo P/E para entradas a múltiplos comprimidos."
+        st.markdown(f"<div class='terminal-card gold-card'><b>Conclusión de Múltiplos:</b> {diag}</div>", unsafe_allow_html=True)
 
-        # Generación de tesis con botón persistente
+        # Botón de Tesis Automatizada
         st.markdown("---")
-        st.markdown("#### 🤖 Tesis de Inversión Ejecutiva")
-        if st.button(f"✨ Redactar Tesis para {t_obj}"):
-            with st.spinner("Compilando diagnóstico..."):
-                st.session_state[f"tesis_{t_obj}"] = generar_tesis_gemini(
-                    t_obj, d_obj["Nombre"], d_obj["Precio"], d_obj["PE"],
-                    d_obj["ROE"], d_obj["DEUDA"], d_obj["MARGEN"], dcf_mediano
-                )
-        
+        if st.button(f"✨ Emitir Dictamen Ejecutivo de Inversión ({t_obj})"):
+            st.session_state[f"tesis_{t_obj}"] = ia_tesis_ejecutiva(
+                t_obj, d_obj["Nombre"], d_obj["Precio"], d_obj["PE"],
+                d_obj["ROE"], d_obj["DEUDA"], d_obj["MARGEN"], dcf_mediano
+            )
         if f"tesis_{t_obj}" in st.session_state:
-            st.markdown(f"<div class='gemini-box'>{st.session_state[f'tesis_{t_obj}']}</div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='terminal-card blue-card'>{st.session_state[f'tesis_{t_obj}']}</div>", unsafe_allow_html=True)
 
-    # --- PESTAÑA TÉCNICA (DMI / ADX) ---
+    # --- PESTAÑA 2: REVERSE DCF (FEATURE DIFERENCIAL) ---
+    with tab_rev_dcf:
+        st.markdown(f"### 🎯 Reverse DCF & Market Expectations: {t_obj}")
+        st.markdown("""<div class='terminal-card'>
+        <b>Enfoque de Expectativas Implícitas (Michael Mauboussin):</b> En lugar de predecir el futuro, este modelo invierte la fórmula del DCF para responder: <i>¿Qué tasa anual de crecimiento de Flujo Libre ($g$) descuenta el precio actual de mercado ($""" + f"{precio_mkt:.2f}" + """ USD)?</i> Luego, la IA evalúa la probabilidad real de que la empresa logre esa meta.
+        </div>""", unsafe_allow_html=True)
+
+        col_r1, col_r2 = st.columns(2)
+        col_r1.metric("Crecimiento de FCF Anual Exigido por el Mercado (5A)", f"{g_implicito*100:+.1f}%")
+        col_r2.metric("Retorno sobre Capital Actual (ROE)", f"{d_obj['ROE']*100:.1f}%")
+
+        diagnostico_ia_rdcf = ia_reverse_dcf_check(t_obj, g_implicito, d_obj["ROE"], d_obj["PE"])
+        st.markdown(f"<div class='terminal-card gold-card'><b>Evaluación de Viabilidad Cuantitativa:</b><br>{diagnostico_ia_rdcf}</div>", unsafe_allow_html=True)
+
+    # --- PESTAÑA 3: ANÁLISIS TÉCNICO DMI ---
     with tab_tech:
-        st.markdown(f"### 📈 Análisis Direccional y Timing (DMI / ADX): {t_obj}")
-        
+        st.markdown(f"### 📈 Fuerza Tendencial y Timing (DMI / ADX): {t_obj}")
         if not df_raw.empty and 'High' in df_raw.columns:
             df_t = df_raw.copy()
             df_t['EMA30'] = df_t['Close'].ewm(span=30, adjust=False).mean()
@@ -510,138 +573,88 @@ elif menu == "🔍 ANÁLISIS INTEGRAL":
             df_t = df_t.dropna()
 
             fig_d = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.65, 0.35], vertical_spacing=0.04)
-            fig_d.add_trace(go.Scatter(x=df_t.index, y=df_t['Close'], name="Precio", line=dict(color='#ffffff')), row=1, col=1)
-            fig_d.add_trace(go.Scatter(x=df_t.index, y=df_t['EMA30'], name="EMA 30", line=dict(color='#f1c40f', dash='dash')), row=1, col=1)
-            fig_d.add_trace(go.Scatter(x=df_t.index, y=df_t['+DI'], name="+DI (Compradores)", line=dict(color='#10b981')), row=2, col=1)
-            fig_d.add_trace(go.Scatter(x=df_t.index, y=df_t['-DI'], name="-DI (Vendedores)", line=dict(color='#ef4444')), row=2, col=1)
-            fig_d.add_trace(go.Scatter(x=df_t.index, y=df_t['ADX'], name="ADX (Fuerza)", line=dict(color='#3b82f6')), row=2, col=1)
-            fig_d.update_layout(template="plotly_dark", paper_bgcolor='#111520', plot_bgcolor='#0c0f16', height=400, margin=dict(l=10, r=10, t=10, b=10))
+            fig_d.add_trace(go.Scatter(x=df_t.index, y=df_t['Close'], name="Precio", line=dict(color='#ffffff', width=1.5)), row=1, col=1)
+            fig_d.add_trace(go.Scatter(x=df_t.index, y=df_t['EMA30'], name="EMA 30", line=dict(color='#d4a34b', dash='dash', width=1.2)), row=1, col=1)
+            fig_d.add_trace(go.Scatter(x=df_t.index, y=df_t['+DI'], name="+DI", line=dict(color='#10b981', width=1.2)), row=2, col=1)
+            fig_d.add_trace(go.Scatter(x=df_t.index, y=df_t['-DI'], name="-DI", line=dict(color='#f43f5e', width=1.2)), row=2, col=1)
+            fig_d.add_trace(go.Scatter(x=df_t.index, y=df_t['ADX'], name="ADX", line=dict(color='#0284c7', width=1.5)), row=2, col=1)
+            fig_d.update_layout(template="plotly_dark", paper_bgcolor='#0d111a', plot_bgcolor='#06080d', height=380, margin=dict(l=10, r=10, t=10, b=10))
             st.plotly_chart(fig_d, use_container_width=True)
 
             di_p, di_m, adx_val = df_t['+DI'].iloc[-1], df_t['-DI'].iloc[-1], df_t['ADX'].iloc[-1]
             soporte = df_t['Low'].tail(30).min()
             resistencia = df_t['High'].tail(30).max()
             
-            # Interpretación técnica concisa de 3 renglones
-            l1 = f"• <b>Dirección y Presión:</b> {'Compradores al mando (+DI superior a -DI)' if di_p > di_m else 'Vendedores al mando (-DI superior a +DI)'}, con un ADX en {adx_val:.1f} pts que confirma {'fuerza institucional activa (>25)' if adx_val > 25 else 'agotamiento o fase de consolidación lateral (<25)'}."
-            l2 = f"• <b>Tendencia vs Promedio:</b> El activo cotiza {'por encima de su media exponencial de 30 ruedas, validando continuidad alcista' if df_t['Close'].iloc[-1] >= df_t['EMA30'].iloc[-1] else 'por debajo de su media de 30 ruedas, advirtiendo precaución en posiciones largas'}."
-            l3 = f"• <b>Estrategia Táctica:</b> Vigilar zona de soporte clave en <b>${soporte:.2f} USD</b> para control de riesgo y resistencia inmediata en <b>${resistencia:.2f} USD</b> como objetivo de ruptura."
-            
-            st.markdown(f"<div class='interpretation-box'><b>Lectura Técnica (3 Renglones):</b><br>{l1}<br>{l2}<br>{l3}</div>", unsafe_allow_html=True)
+            l1 = f"• <b>Dinámica y Momentum:</b> {'Presión compradora activa (+DI > -DI)' if di_p > di_m else 'Presión vendedora activa (-DI > +DI)'}, con un ADX en {adx_val:.1f} pts que ratifica {'fuerza direccional institucional activa (>25)' if adx_val > 25 else 'movimiento lateral o falta de inercia tendencial (<25)'}."
+            l2 = f"• <b>Comportamiento vs Tendencia:</b> Cotiza {'por sobre su media exponencial de 30 ruedas, conservando estructura favorable' if df_t['Close'].iloc[-1] >= df_t['EMA30'].iloc[-1] else 'por debajo de la media de 30 ruedas, exigiendo cautela táctica en entradas largas'}."
+            l3 = f"• <b>Niveles de Referencia:</b> Soporte crítico en <b>${soporte:.2f} USD</b> para control de drawdown y resistencia inmediata en <b>${resistencia:.2f} USD</b>."
+            st.markdown(f"<div class='terminal-card'><b>Lectura Técnica (3 Renglones):</b><br>{l1}<br>{l2}<br>{l3}</div>", unsafe_allow_html=True)
 
-    # --- PESTAÑA DCF ESTOCÁSTICO ---
-    with tab_dcf:
-        st.markdown("### 🧬 DCF Estocástico: Valuación por Flujos Descontados")
-        st.markdown("""<div class='interpretation-box'>
-        <b>Fundamento Teórico:</b> Modela el valor intrínseco de la acción proyectando el flujo libre a 5 años más valor terminal perpetuo. Ejecuta 4.000 iteraciones estocásticas variando crecimiento de ingresos y márgenes operativos netos, descontados a una tasa WACC exigida.
-        </div>""", unsafe_allow_html=True)
-        
-        fig_dcf = px.histogram(vals_dcf, nbins=50, title=f"Distribución del Valor Justo vs Mercado (${precio_mkt:.2f} USD)", color_discrete_sequence=['#10b981'])
-        fig_dcf.add_vline(x=precio_mkt, line_width=3, line_dash="dash", line_color="#ef4444", annotation_text="Precio Mercado")
-        fig_dcf.update_layout(template="plotly_dark", paper_bgcolor='#111520', plot_bgcolor='#0c0f16', showlegend=False)
-        st.plotly_chart(fig_dcf, use_container_width=True)
-
-        margen_seguridad = ((dcf_mediano - precio_mkt) / dcf_mediano) * 100
-        veredicto = "SUBVALUADO (Margen de Seguridad Favorable) 🟢" if margen_seguridad > 0 else "SOBREVALUADO 🔴"
-        st.markdown(f"<div class='interpretation-box'><b>Diagnóstico DCF:</b> {veredicto}<br>• Precio Mercado: <b>${precio_mkt:.2f} USD</b> | Mediana Intrínseca Estimada: <b>${dcf_mediano:.2f} USD</b> (Diferencia: {margen_seguridad:+.1f}%)</div>", unsafe_allow_html=True)
-
-    # --- PESTAÑA MONTECARLO PRECIO ---
-    with tab_monte:
-        st.markdown("### 🎲 Simulación Estocástica de Precios (Movimiento Browniano Geométrico)")
-        st.markdown("""<div class='interpretation-box'>
-        <b>Fundamento Teórico:</b> Modela la trayectoria estocástica del precio asumiendo retornos logarítmicos con deriva ($\mu$) y volatilidad histórica ($\sigma$). Mapea conos de dispersión probabilística para horizontes de 30 y 252 ruedas operativas.
-        </div>""", unsafe_allow_html=True)
-        
+    # --- PESTAÑA 4: MONTECARLO ---
+    with tab_mc:
+        st.markdown("### 🎲 Simulación Estocástica de Cotización (GBM)")
         if not serie_mc.empty:
             ret = serie_mc.pct_change().dropna()
-            sigma = ret.std()
-            mu_d = ret.mean() - 0.5 * (sigma ** 2)
+            sigma, mu_d = ret.std(), ret.mean() - 0.5 * (ret.std() ** 2)
             px_0 = float(serie_mc.iloc[-1])
             
-            mc1, mc2 = st.columns(2)
-            with mc1:
-                st.markdown("#### Cono 30 Días")
+            c1, c2 = st.columns(2)
+            with c1:
+                st.markdown("#### Cono de Dispersión: 30 Ruedas")
                 m_30 = np.zeros((30, 800))
                 m_30[0] = px_0
                 z_30 = np.random.standard_normal((29, 800))
                 for t in range(1, 30): m_30[t] = m_30[t-1] * np.exp(mu_d + sigma * z_30[t-1])
                 f30 = go.Figure()
-                for i in range(25): f30.add_trace(go.Scatter(y=m_30[:, i], mode='lines', line=dict(color='rgba(59, 130, 246, 0.08)'), showlegend=False))
-                f30.add_trace(go.Scatter(y=np.median(m_30, axis=1), mode='lines', line=dict(color='#10b981', width=2), name="Mediana"))
-                f30.update_layout(template="plotly_dark", paper_bgcolor='#111520', plot_bgcolor='#0c0f16', height=260, margin=dict(l=10, r=10, t=10, b=10))
+                for i in range(25): f30.add_trace(go.Scatter(y=m_30[:, i], mode='lines', line=dict(color='rgba(2, 132, 199, 0.07)'), showlegend=False))
+                f30.add_trace(go.Scatter(y=np.median(m_30, axis=1), mode='lines', line=dict(color='#d4a34b', width=2), name="Mediana"))
+                f30.update_layout(template="plotly_dark", paper_bgcolor='#0d111a', plot_bgcolor='#06080d', height=250, margin=dict(l=10, r=10, t=10, b=10))
                 st.plotly_chart(f30, use_container_width=True)
-            with mc2:
-                st.markdown("#### Cono 1 Año (252 Ruedas)")
+            with c2:
+                st.markdown("#### Cono de Dispersión: 1 Año (252 Ruedas)")
                 m_252 = np.zeros((252, 800))
                 m_252[0] = px_0
                 z_252 = np.random.standard_normal((251, 800))
                 for t in range(1, 252): m_252[t] = m_252[t-1] * np.exp(mu_d + sigma * z_252[t-1])
                 f252 = go.Figure()
-                for i in range(25): f252.add_trace(go.Scatter(y=m_252[:, i], mode='lines', line=dict(color='rgba(168, 85, 247, 0.08)'), showlegend=False))
-                f252.add_trace(go.Scatter(y=np.median(m_252, axis=1), mode='lines', line=dict(color='#a855f7', width=2), name="Mediana"))
-                f252.update_layout(template="plotly_dark", paper_bgcolor='#111520', plot_bgcolor='#0c0f16', height=260, margin=dict(l=10, r=10, t=10, b=10))
+                for i in range(25): f252.add_trace(go.Scatter(y=m_252[:, i], mode='lines', line=dict(color='rgba(212, 163, 75, 0.07)'), showlegend=False))
+                f252.add_trace(go.Scatter(y=np.median(m_252, axis=1), mode='lines', line=dict(color='#10b981', width=2), name="Mediana"))
+                f252.update_layout(template="plotly_dark", paper_bgcolor='#0d111a', plot_bgcolor='#06080d', height=250, margin=dict(l=10, r=10, t=10, b=10))
                 st.plotly_chart(f252, use_container_width=True)
 
 # ==============================================================================
-# 3. PORTAFOLIO Y MODELOS INSTITUCIONALES
+# 3. CARTERA, SEGUIMIENTO Y ASIGNACIÓN ÓPTIMA
 # ==============================================================================
-elif menu == "💼 PORTAFOLIO Y MODELOS":
-    st.subheader("💼 Mi Cartera de Inversiones (Seguimiento, PPC y Semáforo)")
-    
-    # Formulario para agregar / promediar activos con PPC
-    with st.expander("➕ Cargar Operación / Promediar Activo (Cálculo de PPC)"):
+elif menu == "💼 CARTERA & ALLOCATION":
+    st.subheader("💼 Gestión de Portafolio Consolidado (Tracking y PPC)")
+
+    with st.expander("➕ Registrar Nueva Operación / Promediar Activo (PPC)"):
         f1, f2, f3, f4 = st.columns(4)
         n_tk = f1.selectbox("Ticker:", UNIVERSO_POOL, index=0)
-        n_cant = f2.number_input("Cantidad de Nominales:", min_value=1, value=50, step=10)
+        n_cant = f2.number_input("Nominales:", min_value=1, value=50, step=10)
         n_moneda = f3.selectbox("Moneda de Compra:", ["ARS (Cedear)", "USD (Acción Original)"])
-        n_precio = f4.number_input("Precio Unitario Abonado:", min_value=1.0, value=75000.0 if "ARS" in n_moneda else 50.0, step=100.0)
+        n_precio = f4.number_input("Precio Unitario Pagado:", min_value=1.0, value=75000.0 if "ARS" in n_moneda else 50.0, step=100.0)
         
-        if st.button("💾 Registrar Operación en Cartera"):
-            # Conversión a ARS por Cedear para uniformidad interna
+        if st.button("Guardar Operación"):
             ratio_tk = RATIOS_CEDEAR.get(n_tk, 1)
-            px_compra_ars = n_precio if "ARS" in n_moneda else ((n_precio * DOLAR_MEP) / ratio_tk)
-            
-            # Búsqueda en cartera existente
+            px_ars = n_precio if "ARS" in n_moneda else ((n_precio * DOLAR_MEP) / ratio_tk)
             pos_existente = next((p for p in st.session_state.cartera_ops if p["Ticker"] == n_tk), None)
             if pos_existente:
-                cant_ant = pos_existente["Nominales"]
-                ppc_ant = pos_existente["PPC_ARS"]
-                cant_nueva = cant_ant + n_cant
-                ppc_nuevo = ((cant_ant * ppc_ant) + (n_cant * px_compra_ars)) / cant_nueva
-                pos_existente["Nominales"] = cant_nueva
-                pos_existente["PPC_ARS"] = ppc_nuevo
-                st.success(f"¡Posición actualizada! Nuevo PPC para {n_tk}: ${ppc_nuevo:,.2f} ARS ({cant_nueva} nominales).")
+                c_ant, p_ant = pos_existente["Nominales"], pos_existente["PPC_ARS"]
+                c_nueva = c_ant + n_cant
+                pos_existente["Nominales"] = c_nueva
+                pos_existente["PPC_ARS"] = ((c_ant * p_ant) + (n_cant * px_ars)) / c_nueva
+                st.success(f"PPC actualizado para {n_tk}: ${pos_existente['PPC_ARS']:,.2f} ARS ({c_nueva} nominales).")
             else:
-                st.session_state.cartera_ops.append({
-                    "Ticker": n_tk, "Nominales": n_cant, "PPC_ARS": px_compra_ars, "Dividendos_USD": 0.0
-                })
-                st.success(f"¡Activo {n_tk} agregado a cartera exitosamente!")
+                st.session_state.cartera_ops.append({"Ticker": n_tk, "Nominales": n_cant, "PPC_ARS": px_ars, "Dividendos_USD": 0.0})
+                st.success(f"Posición {n_tk} dada de alta exitosamente.")
             st.rerun()
 
     is_ars = st.radio("Moneda de visualización:", ["ARS", "USD"], horizontal=True) == "ARS"
     
-    # Procesamiento y visualización de cartera con semáforo
-    filas_p = []
+    # Procesamiento y construcción segura de la tabla de cartera
     c_tot_usd, v_tot_usd, div_tot_usd = 0.0, 0.0, 0.0
-
-    html_cartera = """
-    <div class='table-responsive-box'>
-    <table class='custom-table'>
-        <thead>
-            <tr>
-                <th>Ticker</th>
-                <th>Nominales</th>
-                <th>PPC</th>
-                <th>Precio Actual</th>
-                <th>Invertido</th>
-                <th>Valuación</th>
-                <th>P&L Neto</th>
-                <th>Total Return</th>
-                <th>Semáforo Táctico</th>
-            </tr>
-        </thead>
-        <tbody>
-    """
+    filas_html_cartera = []
 
     for pos in st.session_state.cartera_ops:
         tk, nom, ppc_ars, divs = pos["Ticker"], pos["Nominales"], pos["PPC_ARS"], pos.get("Dividendos_USD", 0.0)
@@ -657,62 +670,50 @@ elif menu == "💼 PORTAFOLIO Y MODELOS":
         v_tot_usd += val_usd
         div_tot_usd += divs
         
-        conv = (DOLAR_MEP / ratio) if is_ars else 1.0
         ppc_view = ppc_ars if is_ars else (ppc_ars * ratio / DOLAR_MEP)
         px_view = (px_actual_usd * DOLAR_MEP / ratio) if is_ars else px_actual_usd
         costo_view = costo_usd * (DOLAR_MEP if is_ars else 1.0)
         val_view = val_usd * (DOLAR_MEP if is_ars else 1.0)
         pl_view = pl_usd * (DOLAR_MEP if is_ars else 1.0)
         
-        # Lógica del semáforo con hover explicativo
         if ret_pct >= 20.0:
-            badge = "<span class='traffic-badge badge-hold'>🟡 MANTENER / RENTABILIZAR</span>"
-            tip_txt = f"Ganancia superior al +20% ({ret_pct:+.1f}%). Buen colchón de retorno; se sugiere sostener con trailing stop o tomar ganancias parciales si el sector frena."
+            badge = "<span class='badge-state badge-hold'>🟡 MANTENER / RENTABILIZAR</span>"
+            tip_txt = f"Ganancia superior al +20% ({ret_pct:+.1f}%). Sostener posición con trailing stop o toma parcial."
         elif ret_pct <= -12.0:
-            badge = "<span class='traffic-badge badge-sell'>🔴 REVISAR / STOP LOSS</span>"
-            tip_txt = f"Pérdida de {ret_pct:+.1f}%. El precio perforó zonas de confort respecto al PPC. Evaluar corte por stop loss o validar si los fundamentos siguen intactos."
+            badge = "<span class='badge-state badge-sell'>🔴 REVISAR / STOP LOSS</span>"
+            tip_txt = f"Pérdida acumulada del {ret_pct:+.1f}%. Precio perforó umbrales de tolerancia frente al PPC."
         else:
-            badge = "<span class='traffic-badge badge-buy'>🟢 COMPRA / ACUMULAR</span>"
-            tip_txt = f"Posición en rango equilibrado ({ret_pct:+.1f}%). Ideal para continuar promediando compras o incrementar exposición con bajo riesgo de sobrecompra."
+            badge = "<span class='badge-state badge-buy'>🟢 COMPRA / ACUMULAR</span>"
+            tip_txt = f"Desempeño equilibrado ({ret_pct:+.1f}%). Rango apto para promediar o añadir nominales."
             
         badge_html = f"<div class='th-tooltip'>{badge}<span class='th-tooltiptext'>{tip_txt}</span></div>"
         
-        html_cartera += f"""
-        <tr>
-            <td><b>{tk}</b></td>
-            <td>{nom}</td>
-            <td>${ppc_view:,.2f}</td>
-            <td>${px_view:,.2f}</td>
-            <td>${costo_view:,.2f}</td>
-            <td>${val_view:,.2f}</td>
-            <td style='color: {"#34d399" if pl_usd >= 0 else "#f87171"}; font-weight:bold;'>${pl_view:,.2f}</td>
-            <td style='color: {"#34d399" if ret_pct >= 0 else "#f87171"}; font-weight:bold;'>{ret_pct:+.2f}%</td>
-            <td>{badge_html}</td>
-        </tr>
-        """
-        
-    html_cartera += "</tbody></table></div>"
-    st.markdown(html_cartera, unsafe_allow_html=True)
+        # Inyección directa de fila sin sangrías de 4 espacios
+        fila = f"<tr><td><b>{tk}</b></td><td>{nom}</td><td>${ppc_view:,.2f}</td><td>${px_view:,.2f}</td><td>${costo_view:,.2f}</td><td>${val_view:,.2f}</td><td style='color: {'#34d399' if pl_usd >= 0 else '#f43f5e'}; font-weight:bold;'>${pl_view:,.2f}</td><td style='color: {'#34d399' if ret_pct >= 0 else '#f43f5e'}; font-weight:bold;'>{ret_pct:+.2f}%</td><td>{badge_html}</td></tr>"
+        filas_html_cartera.append(fila)
 
-    # Métricas consolidadas
+    # Render limpio de tabla
+    tabla_cartera_completa = "<div class='table-viewport'><table class='terminal-table'><thead><tr><th>Ticker</th><th>Nominales</th><th>PPC</th><th>Precio Actual</th><th>Invertido</th><th>Valuación</th><th>P&L Neto</th><th>Total Return</th><th>Semáforo Táctico</th></tr></thead><tbody>" + "".join(filas_html_cartera) + "</tbody></table></div>"
+    st.markdown(tabla_cartera_completa, unsafe_allow_html=True)
+
+    # Métricas Consolidadas
     st.markdown("#### Métricas Consolidadas")
     k1, k2, k3, k4, k5 = st.columns(5)
     ret_total_cartera = ((v_tot_usd + div_tot_usd - c_tot_usd) / c_tot_usd) * 100 if c_tot_usd > 0 else 0.0
     mon_lbl = "ARS" if is_ars else "USD"
     conv_f = DOLAR_MEP if is_ars else 1.0
-    
     spy_ret = DATOS_RADAR.get("SPY", {}).get("YTD", 0.0)
     alpha_spy = ret_total_cartera - spy_ret
-    
+
     k1.metric("Capital Invertido", f"${(c_tot_usd*conv_f):,.0f} {mon_lbl}")
     k2.metric("Valuación Actual", f"${(v_tot_usd*conv_f):,.0f} {mon_lbl}")
     k3.metric("Rentas/Divs", f"${(div_tot_usd*conv_f):,.0f} {mon_lbl}")
     k4.metric("Total Return", f"{ret_total_cartera:+.2f}%")
     k5.metric("Alpha vs SPY", f"{alpha_spy:+.2f}%", delta_color="normal" if alpha_spy >= 0 else "inverse")
 
-    # Curva Benchmark Cartera vs SPY vs QQQ
+    # Benchmark Curva
     st.markdown("---")
-    st.markdown("#### 📊 Curva de Rendimiento: Cartera vs. SPY vs. QQQ (Base 100)")
+    st.markdown("#### Curva de Desempeño: Cartera vs. SPY vs. QQQ (Base 100)")
     try:
         tks_bench = list(set([p["Ticker"] for p in st.session_state.cartera_ops] + ["SPY", "QQQ"]))
         _, df_b = descargar_datos_mercado(tks_bench)
@@ -729,19 +730,19 @@ elif menu == "💼 PORTAFOLIO Y MODELOS":
             df_norm["Nasdaq 100 (QQQ)"] = ((df_b["QQQ"] / df_b["QQQ"].iloc[0]) - 1) * 100
             
             fig_bench = px.line(df_norm, y=["Mi Cartera", "S&P 500 (SPY)", "Nasdaq 100 (QQQ)"],
-                                color_discrete_map={"Mi Cartera": "#10b981", "S&P 500 (SPY)": "#3b82f6", "Nasdaq 100 (QQQ)": "#a855f7"})
-            fig_bench.update_layout(template="plotly_dark", paper_bgcolor='#111520', plot_bgcolor='#0c0f16', height=360, yaxis_title="Retorno Acumulado (%)")
+                                color_discrete_map={"Mi Cartera": "#10b981", "S&P 500 (SPY)": "#0284c7", "Nasdaq 100 (QQQ)": "#d4a34b"})
+            fig_bench.update_layout(template="plotly_dark", paper_bgcolor='#0d111a', plot_bgcolor='#06080d', height=340, yaxis_title="Retorno Acumulado (%)")
             st.plotly_chart(fig_bench, use_container_width=True)
     except Exception as e:
-        st.caption(f"Curva de benchmark en cálculo: {e}")
+        st.caption(f"Curva en actualización: {e}")
 
-    # Optimización Markowitz
+    # Markowitz
     st.markdown("---")
-    st.subheader("🧠 Asignación Óptima de Markowitz (Máximo Ratio Sharpe)")
-    if st.button("Calcular Portafolio Óptimo"):
+    st.subheader("🧠 Asignación Óptima de Portafolio (Markowitz - Max Sharpe)")
+    if st.button("Calcular Frontera Eficiente"):
         tks_port = list(set([p["Ticker"] for p in st.session_state.cartera_ops]))
         if len(tks_port) < 2:
-            st.error("Se requieren al menos 2 activos distintos en cartera para computar la matriz de covarianza.")
+            st.error("Se requieren al menos 2 activos distintos para computar la covarianza.")
         else:
             _, df_opt = descargar_datos_mercado(tks_port)
             rets = df_opt[tks_port].pct_change().dropna()
@@ -756,15 +757,16 @@ elif menu == "💼 PORTAFOLIO Y MODELOS":
             n = len(tks_port)
             res = sco.minimize(min_sharpe, n * [1./n], method='SLSQP', bounds=tuple((0, 1) for _ in range(n)), constraints=({'type': 'eq', 'fun': lambda x: np.sum(x) - 1}))
             
-            fig_pie = px.pie(values=res.x, names=tks_port, title="Ponderación Sugerida (Max Sharpe)", hole=0.4, color_discrete_sequence=px.colors.sequential.Teal)
-            fig_pie.update_layout(template="plotly_dark", paper_bgcolor='#111520', plot_bgcolor='#0c0f16')
+            fig_pie = px.pie(values=res.x, names=tks_port, title="Ponderaciones Sugeridas", hole=0.45,
+                             color_discrete_sequence=['#d4a34b', '#0284c7', '#10b981', '#f43f5e', '#a855f7'])
+            fig_pie.update_layout(template="plotly_dark", paper_bgcolor='#0d111a', plot_bgcolor='#06080d')
             st.plotly_chart(fig_pie, use_container_width=True)
 
 # ==============================================================================
-# FOOTER
+# FOOTER INSTITUCIONAL
 # ==============================================================================
 st.markdown("---")
-st.markdown("<p style='text-align: right; font-size: 12px; color: #94a3b8;'>Desarrollado por <a href='https://www.linkedin.com/in/facundo-garciamarquez/?locale=es' target='_blank' style='color: #10b981; text-decoration: none; font-weight: 700;'>Facundo Garcia Marquez</a> | Terminal Quanti Pro</p>", unsafe_allow_html=True)
-st.markdown("""<div style='background-color: rgba(239, 68, 68, 0.08); padding: 10px; border-left: 3px solid #ef4444; font-size: 11px; color: #94a3b8;'>
-<strong>⚠️ Exclusión de Responsabilidad:</strong> Herramienta con fines analíticos y de simulación cuantitativa. No constituye asesoramiento financiero ni recomendación directa de compra o venta.
+st.markdown("<p style='text-align: right; font-size: 11px; color: #64748b;'>Terminal Institucional Cuantitativa | Desarrollado por <a href='https://www.linkedin.com/in/facundo-garciamarquez/?locale=es' target='_blank' style='color: #d4a34b; text-decoration: none; font-weight: 600;'>Facundo Garcia Marquez</a></p>", unsafe_allow_html=True)
+st.markdown("""<div style='background-color: rgba(244, 63, 94, 0.05); padding: 8px 12px; border-left: 2px solid #f43f5e; font-size: 10.5px; color: #64748b;'>
+<strong>Aviso Legal:</strong> Este software es una herramienta de simulación analítica y valuación financiera estocástica. No constituye asesoramiento de inversión ni oferta pública.
 </div>""", unsafe_allow_html=True)
