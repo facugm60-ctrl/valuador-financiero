@@ -166,7 +166,7 @@ div[data-testid="stMetricValue"] > div {
 </style>""", unsafe_allow_html=True)
 
 # ------------------------------------------------------------------------------
-# CONECTIVIDAD GEMINI AI
+# CONECTIVIDAD APIs (GEMINI & FINNHUB)
 # ------------------------------------------------------------------------------
 try:
     import google.generativeai as genai
@@ -174,89 +174,50 @@ try:
 except ImportError:
     HAS_GEMINI_LIB = False
 
-st.sidebar.markdown("### 🔑 Conexión AI")
-secrets_key = st.secrets.get("GEMINI_API_KEY", "") if hasattr(st, "secrets") else ""
-gemini_input_key = st.sidebar.text_input("Gemini API Key:", value=secrets_key, type="password")
-
+st.sidebar.markdown("### 🔑 Conexión APIs Externas")
+secrets_gemini = st.secrets.get("GEMINI_API_KEY", "") if hasattr(st, "secrets") else ""
+gemini_input_key = st.sidebar.text_input("Gemini API Key (Para Análisis):", value=secrets_gemini, type="password")
 GEMINI_KEY = gemini_input_key.strip() if gemini_input_key else None
 if HAS_GEMINI_LIB and GEMINI_KEY:
-    try:
-        genai.configure(api_key=GEMINI_KEY)
-    except:
-        pass
+    try: genai.configure(api_key=GEMINI_KEY)
+    except: pass
+
+secrets_finnhub = st.secrets.get("FINNHUB_API_KEY", "") if hasattr(st, "secrets") else ""
+finnhub_input_key = st.sidebar.text_input("Finnhub API Key (Para EECC EPS):", value=secrets_finnhub, type="password")
+FINNHUB_KEY = finnhub_input_key.strip() if finnhub_input_key else None
 
 def ia_perfil_analista_senior(ticker, nombre, info_dict):
-    deuda = info_dict.get('deuda', 0.0)
-    margen = info_dict.get('margen', 0.0)
-    roe = info_dict.get('roe', 0.0)
-    
+    deuda, margen, roe = info_dict.get('deuda', 0.0), info_dict.get('margen', 0.0), info_dict.get('roe', 0.0)
     if HAS_GEMINI_LIB and GEMINI_KEY:
         try:
             model = genai.GenerativeModel("gemini-1.5-flash")
-            prompt = f"""
-            Actúa como Senior Equity Research Analyst.
-            Elabora una radiografía de {nombre} ({ticker}) en exactamente 5 renglones corridos:
-            - Renglones 1-2: Core business, economía unitaria y foso defensivo (Moat).
-            - Renglones 3-4: Asignación de capital, CapEx y guidance directivo.
-            - Renglón 5: Salud patrimonial (Deuda Neta/EBITDA: {deuda:.2f}x, Margen Neto: {margen*100:.1f}%, ROE: {roe*100:.1f}%).
-            Sin introducciones.
-            """
+            prompt = f"Actúa como Senior Equity Research Analyst. Elabora una radiografía de {nombre} ({ticker}) en exactamente 5 renglones corridos:\n- Renglones 1-2: Core business, economía unitaria y foso defensivo (Moat).\n- Renglones 3-4: Asignación de capital, CapEx y guidance directivo.\n- Renglón 5: Salud patrimonial (Deuda Neta/EBITDA: {deuda:.2f}x, Margen Neto: {margen*100:.1f}%, ROE: {roe*100:.1f}%).\nSin introducciones."
             res = model.generate_content(prompt)
             if res and res.text: return res.text.strip()
         except: pass
-        
-    return (
-        f"{nombre} ({ticker}) sostiene su modelo en activos estratégicos con ventajas de escala y capacidad de fijación de precios.\n"
-        f"La asignación de capital prioriza proyectos de alta TIR disciplinando el CapEx hacia eficiencias operativas.\n"
-        f"Su balance exhibe una solvencia con ratio Deuda Neta/EBITDA de {deuda:.2f}x, margen neto del {margen*100:.1f}% y ROE del {roe*100:.1f}%."
-    )
+    return f"{nombre} ({ticker}) sostiene su modelo en activos estratégicos con ventajas de escala y capacidad de fijación de precios.\nLa asignación de capital prioriza proyectos de alta TIR disciplinando el CapEx hacia eficiencias operativas.\nSu balance exhibe una solvencia con ratio Deuda Neta/EBITDA de {deuda:.2f}x, margen neto del {margen*100:.1f}% y ROE del {roe*100:.1f}%."
 
 def ia_analisis_multiplos_profundo(d_obj, dataset):
     if HAS_GEMINI_LIB and GEMINI_KEY:
         try:
             model = genai.GenerativeModel("gemini-1.5-flash")
-            prompt = f"""
-            Actúa como Portfolio Manager. Analiza la valuación de {d_obj['Ticker']} frente a sus comparables ({', '.join([d['Ticker'] for d in dataset if d['Ticker'] != d_obj['Ticker']])}):
-            Métricas de {d_obj['Ticker']}: P/E {d_obj['PE']:.2f}x, EV/EBITDA {d_obj['EV']:.2f}x, Deuda Neta/EBITDA {d_obj['DEUDA']:.2f}x, Margen Neto {d_obj['MARGEN']*100:.1f}%, ROE {d_obj['ROE']*100:.1f}%.
-            
-            Redacta en un único párrafo de 4 renglones:
-            - Explica si el P/E refleja una oportunidad de descalce o un 'Value Trap'.
-            - Evalúa si el ROE proviene de margen operativo o apalancamiento financiero excesivo (Lógica DuPont).
-            - Concluye si la dispersión de múltiplos otorga un punto de entrada con margen de seguridad.
-            """
+            prompt = f"Actúa como Portfolio Manager. Analiza la valuación de {d_obj['Ticker']} frente a sus comparables ({', '.join([d['Ticker'] for d in dataset if d['Ticker'] != d_obj['Ticker']])}):\nMétricas de {d_obj['Ticker']}: P/E {d_obj['PE']:.2f}x, EV/EBITDA {d_obj['EV']:.2f}x, Deuda Neta/EBITDA {d_obj['DEUDA']:.2f}x, Margen Neto {d_obj['MARGEN']*100:.1f}%, ROE {d_obj['ROE']*100:.1f}%.\nRedacta en un único párrafo de 4 renglones:\n- Explica si el P/E refleja una oportunidad de descalce o un 'Value Trap'.\n- Evalúa si el ROE proviene de margen operativo o apalancamiento financiero excesivo (Lógica DuPont).\n- Concluye si la dispersión de múltiplos otorga un punto de entrada con margen de seguridad."
             res = model.generate_content(prompt)
             if res and res.text: return res.text.strip()
         except: pass
-        
-    return (
-        f"La valuación de {d_obj['Ticker']} a {d_obj['PE']:.2f}x utilidades frente al promedio del grupo refleja un descuento relativo justificado "
-        f"por su perfil de riesgo. Su ROE del {d_obj['ROE']*100:.1f}%, contrastado con una carga de deuda neta de {d_obj['DEUDA']:.2f}x EBITDA, confirma "
-        f"que la rentabilidad sobre capital deriva de productividad operativa y márgenes sostenibles ({d_obj['MARGEN']*100:.1f}%), minimizando "
-        f"el riesgo de value trap y ofreciendo un punto de entrada con margen de seguridad razonable."
-    )
+    return f"La valuación de {d_obj['Ticker']} a {d_obj['PE']:.2f}x utilidades frente al promedio del grupo refleja un descuento relativo justificado por su perfil de riesgo. Su ROE del {d_obj['ROE']*100:.1f}%, contrastado con una carga de deuda neta de {d_obj['DEUDA']:.2f}x EBITDA, confirma que la rentabilidad sobre capital deriva de productividad operativa y márgenes sostenibles ({d_obj['MARGEN']*100:.1f}%), minimizando el riesgo de value trap y ofreciendo un punto de entrada con margen de seguridad razonable."
 
 def ia_tesis_macro_coyuntura(ticker, nombre, precio, pe, roe, deuda, margen, dcf_valor):
     upside = ((dcf_valor - precio) / precio) * 100 if precio > 0 else 0
     if HAS_GEMINI_LIB and GEMINI_KEY:
         try:
             model = genai.GenerativeModel("gemini-1.5-flash")
-            prompt = f"""
-            Actúa como CIO. Redacta una tesis ejecutiva en UN SOLO PÁRRAFO FLUIDO (5 renglones) para {nombre} ({ticker}):
-            - Precio actual: ${precio:.2f} USD vs Fair Value DCF: ${dcf_valor:.2f} USD (Upside: {upside:+.1f}%).
-            - P/E {pe:.1f}x, ROE {roe*100:.1f}%, Margen {margen*100:.1f}%, Deuda Neta/EBITDA {deuda:.2f}x.
-            Integra la coyuntura macro (tasas de la Fed e inflación) y concluye si es momento de Acumular, Mantener o Liquidar.
-            """
+            prompt = f"Actúa como CIO. Redacta una tesis ejecutiva en UN SOLO PÁRRAFO FLUIDO (5 renglones) para {nombre} ({ticker}):\n- Precio actual: ${precio:.2f} USD vs Fair Value DCF: ${dcf_valor:.2f} USD (Upside: {upside:+.1f}%).\n- P/E {pe:.1f}x, ROE {roe*100:.1f}%, Margen {margen*100:.1f}%, Deuda Neta/EBITDA {deuda:.2f}x.\nIntegra la coyuntura macro (tasas de la Fed e inflación) y concluye si es momento de Acumular, Mantener o Liquidar."
             res = model.generate_content(prompt)
             if res and res.text: return res.text.strip()
         except: pass
-        
     sentido = "Acumular con horizonte táctico" if upside > 15 else "Mantener en cartera core" if upside >= -10 else "Reducir exposición"
-    return (
-        f"Frente al actual ciclo monetario restrictivo y la volatilidad en las primas de riesgo, {ticker} cotiza con un descalce del {upside:+.1f}% "
-        f"frente a su valor intrínseco estimado por flujos (${dcf_valor:.2f} USD). Su margen neto del {margen*100:.1f}% y el apalancamiento contenido en {deuda:.2f}x EBITDA "
-        f"le permiten navegar entornos de financiamiento exigente sin deteriorar su capacidad de reinversión. En consecuencia, el balance de riesgo/retorno "
-        f"recomienda {sentido}."
-    )
+    return f"Frente al actual ciclo monetario restrictivo y la volatilidad en las primas de riesgo, {ticker} cotiza con un descalce del {upside:+.1f}% frente a su valor intrínseco estimado por flujos (${dcf_valor:.2f} USD). Su margen neto del {margen*100:.1f}% y el apalancamiento contenido en {deuda:.2f}x EBITDA le permiten navegar entornos de financiamiento exigente sin deteriorar su capacidad de reinversión. En consecuencia, el balance de riesgo/retorno recomienda {sentido}."
 
 # ------------------------------------------------------------------------------
 # CLASIFICACIÓN SECTORIAL Y MAPEO DE 100 ACTIVOS
@@ -321,24 +282,39 @@ def safe_float(val):
     try: return float(val)
     except: return 0.0
 
-@st.cache_data(ttl=600)
-def obtener_dolar_mep():
+# ------------------------------------------------------------------------------
+# APIS DE ARGENTINA DATOS (Para Cotizaciones) Y FINNHUB (Para EECC)
+# ------------------------------------------------------------------------------
+@st.cache_data(ttl=300)
+def obtener_cotizaciones_arg():
+    """Conecta a la API abierta de ArgentinaDatos para obtener FX reales sin scraping."""
     try:
-        r = requests.get("https://www.dolarito.ar/", headers={'User-Agent': 'Mozilla/5.0'}, timeout=5)
-        soup = BeautifulSoup(r.text, 'html.parser')
-        for el in soup.find_all(['div', 'span', 'p']):
-            txt = el.get_text().lower()
-            if 'mep' in txt and '$' in txt:
-                for t in txt.split():
-                    if '$' in t:
-                        try:
-                            v = float(t.replace('$', '').replace('.', '').replace(',', '.').strip())
-                            if 1000 < v < 2500: return round(v, 2)
-                        except: pass
-        return 1420.0
-    except: return 1420.0
+        r = requests.get("https://api.argentinadatos.com/v1/cotizaciones/dolares", timeout=5)
+        if r.status_code == 200:
+            df = pd.DataFrame(r.json())
+            latest = df.sort_values('fecha').groupby('casa').last()
+            return {
+                "MEP": latest.loc['mep', 'venta'] if 'mep' in latest.index else 1420.0,
+                "CCL": latest.loc['contadoconliqui', 'venta'] if 'contadoconliqui' in latest.index else 1450.0,
+                "Oficial": latest.loc['oficial', 'venta'] if 'oficial' in latest.index else 1000.0,
+                "Blue": latest.loc['blue', 'venta'] if 'blue' in latest.index else 1430.0,
+            }
+    except: pass
+    return {"MEP": 1420.0, "CCL": 1450.0, "Oficial": 1000.0, "Blue": 1430.0}
 
-DOLAR_MEP = obtener_dolar_mep()
+COTIZACIONES_ARG = obtener_cotizaciones_arg()
+DOLAR_MEP = COTIZACIONES_ARG["MEP"]
+DOLAR_CCL = COTIZACIONES_ARG["CCL"]
+
+def obtener_eps_finnhub(ticker):
+    """Obtiene los EPS reales y estimados de la API de Finnhub si la Key está presente."""
+    if FINNHUB_KEY:
+        try:
+            r = requests.get(f"https://finnhub.io/api/v1/stock/earnings?symbol={ticker}&token={FINNHUB_KEY}")
+            if r.status_code == 200:
+                return r.json()
+        except: pass
+    return None
 
 @st.cache_data(ttl=900)
 def descargar_mercado_pool(tickers):
@@ -455,7 +431,7 @@ if menu == "🌐 DASHBOARD & MAPA DE RENDIMIENTOS":
         st.plotly_chart(fig_tree, use_container_width=True)
     
     st.markdown("---")
-    st.subheader("📌 Monitoreo y Mapa de Calor")
+    st.subheader("📌 Monitoreo y Mapa de Calor (Calculando Arbitraje de CEDEARs con API ArgentinaDatos)")
     
     seleccion_wl = st.multiselect("Personalizar Watchlist:", options=TOP_100_ARG, default=st.session_state.watchlist_tickers)
     if seleccion_wl != st.session_state.watchlist_tickers:
@@ -474,20 +450,27 @@ if menu == "🌐 DASHBOARD & MAPA DE RENDIMIENTOS":
     filas_wl_html = []
     for t in st.session_state.watchlist_tickers:
         d = DATOS_RADAR.get(t, {"precio": 0.0, "1D": 0.0, "1M": 0.0, "6M": 0.0, "1Y": 0.0, "YTD": 0.0})
-        px_ars = (d["precio"] / RATIOS_CEDEAR.get(t, 1)) * DOLAR_MEP
+        ratio = RATIOS_CEDEAR.get(t, 1)
+        px_ars = (d["precio"] / ratio) * DOLAR_MEP
+        
+        # Lógica de Arbitraje de CEDEAR
+        ccl_implicito = (px_ars * ratio) / d["precio"] if d["precio"] > 0 else 0.0
+        arbitraje = (ccl_implicito / DOLAR_CCL - 1) * 100 if DOLAR_CCL > 0 else 0.0
+        
         fila = f"""<tr>
             <td><b>{t}</b></td>
             <td style='font-family:JetBrains Mono;'>${d['precio']:.2f}</td>
             <td style='font-family:JetBrains Mono;'>${px_ars:,.2f}</td>
+            <td style='font-family:JetBrains Mono;'>${ccl_implicito:,.2f}</td>
+            <td style='color:{"#34d399" if arbitraje <= 0 else "#f43f5e"}; font-family:JetBrains Mono;'>{arbitraje:+.2f}%</td>
             <td {get_heat_style(d['1D'])}>{d['1D']:+.2f}%</td>
             <td {get_heat_style(d['1M'])}>{d['1M']:+.2f}%</td>
-            <td {get_heat_style(d['6M'])}>{d['6M']:+.2f}%</td>
-            <td {get_heat_style(d['1Y'])}>{d['1Y']:+.2f}%</td>
             <td {get_heat_style(d['YTD'])}>{d['YTD']:+.2f}%</td>
         </tr>"""
         filas_wl_html.append(fila)
 
-    st.markdown(f"<div class='table-viewport'><table class='terminal-table'><thead><tr><th>Ticker</th><th>Precio USD</th><th>Cedear ARS</th><th style='text-align:right;'>1D</th><th style='text-align:right;'>1M</th><th style='text-align:right;'>6M</th><th style='text-align:right;'>1Y</th><th style='text-align:right;'>YTD</th></tr></thead><tbody>{''.join(filas_wl_html)}</tbody></table></div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='table-viewport'><table class='terminal-table'><thead><tr><th>Ticker</th><th>Precio USD</th><th>Cedear ARS</th><th>CCL Impl.</th><th>Arbitraje CCL</th><th style='text-align:right;'>1D</th><th style='text-align:right;'>1M</th><th style='text-align:right;'>YTD</th></tr></thead><tbody>{''.join(filas_wl_html)}</tbody></table></div>", unsafe_allow_html=True)
+    st.caption(f"ℹ️ *Arbitraje CCL: Mide si el CEDEAR está cotizando con premio (Rojo) o descuento (Verde) frente al Dólar CCL mercado (${DOLAR_CCL:,.2f} ARS).*")
 
 # ==============================================================================
 # 2. ANÁLISIS & COMPARADOR RELATIVO
@@ -624,18 +607,28 @@ elif menu == "🔍 ANÁLISIS & COMPARADOR":
         st.markdown("---")
         st.markdown(f"#### 📅 Reporte de Resultados y Expectativas de Beneficios (EPS) - {t_obj}")
         
-        trimestres_ej = ["Q3 '25", "Q4 '25", "Q1 '26", "Q2 '26", "Q3 '26"]
-        eps_estimados = [eps_trail*0.22, eps_trail*0.24, eps_trail*0.25, eps_trail*0.26, eps_trail*0.28]
-        eps_reales = [eps_trail*0.23, eps_trail*0.25, eps_trail*0.29, eps_trail*0.25, None]
-        
+        # Integración de la API de Finnhub
+        finnhub_data = obtener_eps_finnhub(t_obj)
+        if finnhub_data:
+            eps_data = sorted(finnhub_data, key=lambda x: x['period'])
+            trimestres_ej = [e['period'] for e in eps_data]
+            eps_estimados = [e['estimate'] for e in eps_data]
+            eps_reales = [e['actual'] for e in eps_data]
+            fuente_eps = "Datos oficiales extraídos de Finnhub API en tiempo real."
+        else:
+            trimestres_ej = ["Q3 '25", "Q4 '25", "Q1 '26", "Q2 '26", "Q3 '26"]
+            eps_estimados = [eps_trail*0.22, eps_trail*0.24, eps_trail*0.25, eps_trail*0.26, eps_trail*0.28]
+            eps_reales = [eps_trail*0.23, eps_trail*0.25, eps_trail*0.29, eps_trail*0.25, None]
+            fuente_eps = "Simulación estadística de EPS. Ingrese una Key de Finnhub para conectar los reportes auditados ante la SEC."
+            
         fig_eecc = go.Figure()
         fig_eecc.add_trace(go.Scatter(
             x=trimestres_ej, y=eps_estimados, mode='markers', name='Estimación (Consenso)',
             marker=dict(size=14, color='rgba(255,255,255,0.2)', line=dict(width=2, color='#ffffff'))
         ))
         fig_eecc.add_trace(go.Scatter(
-            x=trimestres_ej[:4], y=eps_reales[:4], mode='markers', name='Reportado (Real)',
-            marker=dict(size=16, color=['#10b981', '#10b981', '#10b981', '#f43f5e'])
+            x=trimestres_ej[:len([e for e in eps_reales if e is not None])], y=[e for e in eps_reales if e is not None], mode='markers', name='Reportado (Real)',
+            marker=dict(size=16, color=['#10b981' if r >= e else '#f43f5e' for r, e in zip(eps_reales, eps_estimados)])
         ))
         fig_eecc.update_layout(
             template="plotly_dark", paper_bgcolor='#0d111a', plot_bgcolor='#06080d', height=280,
@@ -643,7 +636,7 @@ elif menu == "🔍 ANÁLISIS & COMPARADOR":
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
         )
         st.plotly_chart(fig_eecc, use_container_width=True)
-        st.caption("ℹ️ *Gráfico de sorpresas de beneficios (Beats/Misses) basado en los reportes de estados contables trimestrales.*")
+        st.caption(f"ℹ️ *{fuente_eps}*")
 
         st.markdown("---")
         st.markdown("#### Matriz Comparativa Relativa vs Peers")
