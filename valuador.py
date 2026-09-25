@@ -282,12 +282,8 @@ def safe_float(val):
     try: return float(val)
     except: return 0.0
 
-# ------------------------------------------------------------------------------
-# APIS DE ARGENTINA DATOS (Para Cotizaciones) Y FINNHUB (Para EECC)
-# ------------------------------------------------------------------------------
 @st.cache_data(ttl=300)
 def obtener_cotizaciones_arg():
-    """Conecta a la API abierta de ArgentinaDatos para obtener FX reales sin scraping."""
     try:
         r = requests.get("https://api.argentinadatos.com/v1/cotizaciones/dolares", timeout=5)
         if r.status_code == 200:
@@ -297,22 +293,19 @@ def obtener_cotizaciones_arg():
                 "MEP": latest.loc['mep', 'venta'] if 'mep' in latest.index else 1420.0,
                 "CCL": latest.loc['contadoconliqui', 'venta'] if 'contadoconliqui' in latest.index else 1450.0,
                 "Oficial": latest.loc['oficial', 'venta'] if 'oficial' in latest.index else 1000.0,
-                "Blue": latest.loc['blue', 'venta'] if 'blue' in latest.index else 1430.0,
             }
     except: pass
-    return {"MEP": 1420.0, "CCL": 1450.0, "Oficial": 1000.0, "Blue": 1430.0}
+    return {"MEP": 1420.0, "CCL": 1450.0, "Oficial": 1000.0}
 
 COTIZACIONES_ARG = obtener_cotizaciones_arg()
 DOLAR_MEP = COTIZACIONES_ARG["MEP"]
 DOLAR_CCL = COTIZACIONES_ARG["CCL"]
 
 def obtener_eps_finnhub(ticker):
-    """Obtiene los EPS reales y estimados de la API de Finnhub si la Key está presente."""
     if FINNHUB_KEY:
         try:
             r = requests.get(f"https://finnhub.io/api/v1/stock/earnings?symbol={ticker}&token={FINNHUB_KEY}")
-            if r.status_code == 200:
-                return r.json()
+            if r.status_code == 200: return r.json()
         except: pass
     return None
 
@@ -431,7 +424,7 @@ if menu == "🌐 DASHBOARD & MAPA DE RENDIMIENTOS":
         st.plotly_chart(fig_tree, use_container_width=True)
     
     st.markdown("---")
-    st.subheader("📌 Monitoreo y Mapa de Calor (Calculando Arbitraje de CEDEARs con API ArgentinaDatos)")
+    st.subheader("📌 Monitoreo y Mapa de Calor (Arbitraje CEDEARs vs Dólar CCL)")
     
     seleccion_wl = st.multiselect("Personalizar Watchlist:", options=TOP_100_ARG, default=st.session_state.watchlist_tickers)
     if seleccion_wl != st.session_state.watchlist_tickers:
@@ -453,7 +446,6 @@ if menu == "🌐 DASHBOARD & MAPA DE RENDIMIENTOS":
         ratio = RATIOS_CEDEAR.get(t, 1)
         px_ars = (d["precio"] / ratio) * DOLAR_MEP
         
-        # Lógica de Arbitraje de CEDEAR
         ccl_implicito = (px_ars * ratio) / d["precio"] if d["precio"] > 0 else 0.0
         arbitraje = (ccl_implicito / DOLAR_CCL - 1) * 100 if DOLAR_CCL > 0 else 0.0
         
@@ -470,7 +462,7 @@ if menu == "🌐 DASHBOARD & MAPA DE RENDIMIENTOS":
         filas_wl_html.append(fila)
 
     st.markdown(f"<div class='table-viewport'><table class='terminal-table'><thead><tr><th>Ticker</th><th>Precio USD</th><th>Cedear ARS</th><th>CCL Impl.</th><th>Arbitraje CCL</th><th style='text-align:right;'>1D</th><th style='text-align:right;'>1M</th><th style='text-align:right;'>YTD</th></tr></thead><tbody>{''.join(filas_wl_html)}</tbody></table></div>", unsafe_allow_html=True)
-    st.caption(f"ℹ️ *Arbitraje CCL: Mide si el CEDEAR está cotizando con premio (Rojo) o descuento (Verde) frente al Dólar CCL mercado (${DOLAR_CCL:,.2f} ARS).*")
+    st.caption(f"ℹ️ *Arbitraje CCL: Si está en verde (negativo), el CEDEAR se está comprando con descuento frente al Dólar CCL mercado (${DOLAR_CCL:,.2f} ARS).*")
 
 # ==============================================================================
 # 2. ANÁLISIS & COMPARADOR RELATIVO
@@ -532,12 +524,15 @@ elif menu == "🔍 ANÁLISIS & COMPARADOR":
             paleta = ["#38bdf8", "#f59e0b", "#10b981", "#ef4444", "#a855f7", "#ec4899"]
             fig_g = px.line(df_norm, labels={"value": "Variación (%)", "index": "Fecha"}, color_discrete_sequence=paleta)
             fig_g.update_traces(mode='lines')
+            
+            # Formato limpio Crosshair (Estilo Google Finance)
             fig_g.update_layout(
                 template="plotly_dark", paper_bgcolor='#0d111a', plot_bgcolor='#06080d', height=380,
                 margin=dict(l=10, r=10, t=10, b=10),
                 legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-                hovermode='x unified'
+                hovermode='x'
             )
+            fig_g.update_xaxes(showspikes=True, spikethickness=1, spikedash="dot", spikecolor="#94a3b8", spikemode="across")
             st.plotly_chart(fig_g, use_container_width=True)
             
             filas_gf = []
@@ -570,14 +565,20 @@ elif menu == "🔍 ANÁLISIS & COMPARADOR":
         c_w1, c_w2 = st.columns([1, 2])
         with c_w1:
             st.markdown("#### Consenso Analistas Sell-Side")
-            recom = str(d_obj["RAW"].get("recommendationKey", "hold")).lower()
-            val_gauge = 5 if "strong_buy" in recom or "strong buy" in recom else 4 if "buy" in recom else 2 if "sell" in recom else 3
             
+            # Cálculo determinista del consenso (No aleatorio)
+            rec_mean = d_obj["RAW"].get("recommendationMean")
+            if rec_mean is not None:
+                val_gauge = 6.0 - safe_float(rec_mean)
+                fuente_txt = f"Promedio matemático de analistas (Fuente: Yahoo Finance). Score original: {rec_mean}"
+            else:
+                val_gauge = 3.0
+                fuente_txt = "Consenso neutral por defecto (Datos no disponibles en API)."
+
             fig_g = go.Figure(go.Indicator(
                 mode="gauge+number",
                 value=val_gauge,
                 domain={'x': [0, 1], 'y': [0, 1]},
-                number={'font': {'size': 42}},
                 title={'text': "Escala 1 (Venta) a 5 (Compra)", 'font': {'size': 11, 'color': '#94a3b8'}},
                 gauge={
                     'axis': {'range': [1, 5], 'tickvals': [1, 2, 3, 4, 5], 'ticktext': ['Venta F.', 'Venta', 'Mantener', 'Compra', 'Compra F.']},
@@ -589,9 +590,9 @@ elif menu == "🔍 ANÁLISIS & COMPARADOR":
                     ]
                 }
             ))
-            fig_g.update_layout(height=200, margin=dict(l=20, r=20, t=30, b=20), paper_bgcolor='#0d111a', font={'color': '#ffffff'})
+            fig_g.update_layout(height=250, margin=dict(l=20, r=20, t=30, b=10), paper_bgcolor='#0d111a', font={'color': '#ffffff'})
             st.plotly_chart(fig_g, use_container_width=True)
-            st.caption(f"ℹ️ *Fuente: Consenso institucional estandarizado vía LSEG / Yahoo Finance (Recomendación: {recom.upper()}).*")
+            st.caption(f"ℹ️ *{fuente_txt}*")
 
         with c_w2:
             st.markdown("#### Calidad de Ganancias y Flujos (TTM vs Estimación)")
@@ -607,7 +608,6 @@ elif menu == "🔍 ANÁLISIS & COMPARADOR":
         st.markdown("---")
         st.markdown(f"#### 📅 Reporte de Resultados y Expectativas de Beneficios (EPS) - {t_obj}")
         
-        # Integración de la API de Finnhub
         finnhub_data = obtener_eps_finnhub(t_obj)
         if finnhub_data:
             eps_data = sorted(finnhub_data, key=lambda x: x['period'])
@@ -626,9 +626,15 @@ elif menu == "🔍 ANÁLISIS & COMPARADOR":
             x=trimestres_ej, y=eps_estimados, mode='markers', name='Estimación (Consenso)',
             marker=dict(size=14, color='rgba(255,255,255,0.2)', line=dict(width=2, color='#ffffff'))
         ))
+        
+        # Filtro seguro para evitar errores en list comprehension
+        eps_reales_valid = [r for r in eps_reales if r is not None]
+        eps_est_valid = eps_estimados[:len(eps_reales_valid)]
+        colores_reales = ['#10b981' if r >= e else '#f43f5e' for r, e in zip(eps_reales_valid, eps_est_valid)]
+        
         fig_eecc.add_trace(go.Scatter(
-            x=trimestres_ej[:len([e for e in eps_reales if e is not None])], y=[e for e in eps_reales if e is not None], mode='markers', name='Reportado (Real)',
-            marker=dict(size=16, color=['#10b981' if r >= e else '#f43f5e' for r, e in zip(eps_reales, eps_estimados)])
+            x=trimestres_ej[:len(eps_reales_valid)], y=eps_reales_valid, mode='markers', name='Reportado (Real)',
+            marker=dict(size=16, color=colores_reales)
         ))
         fig_eecc.update_layout(
             template="plotly_dark", paper_bgcolor='#0d111a', plot_bgcolor='#06080d', height=280,
